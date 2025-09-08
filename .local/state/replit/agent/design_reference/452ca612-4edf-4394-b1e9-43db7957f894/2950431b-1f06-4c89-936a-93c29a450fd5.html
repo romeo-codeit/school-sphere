@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduManage - School Management System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                borderRadius: {
+                    lg: "var(--radius)",
+                    md: "calc(var(--radius) - 2px)",
+                    sm: "calc(var(--radius) - 4px)",
+                },
+                colors: {
+                    background: "var(--background)",
+                    foreground: "var(--foreground)",
+                    card: {
+                        DEFAULT: "var(--card)",
+                        foreground: "var(--card-foreground)",
+                    },
+                    popover: {
+                        DEFAULT: "var(--popover)",
+                        foreground: "var(--popover-foreground)",
+                    },
+                    primary: {
+                        DEFAULT: "var(--primary)",
+                        foreground: "var(--primary-foreground)",
+                    },
+                    secondary: {
+                        DEFAULT: "var(--secondary)",
+                        foreground: "var(--secondary-foreground)",
+                    },
+                    muted: {
+                        DEFAULT: "var(--muted)",
+                        foreground: "var(--muted-foreground)",
+                    },
+                    accent: {
+                        DEFAULT: "var(--accent)",
+                        foreground: "var(--accent-foreground)",
+                    },
+                    destructive: {
+                        DEFAULT: "var(--destructive)",
+                        foreground: "var(--destructive-foreground)",
+                    },
+                    border: "var(--border)",
+                    input: "var(--input)",
+                    ring: "var(--ring)",
+                },
+                fontFamily: {
+                    sans: ["Inter", "sans-serif"],
+                }
+            },
+        }
+    };
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --background: hsl(210 40% 98%);
+            --foreground: hsl(222.2 84% 4.9%);
+            --card: hsl(0 0% 100%);
+            --card-foreground: hsl(222.2 84% 4.9%);
+            --popover: hsl(0 0% 100%);
+            --popover-foreground: hsl(222.2 84% 4.9%);
+            --primary: hsl(221 83% 53%);
+            --primary-foreground: hsl(210 40% 98%);
+            --secondary: hsl(158 64% 52%);
+            --secondary-foreground: hsl(210 40% 98%);
+            --muted: hsl(210 40% 96%);
+            --muted-foreground: hsl(215.4 16.3% 46.9%);
+            --accent: hsl(20 90% 48%);
+            --accent-foreground: hsl(210 40% 98%);
+            --destructive: hsl(0 84% 60%);
+            --destructive-foreground: hsl(210 40% 98%);
+            --border: hsl(214.3 31.8% 91.4%);
+            --input: hsl(214.3 31.8% 91.4%);
+            --ring: hsl(221 83% 53%);
+            --radius: 0.5rem;
+        }
+        
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .sidebar-item:hover {
+            background: rgba(59, 130, 246, 0.1);
+            border-left: 3px solid hsl(var(--primary));
+        }
+        
+        .chart-container {
+            background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--secondary)) 100%);
+        }
+    </style>
+</head>
+<body class="bg-background font-sans text-foreground">
+    <!-- @COMPONENT: MainLayout [Container for entire application] -->
+    <div class="min-h-screen flex" id="mainLayout">
+        <!-- Sidebar Navigation -->
+        <!-- @COMPONENT: Sidebar [Navigation menu with role-based visibility] -->
+        <aside class="w-64 bg-card shadow-lg border-r border-border hidden lg:block">
+            <div class="p-6">
+                <div class="flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+                        <i class="fas fa-graduation-cap text-primary-foreground text-xl"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-xl font-bold text-foreground">EduManage</h1>
+                        <p class="text-sm text-muted-foreground">School Portal</p>
+                    </div>
+                </div>
+            </div>
+            
+            <nav class="px-4 pb-4">
+                <div class="space-y-2">
+                    <!-- @STATE: activeRoute:string = 'dashboard' -->
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg bg-primary/10 text-primary transition-all duration-200" data-route="dashboard">
+                        <i class="fas fa-tachometer-alt w-5"></i>
+                        <span class="font-medium">Dashboard</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="students">
+                        <i class="fas fa-users w-5"></i>
+                        <span class="font-medium">Students</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="exams">
+                        <i class="fas fa-file-alt w-5"></i>
+                        <span class="font-medium">Exams</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="progress">
+                        <i class="fas fa-chart-line w-5"></i>
+                        <span class="font-medium">Progress</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="payments">
+                        <i class="fas fa-credit-card w-5"></i>
+                        <span class="font-medium">Payments</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="messages">
+                        <i class="fas fa-comments w-5"></i>
+                        <span class="font-medium">Messages</span>
+                        <span class="ml-auto bg-accent text-accent-foreground text-xs px-2 py-1 rounded-full">3</span>
+                    </a>
+                    
+                    <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="resources">
+                        <i class="fas fa-book w-5"></i>
+                        <span class="font-medium">Resources</span>
+                    </a>
+                    
+                    <div class="pt-4 border-t border-border">
+                        <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-route="settings">
+                            <i class="fas fa-cog w-5"></i>
+                            <span class="font-medium">Settings</span>
+                        </a>
+                        
+                        <a href="#" class="sidebar-item flex items-center space-x-3 px-4 py-3 rounded-lg text-muted-foreground hover:text-foreground transition-all duration-200" data-event="click:handleLogout">
+                            <i class="fas fa-sign-out-alt w-5"></i>
+                            <span class="font-medium">Logout</span>
+                        </a>
+                    </div>
+                </div>
+            </nav>
+        </aside>
+        <!-- @END_COMPONENT: Sidebar -->
+
+        <!-- Main Content -->
+        <main class="flex-1 overflow-auto">
+            <!-- Top Navigation Bar -->
+            <!-- @COMPONENT: TopNavBar [Header with user info and notifications] -->
+            <header class="bg-card border-b border-border px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-4">
+                        <button class="lg:hidden p-2 rounded-lg hover:bg-muted" data-event="click:toggleSidebar">
+                            <i class="fas fa-bars text-xl"></i>
+                        </button>
+                        <div>
+                            <h2 class="text-2xl font-bold text-foreground">Admin Dashboard</h2>
+                            <p class="text-muted-foreground">Welcome back, John Doe</p>
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center space-x-4">
+                        <!-- Search -->
+                        <div class="relative hidden md:block">
+                            <input type="text" placeholder="Search students, exams..." class="w-64 px-4 py-2 pl-10 bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring" data-mock="true">
+                            <i class="fas fa-search absolute left-3 top-3 text-muted-foreground"></i>
+                        </div>
+                        
+                        <!-- Notifications -->
+                        <div class="relative">
+                            <button class="p-2 rounded-lg hover:bg-muted relative" data-event="click:toggleNotifications">
+                                <i class="fas fa-bell text-xl"></i>
+                                <span class="absolute -top-1 -right-1 w-5 h-5 bg-accent text-accent-foreground text-xs rounded-full flex items-center justify-center">5</span>
+                            </button>
+                        </div>
+                        
+                        <!-- User Profile -->
+                        <div class="flex items-center space-x-3">
+                            <!-- Profile picture placeholder showing a professional headshot -->
+                            <img src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" alt="User profile" class="w-10 h-10 rounded-full object-cover" data-bind="user.avatar">
+                            <div class="hidden md:block">
+                                <p class="font-medium text-foreground" data-bind="user.name">John Doe</p>
+                                <p class="text-sm text-muted-foreground" data-bind="user.role">Administrator</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+            <!-- @END_COMPONENT: TopNavBar -->
+
+            <!-- Dashboard Content -->
+            <!-- @COMPONENT: DashboardContent [Main dashboard with statistics and widgets] -->
+            <div class="p-6">
+                <!-- Stats Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <!-- @MAP: statsCards.map(card => ( -->
+                    <div class="bg-card p-6 rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm font-medium">Total Students</p>
+                                <p class="text-3xl font-bold text-foreground" data-bind="stats.totalStudents">1,247</p>
+                                <p class="text-secondary text-sm mt-1">
+                                    <i class="fas fa-arrow-up"></i> +12% from last month
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-users text-primary text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card p-6 rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm font-medium">Active Teachers</p>
+                                <p class="text-3xl font-bold text-foreground" data-bind="stats.activeTeachers">87</p>
+                                <p class="text-secondary text-sm mt-1">
+                                    <i class="fas fa-arrow-up"></i> +3 new this month
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-secondary/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chalkboard-teacher text-secondary text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card p-6 rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm font-medium">Pending Payments</p>
+                                <p class="text-3xl font-bold text-foreground" data-bind="stats.pendingPayments">₦2.4M</p>
+                                <p class="text-accent text-sm mt-1">
+                                    <i class="fas fa-exclamation-triangle"></i> 23 overdue
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-credit-card text-accent text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-card p-6 rounded-lg shadow-sm border border-border hover:shadow-md transition-shadow">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <p class="text-muted-foreground text-sm font-medium">Average Attendance</p>
+                                <p class="text-3xl font-bold text-foreground" data-bind="stats.averageAttendance">94.2%</p>
+                                <p class="text-secondary text-sm mt-1">
+                                    <i class="fas fa-arrow-up"></i> +2.1% this week
+                                </p>
+                            </div>
+                            <div class="w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center">
+                                <i class="fas fa-chart-bar text-destructive text-xl"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_MAP )) -->
+                </div>
+
+                <!-- Main Content Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <!-- Recent Students -->
+                    <!-- @COMPONENT: RecentStudents [Table showing latest student registrations] -->
+                    <div class="lg:col-span-2 bg-card rounded-lg shadow-sm border border-border">
+                        <div class="p-6 border-b border-border">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-semibold text-foreground">Recent Students</h3>
+                                <button class="text-primary hover:text-primary/80 font-medium" data-event="click:viewAllStudents">View All</button>
+                            </div>
+                        </div>
+                        <div class="p-6">
+                            <div class="overflow-x-auto">
+                                <table class="w-full">
+                                    <thead>
+                                        <tr class="border-b border-border">
+                                            <th class="text-left py-3 text-muted-foreground font-medium">Student</th>
+                                            <th class="text-left py-3 text-muted-foreground font-medium">Class</th>
+                                            <th class="text-left py-3 text-muted-foreground font-medium">Status</th>
+                                            <th class="text-left py-3 text-muted-foreground font-medium">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border">
+                                        <!-- @MAP: recentStudents.map(student => ( -->
+                                        <tr class="hover:bg-muted/50" data-mock="true">
+                                            <td class="py-4">
+                                                <div class="flex items-center space-x-3">
+                                                    <!-- Student profile photo showing a young African student -->
+                                                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" alt="Student profile" class="w-10 h-10 rounded-full object-cover">
+                                                    <div>
+                                                        <p class="font-medium text-foreground" data-bind="student.name">Adebayo Johnson</p>
+                                                        <p class="text-sm text-muted-foreground" data-bind="student.id">ID: STU001</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="py-4 text-foreground" data-bind="student.class">JSS 3A</td>
+                                            <td class="py-4">
+                                                <span class="px-2 py-1 bg-secondary/10 text-secondary rounded-full text-sm font-medium">Active</span>
+                                            </td>
+                                            <td class="py-4">
+                                                <button class="text-primary hover:text-primary/80" data-event="click:viewStudent" data-implementation="Should open student detail modal">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class="hover:bg-muted/50" data-mock="true">
+                                            <td class="py-4">
+                                                <div class="flex items-center space-x-3">
+                                                    <!-- Student profile photo showing a young female student -->
+                                                    <img src="https://pixabay.com/get/gc70b9641f49c7f6273f9f8558210602c2ac4c4ec772bcbb9d7dfa801536282ef0f56aaa7f00939b45065386e2c62bf81d223cab24cc267b09c023bfeef05cd81_1280.jpg" alt="Student profile" class="w-10 h-10 rounded-full object-cover">
+                                                    <div>
+                                                        <p class="font-medium text-foreground" data-bind="student.name">Fatima Ibrahim</p>
+                                                        <p class="text-sm text-muted-foreground" data-bind="student.id">ID: STU002</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="py-4 text-foreground" data-bind="student.class">SS 2B</td>
+                                            <td class="py-4">
+                                                <span class="px-2 py-1 bg-accent/10 text-accent rounded-full text-sm font-medium">Pending Payment</span>
+                                            </td>
+                                            <td class="py-4">
+                                                <button class="text-primary hover:text-primary/80" data-event="click:viewStudent">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        
+                                        <tr class="hover:bg-muted/50" data-mock="true">
+                                            <td class="py-4">
+                                                <div class="flex items-center space-x-3">
+                                                    <!-- Student profile photo showing a young male student -->
+                                                    <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100" alt="Student profile" class="w-10 h-10 rounded-full object-cover">
+                                                    <div>
+                                                        <p class="font-medium text-foreground" data-bind="student.name">Emmanuel Okafor</p>
+                                                        <p class="text-sm text-muted-foreground" data-bind="student.id">ID: STU003</p>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="py-4 text-foreground" data-bind="student.class">JSS 1C</td>
+                                            <td class="py-4">
+                                                <span class="px-2 py-1 bg-secondary/10 text-secondary rounded-full text-sm font-medium">Active</span>
+                                            </td>
+                                            <td class="py-4">
+                                                <button class="text-primary hover:text-primary/80" data-event="click:viewStudent">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        <!-- @END_MAP )) -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: RecentStudents -->
+
+                    <!-- Quick Actions & Notifications -->
+                    <div class="space-y-6">
+                        <!-- Quick Actions -->
+                        <!-- @COMPONENT: QuickActions [Shortcuts for common admin tasks] -->
+                        <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+                            <h3 class="text-lg font-semibold text-foreground mb-4">Quick Actions</h3>
+                            <div class="space-y-3">
+                                <button class="w-full flex items-center space-x-3 p-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors" data-event="click:addStudent">
+                                    <i class="fas fa-user-plus"></i>
+                                    <span>Add New Student</span>
+                                </button>
+                                
+                                <button class="w-full flex items-center space-x-3 p-3 rounded-lg bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-colors" data-event="click:uploadExam">
+                                    <i class="fas fa-upload"></i>
+                                    <span>Upload Exam Questions</span>
+                                </button>
+                                
+                                <button class="w-full flex items-center space-x-3 p-3 rounded-lg bg-accent text-accent-foreground hover:bg-accent/90 transition-colors" data-event="click:sendAnnouncement">
+                                    <i class="fas fa-bullhorn"></i>
+                                    <span>Send Announcement</span>
+                                </button>
+                                
+                                <button class="w-full flex items-center space-x-3 p-3 rounded-lg border border-border text-foreground hover:bg-muted transition-colors" data-event="click:generateReport">
+                                    <i class="fas fa-chart-bar"></i>
+                                    <span>Generate Report</span>
+                                </button>
+                            </div>
+                        </div>
+                        <!-- @END_COMPONENT: QuickActions -->
+
+                        <!-- Recent Activity -->
+                        <!-- @COMPONENT: RecentActivity [Feed of recent system activities] -->
+                        <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+                            <h3 class="text-lg font-semibold text-foreground mb-4">Recent Activity</h3>
+                            <div class="space-y-4">
+                                <!-- @MAP: recentActivities.map(activity => ( -->
+                                <div class="flex items-start space-x-3" data-mock="true">
+                                    <div class="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user-plus text-primary text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-foreground" data-bind="activity.description">New student registration: Adebayo Johnson</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="activity.timestamp">2 minutes ago</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3" data-mock="true">
+                                    <div class="w-8 h-8 bg-secondary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-credit-card text-secondary text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-foreground" data-bind="activity.description">Payment received from Fatima Ibrahim</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="activity.timestamp">15 minutes ago</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3" data-mock="true">
+                                    <div class="w-8 h-8 bg-accent/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-file-alt text-accent text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-foreground" data-bind="activity.description">New JAMB questions uploaded by Mr. Ahmed</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="activity.timestamp">1 hour ago</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-start space-x-3" data-mock="true">
+                                    <div class="w-8 h-8 bg-destructive/10 rounded-full flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-exclamation-triangle text-destructive text-sm"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-sm text-foreground" data-bind="activity.description">Payment overdue alert for 3 students</p>
+                                        <p class="text-xs text-muted-foreground" data-bind="activity.timestamp">2 hours ago</p>
+                                    </div>
+                                </div>
+                                <!-- @END_MAP )) -->
+                            </div>
+                        </div>
+                        <!-- @END_COMPONENT: RecentActivity -->
+                    </div>
+                </div>
+
+                <!-- Additional Sections -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    <!-- Attendance Chart -->
+                    <!-- @COMPONENT: AttendanceChart [Visual representation of attendance trends] -->
+                    <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+                        <div class="flex items-center justify-between mb-6">
+                            <h3 class="text-lg font-semibold text-foreground">Attendance Overview</h3>
+                            <select class="border border-border rounded-lg px-3 py-2 text-sm" data-bind="attendanceFilter">
+                                <option value="week">This Week</option>
+                                <option value="month">This Month</option>
+                                <option value="term">This Term</option>
+                            </select>
+                        </div>
+                        <!-- @FUNCTIONALITY: This chart should implement attendance data visualization using Chart.js -->
+                        <div class="h-64 bg-muted rounded-lg flex items-center justify-center">
+                            <div class="text-center">
+                                <i class="fas fa-chart-line text-4xl text-muted-foreground mb-2"></i>
+                                <p class="text-muted-foreground">Attendance Chart Placeholder</p>
+                                <p class="text-sm text-muted-foreground">Implementation: Chart.js attendance visualization</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: AttendanceChart -->
+
+                    <!-- Payment Status -->
+                    <!-- @COMPONENT: PaymentStatus [Overview of payment statistics] -->
+                    <div class="bg-card rounded-lg shadow-sm border border-border p-6">
+                        <h3 class="text-lg font-semibold text-foreground mb-6">Payment Status</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center justify-between p-4 bg-secondary/10 rounded-lg">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-3 h-3 bg-secondary rounded-full"></div>
+                                    <span class="font-medium text-foreground">Paid Students</span>
+                                </div>
+                                <span class="font-bold text-foreground" data-bind="payments.paid">1,124</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-3 h-3 bg-accent rounded-full"></div>
+                                    <span class="font-medium text-foreground">Pending Payments</span>
+                                </div>
+                                <span class="font-bold text-foreground" data-bind="payments.pending">89</span>
+                            </div>
+                            
+                            <div class="flex items-center justify-between p-4 bg-destructive/10 rounded-lg">
+                                <div class="flex items-center space-x-3">
+                                    <div class="w-3 h-3 bg-destructive rounded-full"></div>
+                                    <span class="font-medium text-foreground">Overdue</span>
+                                </div>
+                                <span class="font-bold text-foreground" data-bind="payments.overdue">34</span>
+                            </div>
+                            
+                            <div class="pt-4 border-t border-border">
+                                <button class="w-full py-2 px-4 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors" data-event="click:viewPaymentDetails">
+                                    View Payment Details
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- @END_COMPONENT: PaymentStatus -->
+                </div>
+
+                <!-- Exam Module Preview -->
+                <!-- @COMPONENT: ExamModulePreview [Preview of exam functionalities] -->
+                <div class="mt-8 bg-card rounded-lg shadow-sm border border-border p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-foreground">Exam Module</h3>
+                        <button class="text-primary hover:text-primary/80 font-medium" data-event="click:viewAllExams">Manage Exams</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                            <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-file-alt text-primary text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold text-foreground mb-2">JAMB Questions</h4>
+                            <p class="text-muted-foreground text-sm mb-4">Practice questions for JAMB preparation</p>
+                            <p class="text-2xl font-bold text-foreground" data-bind="exams.jamb.count">2,456</p>
+                            <p class="text-sm text-muted-foreground">Available Questions</p>
+                        </div>
+                        
+                        <div class="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                            <div class="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-graduation-cap text-secondary text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold text-foreground mb-2">WAEC Questions</h4>
+                            <p class="text-muted-foreground text-sm mb-4">West African Examination Council prep</p>
+                            <p class="text-2xl font-bold text-foreground" data-bind="exams.waec.count">1,834</p>
+                            <p class="text-sm text-muted-foreground">Available Questions</p>
+                        </div>
+                        
+                        <div class="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                            <div class="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-certificate text-accent text-2xl"></i>
+                            </div>
+                            <h4 class="font-semibold text-foreground mb-2">NECO Questions</h4>
+                            <p class="text-muted-foreground text-sm mb-4">National Examination Council questions</p>
+                            <p class="text-2xl font-bold text-foreground" data-bind="exams.neco.count">1,567</p>
+                            <p class="text-sm text-muted-foreground">Available Questions</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: ExamModulePreview -->
+
+                <!-- Resource Library Preview -->
+                <!-- @COMPONENT: ResourceLibraryPreview [Overview of educational resources] -->
+                <div class="mt-8 bg-card rounded-lg shadow-sm border border-border p-6">
+                    <div class="flex items-center justify-between mb-6">
+                        <h3 class="text-lg font-semibold text-foreground">Resource Library</h3>
+                        <button class="text-primary hover:text-primary/80 font-medium" data-event="click:viewAllResources">Browse All</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <!-- @MAP: featuredResources.map(resource => ( -->
+                        <div class="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow" data-mock="true">
+                            <!-- Educational textbook cover image -->
+                            <img src="https://images.unsplash.com/photo-1481627834876-b7833e8f5570?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=250" alt="Mathematics textbook cover" class="w-full h-32 object-cover">
+                            <div class="p-4">
+                                <h4 class="font-semibold text-foreground mb-1" data-bind="resource.title">Advanced Mathematics</h4>
+                                <p class="text-sm text-muted-foreground mb-2" data-bind="resource.type">PDF Textbook</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-muted-foreground" data-bind="resource.downloads">124 downloads</span>
+                                    <button class="text-primary hover:text-primary/80" data-event="click:downloadResource">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow" data-mock="true">
+                            <!-- Science laboratory equipment image -->
+                            <img src="https://images.unsplash.com/photo-1532094349884-543bc11b234d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=250" alt="Chemistry laboratory setup" class="w-full h-32 object-cover">
+                            <div class="p-4">
+                                <h4 class="font-semibold text-foreground mb-1" data-bind="resource.title">Chemistry Lab Videos</h4>
+                                <p class="text-sm text-muted-foreground mb-2" data-bind="resource.type">Video Series</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-muted-foreground" data-bind="resource.views">89 views</span>
+                                    <button class="text-primary hover:text-primary/80" data-event="click:playVideo">
+                                        <i class="fas fa-play"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow" data-mock="true">
+                            <!-- History textbook or document image -->
+                            <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=250" alt="History textbook and documents" class="w-full h-32 object-cover">
+                            <div class="p-4">
+                                <h4 class="font-semibold text-foreground mb-1" data-bind="resource.title">Nigerian History</h4>
+                                <p class="text-sm text-muted-foreground mb-2" data-bind="resource.type">Study Guide</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-muted-foreground" data-bind="resource.downloads">67 downloads</span>
+                                    <button class="text-primary hover:text-primary/80" data-event="click:downloadResource">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow" data-mock="true">
+                            <!-- English literature books image -->
+                            <img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=400&h=250" alt="Stack of literature books" class="w-full h-32 object-cover">
+                            <div class="p-4">
+                                <h4 class="font-semibold text-foreground mb-1" data-bind="resource.title">English Literature</h4>
+                                <p class="text-sm text-muted-foreground mb-2" data-bind="resource.type">eBook Collection</p>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-xs text-muted-foreground" data-bind="resource.downloads">156 downloads</span>
+                                    <button class="text-primary hover:text-primary/80" data-event="click:downloadResource">
+                                        <i class="fas fa-download"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- @END_MAP )) -->
+                    </div>
+                </div>
+                <!-- @END_COMPONENT: ResourceLibraryPreview -->
+            </div>
+            <!-- @END_COMPONENT: DashboardContent -->
+        </main>
+    </div>
+    <!-- @END_COMPONENT: MainLayout -->
+
+    <!-- Mobile Navigation Overlay -->
+    <!-- @COMPONENT: MobileNavOverlay [Mobile navigation for smaller screens] -->
+    <div id="mobileNavOverlay" class="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-50 lg:hidden hidden">
+        <div class="fixed left-0 top-0 h-full w-64 bg-card shadow-xl transform transition-transform duration-300">
+            <!-- Mobile navigation content would be rendered here -->
+            <div class="p-4">
+                <button class="p-2 rounded-lg hover:bg-muted" data-event="click:closeMobileNav">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <!-- Same navigation items as sidebar would be rendered here -->
+        </div>
+    </div>
+    <!-- @END_COMPONENT: MobileNavOverlay -->
+
+    <script>
+        // Basic interactivity for demo purposes
+        (function() {
+            // Sidebar navigation handling
+            document.querySelectorAll('[data-route]').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    // Remove active state from all links
+                    document.querySelectorAll('[data-route]').forEach(l => {
+                        l.classList.remove('bg-primary/10', 'text-primary');
+                        l.classList.add('text-muted-foreground');
+                    });
+                    // Add active state to clicked link
+                    this.classList.add('bg-primary/10', 'text-primary');
+                    this.classList.remove('text-muted-foreground');
+                    
+                    // TODO: Implement route navigation
+                    console.log('Navigate to:', this.getAttribute('data-route'));
+                });
+            });
+
+            // Mobile menu toggle
+            const toggleButton = document.querySelector('[data-event="click:toggleSidebar"]');
+            const mobileOverlay = document.getElementById('mobileNavOverlay');
+            
+            if (toggleButton && mobileOverlay) {
+                toggleButton.addEventListener('click', function() {
+                    mobileOverlay.classList.remove('hidden');
+                });
+            }
+
+            // Close mobile menu
+            const closeButton = document.querySelector('[data-event="click:closeMobileNav"]');
+            if (closeButton && mobileOverlay) {
+                closeButton.addEventListener('click', function() {
+                    mobileOverlay.classList.add('hidden');
+                });
+            }
+
+            // Quick action buttons
+            document.querySelectorAll('button[data-event]').forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.getAttribute('data-event').split(':')[1];
+                    // TODO: Implement actual actions
+                    console.log('Action triggered:', action);
+                    
+                    // Show feedback
+                    const originalText = this.innerHTML;
+                    this.innerHTML = '<i class="fas fa-check"></i> <span>Done!</span>';
+                    this.disabled = true;
+                    
+                    setTimeout(() => {
+                        this.innerHTML = originalText;
+                        this.disabled = false;
+                    }, 1500);
+                });
+            });
+
+            // Search functionality placeholder
+            const searchInput = document.querySelector('input[type="text"]');
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    // TODO: Implement search functionality
+                    console.log('Search query:', this.value);
+                });
+            }
+
+            // Notification toggle placeholder
+            const notificationButton = document.querySelector('[data-event="click:toggleNotifications"]');
+            if (notificationButton) {
+                notificationButton.addEventListener('click', function() {
+                    // TODO: Implement notification panel
+                    console.log('Toggle notifications panel');
+                });
+            }
+        })();
+    </script>
+</body>
+</html>
