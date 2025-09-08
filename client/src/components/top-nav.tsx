@@ -67,19 +67,17 @@ export function TopNav({ title, subtitle, onToggleSidebar }: TopNavProps) {
           {/* User Profile */}
           <div className="flex items-center space-x-3">
             <img 
-              src={user?.profileImageUrl || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100"}
+              src={"https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100"}
               alt="User profile" 
               className="w-10 h-10 rounded-full object-cover"
               data-testid="img-user-avatar"
             />
             <div className="hidden md:block">
               <p className="font-medium text-foreground" data-testid="text-user-name">
-                {user?.firstName && user?.lastName 
-                  ? `${user.firstName} ${user.lastName}` 
-                  : user?.email || "User"}
+                {user?.name || "User"}
               </p>
               <p className="text-sm text-muted-foreground capitalize" data-testid="text-user-role">
-                {user?.role || "User"}
+                {user?.prefs?.role || "User"}
               </p>
             </div>
           </div>

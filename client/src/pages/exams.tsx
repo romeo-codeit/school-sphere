@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,17 +14,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
-import type { Exam } from "@shared/schema";
+import { useExams } from "@/hooks/useExams";
 
 export default function Exams() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
 
-  const { data: exams, isLoading } = useQuery({
-    queryKey: ["/api/exams"],
-  });
+  const { exams, isLoading } = useExams();
 
-  const filteredExams = exams?.filter((exam: Exam) => {
+  const filteredExams = exams?.filter((exam: any) => {
     const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          exam.subject.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = selectedType === "all" || exam.type === selectedType;
@@ -33,10 +30,10 @@ export default function Exams() {
   }) || [];
 
   const examStats = {
-    jamb: exams?.filter((e: Exam) => e.type === "jamb").length || 0,
-    waec: exams?.filter((e: Exam) => e.type === "waec").length || 0,
-    neco: exams?.filter((e: Exam) => e.type === "neco").length || 0,
-    internal: exams?.filter((e: Exam) => e.type === "internal").length || 0,
+    jamb: exams?.filter((e: any) => e.type === "jamb").length || 0,
+    waec: exams?.filter((e: any) => e.type === "waec").length || 0,
+    neco: exams?.filter((e: any) => e.type === "neco").length || 0,
+    internal: exams?.filter((e: any) => e.type === "internal").length || 0,
   };
 
   return (
@@ -157,15 +154,15 @@ export default function Exams() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredExams.map((exam: Exam) => (
-                      <TableRow key={exam.id}>
+                    {filteredExams.map((exam: any) => (
+                      <TableRow key={exam.$id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium" data-testid={`text-exam-title-${exam.id}`}>
+                            <p className="font-medium" data-testid={`text-exam-title-${exam.$id}`}>
                               {exam.title}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Created {new Date(exam.createdAt).toLocaleDateString()}
+                              Created {new Date(exam.$createdAt).toLocaleDateString()}
                             </p>
                           </div>
                         </TableCell>
@@ -178,21 +175,21 @@ export default function Exams() {
                               exam.type === 'neco' ? 'border-accent text-accent' :
                               'border-muted-foreground text-muted-foreground'
                             }
-                            data-testid={`badge-exam-type-${exam.id}`}
+                            data-testid={`badge-exam-type-${exam.$id}`}
                           >
                             {exam.type.toUpperCase()}
                           </Badge>
                         </TableCell>
-                        <TableCell data-testid={`text-exam-subject-${exam.id}`}>
+                        <TableCell data-testid={`text-exam-subject-${exam.$id}`}>
                           {exam.subject}
                         </TableCell>
-                        <TableCell data-testid={`text-exam-questions-${exam.id}`}>
+                        <TableCell data-testid={`text-exam-questions-${exam.$id}`}>
                           {Array.isArray(exam.questions) ? exam.questions.length : 0} questions
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-1">
                             <Clock className="w-4 h-4 text-muted-foreground" />
-                            <span data-testid={`text-exam-duration-${exam.id}`}>
+                            <span data-testid={`text-exam-duration-${exam.$id}`}>
                               {exam.duration || 0} mins
                             </span>
                           </div>
@@ -201,7 +198,7 @@ export default function Exams() {
                           <Badge 
                             variant={exam.isActive ? 'default' : 'secondary'}
                             className={exam.isActive ? 'bg-secondary/10 text-secondary' : 'bg-muted/10 text-muted-foreground'}
-                            data-testid={`badge-exam-status-${exam.id}`}
+                            data-testid={`badge-exam-status-${exam.$id}`}
                           >
                             {exam.isActive ? 'Active' : 'Inactive'}
                           </Badge>
@@ -211,14 +208,14 @@ export default function Exams() {
                             <Button 
                               variant="outline" 
                               size="sm"
-                              data-testid={`button-preview-exam-${exam.id}`}
+                              data-testid={`button-preview-exam-${exam.$id}`}
                             >
                               <FileText className="w-4 h-4 mr-1" />
                               Preview
                             </Button>
                             <Button 
                               size="sm"
-                              data-testid={`button-start-exam-${exam.id}`}
+                              data-testid={`button-start-exam-${exam.$id}`}
                             >
                               <Play className="w-4 h-4 mr-1" />
                               Start

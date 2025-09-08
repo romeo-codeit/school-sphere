@@ -1,8 +1,6 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertStudentSchema } from "@shared/schema";
 import {
   Dialog,
   DialogContent,
@@ -27,13 +25,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Student } from "@shared/schema";
+import { useStudents } from "@/hooks/useStudents";
 
-const studentFormSchema = insertStudentSchema.extend({
+const studentFormSchema = z.object({
+  studentId: z.string(),
+  firstName: z.string(),
+  lastName: z.string(),
+  email: z.string().email().optional(),
+  phone: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  address: z.string().optional(),
+  parentName: z.string().optional(),
+  parentPhone: z.string().optional(),
+  parentEmail: z.string().email().optional(),
+  class: z.string(),
+  status: z.string(),
 });
 
 type StudentFormData = z.infer<typeof studentFormSchema>;
@@ -41,12 +48,12 @@ type StudentFormData = z.infer<typeof studentFormSchema>;
 interface StudentFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  student?: Student | null;
+  student?: any | null;
 }
 
 export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { createStudent, updateStudent } = useStudents();
 
   const form = useForm<StudentFormData>({
     resolver: zodResolver(studentFormSchema),
@@ -66,66 +73,31 @@ export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: StudentFormData) => {
-      const payload = {
-        ...data,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : null,
-      };
-      return await apiRequest("POST", "/api/students", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
-      toast({
-        title: "Success",
-        description: "Student created successfully",
-      });
+  const onSubmit = async (data: StudentFormData) => {
+    try {
+      if (student) {
+        await updateStudent({ studentId: student.$id, studentData: data });
+        toast({
+          title: "Success",
+          description: "Student updated successfully",
+        });
+      } else {
+        await createStudent(data);
+        toast({
+          title: "Success",
+          description: "Student created successfully",
+        });
+        form.reset();
+      }
       onOpenChange(false);
-      form.reset();
-    },
-    onError: (error) => {
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: error.message || "Failed to create student",
+        description: error.message || "Failed to save student",
         variant: "destructive",
       });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: StudentFormData) => {
-      const payload = {
-        ...data,
-        dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString() : null,
-      };
-      return await apiRequest("PUT", `/api/students/${student?.id}`, payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
-      toast({
-        title: "Success",
-        description: "Student updated successfully",
-      });
-      onOpenChange(false);
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update student",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const onSubmit = (data: StudentFormData) => {
-    if (student) {
-      updateMutation.mutate(data);
-    } else {
-      createMutation.mutate(data);
     }
   };
-
-  const isLoading = createMutation.isPending || updateMutation.isPending;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -362,10 +334,9 @@ export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
               </Button>
               <Button 
                 type="submit" 
-                disabled={isLoading}
                 data-testid="button-submit"
               >
-                {isLoading ? "Saving..." : student ? "Update Student" : "Create Student"}
+                {student ? "Update Student" : "Create Student"}
               </Button>
             </div>
           </form>

@@ -1,5 +1,4 @@
 import { useAuth } from "./useAuth";
-import type { User } from "@shared/schema";
 
 export type UserRole = "admin" | "teacher" | "student" | "parent";
 
@@ -63,12 +62,12 @@ const permissions: Record<UserRole, RolePermissions> = {
 };
 
 export function useRole() {
-  const { user } = useAuth() as { user: User | undefined; isLoading: boolean; isAuthenticated: boolean };
+  const { role } = useAuth();
 
   const hasPermission = (resource: keyof RolePermissions, action: string): boolean => {
-    if (!user?.role) return false;
+    if (!role) return false;
     
-    const userRole = user.role as UserRole;
+    const userRole = role as UserRole;
     const rolePermissions = permissions[userRole];
     
     if (!rolePermissions || !rolePermissions[resource]) {
@@ -79,18 +78,18 @@ export function useRole() {
   };
 
   const canAccess = (allowedRoles: UserRole[]): boolean => {
-    if (!user?.role) return false;
-    return allowedRoles.includes(user.role as UserRole);
+    if (!role) return false;
+    return allowedRoles.includes(role as UserRole);
   };
 
   const getUserRole = (): UserRole | null => {
-    return (user?.role as UserRole) || null;
+    return (role as UserRole) || null;
   };
 
-  const isAdmin = (): boolean => user?.role === "admin";
-  const isTeacher = (): boolean => user?.role === "teacher";
-  const isStudent = (): boolean => user?.role === "student";
-  const isParent = (): boolean => user?.role === "parent";
+  const isAdmin = (): boolean => role === "admin";
+  const isTeacher = (): boolean => role === "teacher";
+  const isStudent = (): boolean => role === "student";
+  const isParent = (): boolean => role === "parent";
 
   return {
     role: getUserRole(),
@@ -100,6 +99,6 @@ export function useRole() {
     isTeacher,
     isStudent,
     isParent,
-    permissions: user?.role ? permissions[user.role as UserRole] : null
+    permissions: role ? permissions[role as UserRole] : null
   };
 }

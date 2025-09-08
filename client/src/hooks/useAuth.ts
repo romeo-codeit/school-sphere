@@ -1,14 +1,59 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { account } from '../lib/appwrite';
+import { ID } from 'appwrite';
 
 export function useAuth() {
+  const queryClient = useQueryClient();
+
   const { data: user, isLoading } = useQuery({
-    queryKey: ["/api/auth/user"],
+    queryKey: ['user'],
+    queryFn: async () => {
+      try {
+        return await account.get();
+      } catch (error) {
+        return null;
+      }
+    },
     retry: false,
   });
+
+  const loginMutation = useMutation({
+    mutationFn: async ({ email, password }) => {
+      await account.createEmailPasswordSession(email, password);
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      await account.deleteSession('current');
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const registerMutation = useMutation({
+    mutationFn: async ({ email, password, name, role }) => {
+      await account.create(ID.unique(), email, password, name);
+      // Log in the user after registration
+      await account.createEmailPasswordSession(email, password);
+
+      // After creating the user, we need to update their prefs to store the role.
+      // Appwrite's built-in roles are not sufficient for our needs.
+      await account.updatePrefs({ role });
+
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const userRole = user?.prefs?.role || null;
 
   return {
     user,
     isLoading,
     isAuthenticated: !!user,
+    role: userRole,
+    login: loginMutation.mutateAsync,
+    logout: logoutMutation.mutateAsync,
+    register: registerMutation.mutateAsync,
   };
 }

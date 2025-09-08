@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { StatsCard } from "@/components/stats-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,24 +20,16 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
-import { RoleGuard, AdminOnly, AdminOrTeacher } from "@/components/RoleGuard";
-import type { Student } from "@shared/schema";
+import { useDashboard } from "@/hooks/useDashboard";
+import { useStudents } from "@/hooks/useStudents";
+import { useResources } from "@/hooks/useResources";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { role, isAdmin, isTeacher, isStudent, isParent } = useRole();
-
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ["/api/dashboard/stats"],
-  });
-
-  const { data: students, isLoading: studentsLoading } = useQuery({
-    queryKey: ["/api/students"],
-  });
-
-  const { data: resources } = useQuery({
-    queryKey: ["/api/resources"],
-  });
+  const { role } = useRole();
+  const { stats, isLoading: statsLoading } = useDashboard();
+  const { students, isLoading: studentsLoading } = useStudents();
+  const { resources } = useResources();
 
   const recentStudents = students?.slice(0, 3) || [];
   const featuredResources = resources?.slice(0, 4) || [];
@@ -74,7 +65,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <TopNav 
         title={`${role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Dashboard'}`} 
-        subtitle={`Welcome back, ${user?.firstName || 'User'}`}
+        subtitle={`Welcome back, ${user?.name || 'User'}`}
       />
       
       <div className="p-6">
@@ -157,8 +148,8 @@ export default function Dashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
-                        {recentStudents.map((student: Student) => (
-                          <tr key={student.id} className="hover:bg-muted/50">
+                        {recentStudents.map((student: any) => (
+                          <tr key={student.$id} className="hover:bg-muted/50">
                             <td className="py-4">
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -167,16 +158,16 @@ export default function Dashboard() {
                                   </span>
                                 </div>
                                 <div>
-                                  <p className="font-medium text-foreground" data-testid={`text-student-name-${student.id}`}>
+                                  <p className="font-medium text-foreground" data-testid={`text-student-name-${student.$id}`}>
                                     {student.firstName} {student.lastName}
                                   </p>
-                                  <p className="text-sm text-muted-foreground" data-testid={`text-student-id-${student.id}`}>
+                                  <p className="text-sm text-muted-foreground" data-testid={`text-student-id-${student.$id}`}>
                                     ID: {student.studentId}
                                   </p>
                                 </div>
                               </div>
                             </td>
-                            <td className="py-4 text-foreground" data-testid={`text-student-class-${student.id}`}>
+                            <td className="py-4 text-foreground" data-testid={`text-student-class-${student.$id}`}>
                               {student.class}
                             </td>
                             <td className="py-4">
@@ -188,7 +179,7 @@ export default function Dashboard() {
                               </Badge>
                             </td>
                             <td className="py-4">
-                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.id}`}>
+                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`}>
                                 <Eye className="w-4 h-4" />
                               </Button>
                             </td>
@@ -401,22 +392,22 @@ export default function Dashboard() {
                 </div>
               ) : (
                 featuredResources.map((resource: any) => (
-                  <div key={resource.id} className="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                  <div key={resource.$id} className="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
                     <div className="h-32 bg-muted flex items-center justify-center">
                       <FileText className="w-8 h-8 text-muted-foreground" />
                     </div>
                     <div className="p-4">
-                      <h4 className="font-semibold text-foreground mb-1" data-testid={`text-resource-title-${resource.id}`}>
+                      <h4 className="font-semibold text-foreground mb-1" data-testid={`text-resource-title-${resource.$id}`}>
                         {resource.title}
                       </h4>
-                      <p className="text-sm text-muted-foreground mb-2" data-testid={`text-resource-type-${resource.id}`}>
+                      <p className="text-sm text-muted-foreground mb-2" data-testid={`text-resource-type-${resource.$id}`}>
                         {resource.type?.toUpperCase()} {resource.type}
                       </p>
                       <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.id}`}>
+                        <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.$id}`}>
                           {resource.downloads} downloads
                         </span>
-                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.id}`}>
+                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`}>
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>

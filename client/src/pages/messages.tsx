@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,7 +30,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertMessageSchema } from "@shared/schema";
 import { 
   MessageSquare, 
   Search, 
@@ -44,12 +42,16 @@ import {
   Eye,
   Reply
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import type { Message, User } from "@shared/schema";
+import { useMessages } from "@/hooks/useMessages";
 
-const messageFormSchema = insertMessageSchema.omit({ senderId: true });
+const messageFormSchema = z.object({
+  recipientId: z.string(),
+  subject: z.string(),
+  content: z.string(),
+  messageType: z.string(),
+});
 
 type MessageFormData = z.infer<typeof messageFormSchema>;
 
@@ -59,15 +61,7 @@ export default function Messages() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const { data: messages, isLoading } = useQuery({
-    queryKey: ["/api/messages"],
-  });
-
-  const { data: users } = useQuery({
-    queryKey: ["/api/auth/user"],
-  });
+  const { messages, isLoading, createMessage } = useMessages();
 
   const form = useForm<MessageFormData>({
     resolver: zodResolver(messageFormSchema),
@@ -78,29 +72,7 @@ export default function Messages() {
     },
   });
 
-  const sendMutation = useMutation({
-    mutationFn: async (data: MessageFormData) => {
-      return await apiRequest("POST", "/api/messages", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-      toast({
-        title: "Success",
-        description: "Message sent successfully",
-      });
-      setIsComposeOpen(false);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredMessages = messages?.filter((message: Message) => {
+  const filteredMessages = messages?.filter((message: any) => {
     const matchesSearch = message.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          message.content.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = selectedType === "all" || message.messageType === selectedType;
@@ -109,13 +81,27 @@ export default function Messages() {
 
   const messageStats = {
     total: messages?.length || 0,
-    unread: messages?.filter((m: Message) => !m.isRead).length || 0,
-    sent: messages?.filter((m: Message) => m.senderId === user?.id).length || 0,
-    received: messages?.filter((m: Message) => m.recipientId === user?.id).length || 0,
+    unread: messages?.filter((m: any) => !m.isRead).length || 0,
+    sent: messages?.filter((m: any) => m.senderId === user?.$id).length || 0,
+    received: messages?.filter((m: any) => m.recipientId === user?.$id).length || 0,
   };
 
-  const onSubmit = (data: MessageFormData) => {
-    sendMutation.mutate(data);
+  const onSubmit = async (data: MessageFormData) => {
+    try {
+      await createMessage({ ...data, senderId: user?.$id, isRead: false });
+      toast({
+        title: "Success",
+        description: "Message sent successfully",
+      });
+      setIsComposeOpen(false);
+      form.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -346,9 +332,9 @@ export default function Messages() {
                           <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)}>
                             Cancel
                           </Button>
-                          <Button type="submit" disabled={sendMutation.isPending} data-testid="button-send-message">
+                          <Button type="submit" data-testid="button-send-message">
                             <Send className="w-4 h-4 mr-2" />
-                            {sendMutation.isPending ? "Sending..." : "Send Message"}
+                            Send Message
                           </Button>
                         </div>
                       </form>
@@ -379,9 +365,9 @@ export default function Messages() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {filteredMessages.map((message: Message) => (
+                  {filteredMessages.map((message: any) => (
                     <div
-                      key={message.id}
+                      key={message.$id}
                       className={`p-4 border border-border rounded-lg hover:shadow-sm transition-shadow ${
                         !message.isRead ? "bg-accent/5" : ""
                       }`}
@@ -403,30 +389,30 @@ export default function Messages() {
                               {message.messageType}
                             </Badge>
                             <span className="text-sm text-muted-foreground">
-                              {new Date(message.createdAt).toLocaleDateString()}
+                              {new Date(message.$createdAt).toLocaleDateString()}
                             </span>
                           </div>
                           
-                          <h4 className="font-medium text-foreground mb-1" data-testid={`text-message-subject-${message.id}`}>
+                          <h4 className="font-medium text-foreground mb-1" data-testid={`text-message-subject-${message.$id}`}>
                             {message.subject || "No Subject"}
                           </h4>
                           
-                          <p className="text-sm text-muted-foreground mb-2" data-testid={`text-message-preview-${message.id}`}>
+                          <p className="text-sm text-muted-foreground mb-2" data-testid={`text-message-preview-${message.$id}`}>
                             {message.content.substring(0, 120)}
                             {message.content.length > 120 && "..."}
                           </p>
                           
                           <div className="text-xs text-muted-foreground">
-                            From: {message.senderId === user?.id ? "You" : "System"}
+                            From: {message.senderId === user?.$id ? "You" : "System"}
                           </div>
                         </div>
                         
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button variant="outline" size="sm" data-testid={`button-read-message-${message.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-read-message-${message.$id}`}>
                             <Eye className="w-4 h-4" />
                           </Button>
                           {message.messageType === "personal" && (
-                            <Button variant="outline" size="sm" data-testid={`button-reply-message-${message.id}`}>
+                            <Button variant="outline" size="sm" data-testid={`button-reply-message-${message.$id}`}>
                               <Reply className="w-4 h-4" />
                             </Button>
                           )}

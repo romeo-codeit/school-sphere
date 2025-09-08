@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,7 +31,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertResourceSchema } from "@shared/schema";
 import { 
   BookOpen, 
   Search, 
@@ -49,11 +47,18 @@ import {
   Grid,
   List
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Resource } from "@shared/schema";
+import { useResources } from "@/hooks/useResources";
 
-const resourceFormSchema = insertResourceSchema.omit({ uploadedBy: true, downloads: true });
+const resourceFormSchema = z.object({
+  title: z.string(),
+  description: z.string().optional(),
+  type: z.string(),
+  subject: z.string().optional(),
+  class: z.string().optional(),
+  fileUrl: z.string(),
+  isPublic: z.boolean(),
+});
 
 type ResourceFormData = z.infer<typeof resourceFormSchema>;
 
@@ -64,11 +69,8 @@ export default function Resources() {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: resources, isLoading } = useQuery({
-    queryKey: ["/api/resources"],
-  });
+  const { resources, isLoading, createResource } = useResources();
 
   const form = useForm<ResourceFormData>({
     resolver: zodResolver(resourceFormSchema),
@@ -83,29 +85,7 @@ export default function Resources() {
     },
   });
 
-  const uploadMutation = useMutation({
-    mutationFn: async (data: ResourceFormData) => {
-      return await apiRequest("POST", "/api/resources", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/resources"] });
-      toast({
-        title: "Success",
-        description: "Resource uploaded successfully",
-      });
-      setIsUploadOpen(false);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload resource",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredResources = resources?.filter((resource: Resource) => {
+  const filteredResources = resources?.filter((resource: any) => {
     const matchesSearch = resource.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          resource.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          resource.subject?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -116,14 +96,14 @@ export default function Resources() {
 
   const resourceStats = {
     total: resources?.length || 0,
-    pdf: resources?.filter((r: Resource) => r.type === "pdf").length || 0,
-    video: resources?.filter((r: Resource) => r.type === "video").length || 0,
-    audio: resources?.filter((r: Resource) => r.type === "audio").length || 0,
-    image: resources?.filter((r: Resource) => r.type === "image").length || 0,
-    link: resources?.filter((r: Resource) => r.type === "link").length || 0,
+    pdf: resources?.filter((r: any) => r.type === "pdf").length || 0,
+    video: resources?.filter((r: any) => r.type === "video").length || 0,
+    audio: resources?.filter((r: any) => r.type === "audio").length || 0,
+    image: resources?.filter((r: any) => r.type === "image").length || 0,
+    link: resources?.filter((r: any) => r.type === "link").length || 0,
   };
 
-  const subjects = [...new Set(resources?.map((r: Resource) => r.subject).filter(Boolean))] || [];
+  const subjects = [...new Set(resources?.map((r: any) => r.subject).filter(Boolean))] || [];
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -136,8 +116,22 @@ export default function Resources() {
     }
   };
 
-  const onSubmit = (data: ResourceFormData) => {
-    uploadMutation.mutate(data);
+  const onSubmit = async (data: ResourceFormData) => {
+    try {
+      await createResource(data);
+      toast({
+        title: "Success",
+        description: "Resource uploaded successfully",
+      });
+      setIsUploadOpen(false);
+      form.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload resource",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -326,26 +320,6 @@ export default function Resources() {
                               </FormItem>
                             )}
                           />
-                          
-                          <FormField
-                            control={form.control}
-                            name="fileSize"
-                            render={({ field }) => (
-                              <FormItem>
-                                <FormLabel>File Size (KB)</FormLabel>
-                                <FormControl>
-                                  <Input 
-                                    type="number" 
-                                    {...field} 
-                                    value={field.value || ""}
-                                    onChange={(e) => field.onChange(e.target.value ? parseInt(e.target.value) : undefined)}
-                                    data-testid="input-resource-file-size" 
-                                  />
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
-                          />
                         </div>
 
                         <FormField
@@ -372,8 +346,8 @@ export default function Resources() {
                           <Button type="button" variant="outline" onClick={() => setIsUploadOpen(false)}>
                             Cancel
                           </Button>
-                          <Button type="submit" disabled={uploadMutation.isPending} data-testid="button-submit-resource">
-                            {uploadMutation.isPending ? "Uploading..." : "Upload Resource"}
+                          <Button type="submit" data-testid="button-submit-resource">
+                            Upload Resource
                           </Button>
                         </div>
                       </form>
@@ -449,10 +423,10 @@ export default function Resources() {
               </div>
             ) : viewMode === "grid" ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredResources.map((resource: Resource) => {
+                {filteredResources.map((resource: any) => {
                   const Icon = getTypeIcon(resource.type);
                   return (
-                    <Card key={resource.id} className="hover:shadow-md transition-shadow">
+                    <Card key={resource.$id} className="hover:shadow-md transition-shadow">
                       <CardContent className="p-6">
                         <div className="flex items-start justify-between mb-4">
                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -463,11 +437,11 @@ export default function Resources() {
                           </Badge>
                         </div>
                         
-                        <h4 className="font-semibold text-foreground mb-2 line-clamp-2" data-testid={`text-resource-title-${resource.id}`}>
+                        <h4 className="font-semibold text-foreground mb-2 line-clamp-2" data-testid={`text-resource-title-${resource.$id}`}>
                           {resource.title}
                         </h4>
                         
-                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2" data-testid={`text-resource-description-${resource.id}`}>
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2" data-testid={`text-resource-description-${resource.$id}`}>
                           {resource.description || "No description available"}
                         </p>
                         
@@ -488,11 +462,11 @@ export default function Resources() {
                         </div>
                         
                         <div className="flex items-center justify-between">
-                          <Button variant="outline" size="sm" data-testid={`button-preview-resource-${resource.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-preview-resource-${resource.$id}`}>
                             <Eye className="w-4 h-4 mr-1" />
                             Preview
                           </Button>
-                          <Button size="sm" data-testid={`button-download-resource-${resource.id}`}>
+                          <Button size="sm" data-testid={`button-download-resource-${resource.$id}`}>
                             <Download className="w-4 h-4 mr-1" />
                             Download
                           </Button>
@@ -504,11 +478,11 @@ export default function Resources() {
               </div>
             ) : (
               <div className="space-y-4">
-                {filteredResources.map((resource: Resource) => {
+                {filteredResources.map((resource: any) => {
                   const Icon = getTypeIcon(resource.type);
                   return (
                     <div
-                      key={resource.id}
+                      key={resource.$id}
                       className="flex items-center space-x-4 p-4 border border-border rounded-lg hover:shadow-sm transition-shadow"
                     >
                       <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -518,7 +492,7 @@ export default function Resources() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h4 className="font-semibold text-foreground" data-testid={`text-resource-title-${resource.id}`}>
+                            <h4 className="font-semibold text-foreground" data-testid={`text-resource-title-${resource.$id}`}>
                               {resource.title}
                             </h4>
                             <p className="text-sm text-muted-foreground mb-1">
@@ -528,7 +502,7 @@ export default function Resources() {
                               <span>{resource.subject}</span>
                               {resource.class && <span>{resource.class}</span>}
                               <span>{resource.downloads || 0} downloads</span>
-                              <span>{new Date(resource.createdAt).toLocaleDateString()}</span>
+                              <span>{new Date(resource.$createdAt).toLocaleDateString()}</span>
                             </div>
                           </div>
                           
@@ -536,10 +510,10 @@ export default function Resources() {
                             <Badge variant="outline">
                               {resource.type.toUpperCase()}
                             </Badge>
-                            <Button variant="outline" size="sm" data-testid={`button-preview-resource-${resource.id}`}>
+                            <Button variant="outline" size="sm" data-testid={`button-preview-resource-${resource.$id}`}>
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button size="sm" data-testid={`button-download-resource-${resource.id}`}>
+                            <Button size="sm" data-testid={`button-download-resource-${resource.$id}`}>
                               <Download className="w-4 h-4" />
                             </Button>
                           </div>

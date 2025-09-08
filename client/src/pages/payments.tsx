@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertPaymentSchema } from "@shared/schema";
 import { 
   CreditCard, 
   Search, 
@@ -51,12 +49,18 @@ import {
   Download,
   Eye
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import type { Payment, Student } from "@shared/schema";
+import { usePayments } from "@/hooks/usePayments";
+import { useStudents } from "@/hooks/useStudents";
 
-const paymentFormSchema = insertPaymentSchema.extend({
+const paymentFormSchema = z.object({
+  studentId: z.string(),
+  amount: z.string(),
+  purpose: z.string(),
   dueDate: z.string().optional(),
+  status: z.string(),
+  term: z.string(),
+  academicYear: z.string(),
 });
 
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
@@ -66,15 +70,9 @@ export default function Payments() {
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
-  const { data: payments, isLoading } = useQuery({
-    queryKey: ["/api/payments"],
-  });
-
-  const { data: students } = useQuery({
-    queryKey: ["/api/students"],
-  });
+  const { payments, isLoading, createPayment } = usePayments();
+  const { students } = useStudents();
 
   const form = useForm<PaymentFormData>({
     resolver: zodResolver(paymentFormSchema),
@@ -88,53 +86,41 @@ export default function Payments() {
     },
   });
 
-  const createMutation = useMutation({
-    mutationFn: async (data: PaymentFormData) => {
-      const payload = {
-        ...data,
-        amount: parseFloat(data.amount as string),
-        dueDate: data.dueDate ? new Date(data.dueDate).toISOString() : null,
-      };
-      return await apiRequest("POST", "/api/payments", payload);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/payments"] });
-      toast({
-        title: "Success",
-        description: "Payment record created successfully",
-      });
-      setIsFormOpen(false);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create payment record",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredPayments = payments?.filter((payment: Payment & { student?: Student }) => {
+  const filteredPayments = payments?.filter((payment: any) => {
+    const student = students?.find((s: any) => s.$id === payment.studentId);
     const matchesSearch = payment.purpose.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         payment.student?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         payment.student?.lastName?.toLowerCase().includes(searchQuery.toLowerCase());
+                         student?.firstName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         student?.lastName?.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesStatus = selectedStatus === "all" || payment.status === selectedStatus;
     return matchesSearch && matchesStatus;
   }) || [];
 
   const paymentStats = {
     total: payments?.length || 0,
-    paid: payments?.filter((p: Payment) => p.status === "paid").length || 0,
-    pending: payments?.filter((p: Payment) => p.status === "pending").length || 0,
-    overdue: payments?.filter((p: Payment) => p.status === "overdue").length || 0,
-    totalAmount: payments?.reduce((sum: number, p: Payment) => sum + parseFloat(p.amount.toString()), 0) || 0,
-    paidAmount: payments?.filter((p: Payment) => p.status === "paid")
-      .reduce((sum: number, p: Payment) => sum + parseFloat(p.amount.toString()), 0) || 0,
+    paid: payments?.filter((p: any) => p.status === "paid").length || 0,
+    pending: payments?.filter((p: any) => p.status === "pending").length || 0,
+    overdue: payments?.filter((p: any) => p.status === "overdue").length || 0,
+    totalAmount: payments?.reduce((sum: number, p: any) => sum + parseFloat(p.amount.toString()), 0) || 0,
+    paidAmount: payments?.filter((p: any) => p.status === "paid")
+      .reduce((sum: number, p: any) => sum + parseFloat(p.amount.toString()), 0) || 0,
   };
 
-  const onSubmit = (data: PaymentFormData) => {
-    createMutation.mutate(data);
+  const onSubmit = async (data: PaymentFormData) => {
+    try {
+      await createPayment(data);
+      toast({
+        title: "Success",
+        description: "Payment record created successfully",
+      });
+      setIsFormOpen(false);
+      form.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create payment record",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -252,8 +238,8 @@ export default function Payments() {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                {students?.map((student: Student) => (
-                                  <SelectItem key={student.id} value={student.id}>
+                                {students?.map((student: any) => (
+                                  <SelectItem key={student.$id} value={student.$id}>
                                     {student.firstName} {student.lastName} - {student.studentId}
                                   </SelectItem>
                                 ))}
@@ -351,8 +337,8 @@ export default function Payments() {
                         <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)}>
                           Cancel
                         </Button>
-                        <Button type="submit" disabled={createMutation.isPending} data-testid="button-submit-payment">
-                          {createMutation.isPending ? "Creating..." : "Create Payment"}
+                        <Button type="submit" data-testid="button-submit-payment">
+                          Create Payment
                         </Button>
                       </div>
                     </form>
@@ -415,25 +401,25 @@ export default function Payments() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPayments.map((payment: Payment) => (
-                      <TableRow key={payment.id}>
+                    {filteredPayments.map((payment: any) => (
+                      <TableRow key={payment.$id}>
                         <TableCell>
                           <div>
-                            <p className="font-medium" data-testid={`text-payment-student-${payment.id}`}>
+                            <p className="font-medium" data-testid={`text-payment-student-${payment.$id}`}>
                               Student #{payment.studentId}
                             </p>
                             <p className="text-sm text-muted-foreground">ID: {payment.studentId}</p>
                           </div>
                         </TableCell>
-                        <TableCell data-testid={`text-payment-purpose-${payment.id}`}>
+                        <TableCell data-testid={`text-payment-purpose-${payment.$id}`}>
                           {payment.purpose}
                         </TableCell>
                         <TableCell>
-                          <p className="font-bold" data-testid={`text-payment-amount-${payment.id}`}>
+                          <p className="font-bold" data-testid={`text-payment-amount-${payment.$id}`}>
                             ₦{parseFloat(payment.amount.toString()).toLocaleString()}
                           </p>
                         </TableCell>
-                        <TableCell data-testid={`text-payment-due-date-${payment.id}`}>
+                        <TableCell data-testid={`text-payment-due-date-${payment.$id}`}>
                           {payment.dueDate ? new Date(payment.dueDate).toLocaleDateString() : "N/A"}
                         </TableCell>
                         <TableCell>
@@ -447,7 +433,7 @@ export default function Payments() {
                               payment.status === 'overdue' ? 'bg-destructive/10 text-destructive' :
                               'bg-accent/10 text-accent'
                             }
-                            data-testid={`badge-payment-status-${payment.id}`}
+                            data-testid={`badge-payment-status-${payment.$id}`}
                           >
                             {payment.status}
                           </Badge>
@@ -460,11 +446,11 @@ export default function Payments() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center space-x-2">
-                            <Button variant="outline" size="sm" data-testid={`button-view-payment-${payment.id}`}>
+                            <Button variant="outline" size="sm" data-testid={`button-view-payment-${payment.$id}`}>
                               <Eye className="w-4 h-4" />
                             </Button>
                             {payment.status === 'pending' && (
-                              <Button size="sm" data-testid={`button-mark-paid-${payment.id}`}>
+                              <Button size="sm" data-testid={`button-mark-paid-${payment.$id}`}>
                                 Mark Paid
                               </Button>
                             )}

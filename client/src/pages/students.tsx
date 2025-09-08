@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { StudentForm } from "@/components/student-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,64 +20,20 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
-import { RoleGuard, AdminOnly } from "@/components/RoleGuard";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Student } from "@shared/schema";
+import { AdminOnly } from "@/components/RoleGuard";
+import { useStudents } from "@/hooks/useStudents";
 
 export default function Students() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { hasPermission, canAccess } = useRole();
+  const { canAccess } = useRole();
+  const { students, isLoading, deleteStudent } = useStudents();
 
-  const { data: students, isLoading, error } = useQuery({
-    queryKey: ["/api/students"],
-    retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to view students.",
-          variant: "destructive",
-        });
-      }
-    },
-  });
-
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/students/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
-      toast({
-        title: "Success",
-        description: "Student deleted successfully",
-      });
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to delete students.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete student",
-          variant: "destructive",
-        });
-      }
-    },
-  });
-
-  const filteredStudents = students?.filter((student: Student) =>
+  const filteredStudents = students?.filter((student: any) =>
     `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
     student.class.toLowerCase().includes(searchQuery.toLowerCase())
@@ -89,14 +44,26 @@ export default function Students() {
     setIsFormOpen(true);
   };
 
-  const handleEditStudent = (student: Student) => {
+  const handleEditStudent = (student: any) => {
     setSelectedStudent(student);
     setIsFormOpen(true);
   };
 
-  const handleDeleteStudent = (id: string) => {
+  const handleDeleteStudent = async (id: string) => {
     if (confirm("Are you sure you want to delete this student?")) {
-      deleteMutation.mutate(id);
+      try {
+        await deleteStudent(id);
+        toast({
+          title: "Success",
+          description: "Student deleted successfully",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete student",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -159,8 +126,8 @@ export default function Students() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStudents.map((student: Student) => (
-                      <TableRow key={student.id}>
+                    {filteredStudents.map((student: any) => (
+                      <TableRow key={student.$id}>
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -169,7 +136,7 @@ export default function Students() {
                               </span>
                             </div>
                             <div>
-                              <p className="font-medium" data-testid={`text-student-name-${student.id}`}>
+                              <p className="font-medium" data-testid={`text-student-name-${student.$id}`}>
                                 {student.firstName} {student.lastName}
                               </p>
                               <p className="text-sm text-muted-foreground">
@@ -178,10 +145,10 @@ export default function Students() {
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell data-testid={`text-student-id-${student.id}`}>
+                        <TableCell data-testid={`text-student-id-${student.$id}`}>
                           {student.studentId}
                         </TableCell>
-                        <TableCell data-testid={`text-student-class-${student.id}`}>
+                        <TableCell data-testid={`text-student-class-${student.$id}`}>
                           {student.class}
                         </TableCell>
                         <TableCell>
@@ -206,7 +173,7 @@ export default function Students() {
                                 ? 'bg-destructive/10 text-destructive'
                                 : 'bg-accent/10 text-accent'
                             }
-                            data-testid={`badge-student-status-${student.id}`}
+                            data-testid={`badge-student-status-${student.$id}`}
                           >
                             {student.status}
                           </Badge>
@@ -217,27 +184,27 @@ export default function Students() {
                               <Button 
                                 variant="ghost" 
                                 className="h-8 w-8 p-0"
-                                data-testid={`button-student-actions-${student.id}`}
+                                data-testid={`button-student-actions-${student.$id}`}
                               >
                                 <MoreHorizontal className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem data-testid={`button-view-student-${student.id}`}>
+                              <DropdownMenuItem data-testid={`button-view-student-${student.$id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
                               <DropdownMenuItem 
                                 onClick={() => handleEditStudent(student)}
-                                data-testid={`button-edit-student-${student.id}`}
+                                data-testid={`button-edit-student-${student.$id}`}
                               >
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => handleDeleteStudent(student.id)}
+                                onClick={() => handleDeleteStudent(student.$id)}
                                 className="text-destructive"
-                                data-testid={`button-delete-student-${student.id}`}
+                                data-testid={`button-delete-student-${student.$id}`}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete

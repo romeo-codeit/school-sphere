@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/hooks/useRole";
-import { RoleGuard } from "@/components/RoleGuard";
+import { useAuth } from "@/hooks/useAuth";
 
 const getNavigationItems = (role: string | null) => {
   const baseItems = [
@@ -121,8 +121,9 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const { role } = useRole();
+  const { logout } = useAuth();
   
   const navigationItems = getNavigationItems(role);
   const settingsItems = getSettingsItems(role);
@@ -132,6 +133,11 @@ export function Sidebar({ className }: SidebarProps) {
       return location === href;
     }
     return location.startsWith(href);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation('/landing');
   };
 
   return (
@@ -193,7 +199,7 @@ export function Sidebar({ className }: SidebarProps) {
             <Button
               variant="ghost"
               className="w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground"
-              onClick={() => window.location.href = '/api/logout'}
+              onClick={handleLogout}
               data-testid="button-logout"
             >
               <LogOut className="w-5 h-5 mr-3" />
