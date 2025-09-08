@@ -52,6 +52,7 @@ Now, open the `.env` file and fill in the required values for your Appwrite proj
 
 -   `VITE_APPWRITE_ENDPOINT`: Your Appwrite project's API endpoint.
 -   `VITE_APPWRITE_PROJECT_ID`: Your Appwrite project's ID.
+-   `VITE_APPWRITE_DATABASE_ID`: The ID of the database you created in your Appwrite project.
 -   `APPWRITE_API_KEY`: A secret API key with `users.write` permissions. This is used for the seeding script and should not be prefixed with `VITE_` to avoid exposing it to the client.
 
 ## Running the Application

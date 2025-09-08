@@ -2,8 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases } from '../lib/appwrite';
 import { ID, Query } from 'appwrite';
 
-// TODO: Replace with your Appwrite database and collection IDs
-const DATABASE_ID = 'YOUR_DATABASE_ID';
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const RESOURCES_COLLECTION_ID = 'resources';
 
 export function useResources() {
