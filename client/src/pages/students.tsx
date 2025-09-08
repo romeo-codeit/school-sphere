@@ -23,6 +23,9 @@ import {
 import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useRole } from "@/hooks/useRole";
+import { RoleGuard, AdminOnly } from "@/components/RoleGuard";
+import { isUnauthorizedError } from "@/lib/authUtils";
 import type { Student } from "@shared/schema";
 
 export default function Students() {
@@ -31,9 +34,20 @@ export default function Students() {
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { hasPermission, canAccess } = useRole();
 
-  const { data: students, isLoading } = useQuery({
+  const { data: students, isLoading, error } = useQuery({
     queryKey: ["/api/students"],
+    retry: false,
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to view students.",
+          variant: "destructive",
+        });
+      }
+    },
   });
 
   const deleteMutation = useMutation({
@@ -47,12 +61,20 @@ export default function Students() {
         description: "Student deleted successfully",
       });
     },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to delete student",
-        variant: "destructive",
-      });
+    onError: (error: Error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Access Denied",
+          description: "You don't have permission to delete students.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to delete student",
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -87,10 +109,12 @@ export default function Students() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Student Management</CardTitle>
-              <Button onClick={handleAddStudent} data-testid="button-add-student">
-                <UserPlus className="w-4 h-4 mr-2" />
-                Add Student
-              </Button>
+              <AdminOnly>
+                <Button onClick={handleAddStudent} data-testid="button-add-student">
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Student
+                </Button>
+              </AdminOnly>
             </div>
           </CardHeader>
           <CardContent>
@@ -108,8 +132,13 @@ export default function Students() {
               </div>
             </div>
 
-            {/* Students Table */}
-            {isLoading ? (
+            {/* Access Control Check */}
+            {!canAccess(["admin", "teacher"]) ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground mb-2">Access Denied</div>
+                <p className="text-sm">You don't have permission to view student records.</p>
+              </div>
+            ) : isLoading ? (
               <div className="text-center py-8">Loading students...</div>
             ) : filteredStudents.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
