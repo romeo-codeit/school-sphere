@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./replitAuth";
+import { requireRole, requireOwnership } from "./auth";
 import { insertStudentSchema, insertTeacherSchema, insertExamSchema, insertPaymentSchema, insertResourceSchema, insertMessageSchema } from "@shared/schema";
 import { z } from "zod";
 
@@ -22,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard routes
-  app.get('/api/dashboard/stats', isAuthenticated, async (req, res) => {
+  app.get('/api/dashboard/stats', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req, res) => {
     try {
       const stats = await storage.getDashboardStats();
       res.json(stats);
@@ -33,7 +34,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Student routes
-  app.get('/api/students', isAuthenticated, async (req, res) => {
+  app.get('/api/students', isAuthenticated, requireRole(["admin", "teacher"]), async (req, res) => {
     try {
       const students = await storage.getStudents();
       res.json(students);
@@ -43,7 +44,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/students/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/students/:id', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), requireOwnership(), async (req, res) => {
     try {
       const student = await storage.getStudent(req.params.id);
       if (!student) {
@@ -56,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/students', isAuthenticated, async (req, res) => {
+  app.post('/api/students', isAuthenticated, requireRole(["admin"]), async (req, res) => {
     try {
       const validatedData = insertStudentSchema.parse(req.body);
       const student = await storage.createStudent(validatedData);
@@ -70,7 +71,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put('/api/students/:id', isAuthenticated, async (req, res) => {
+  app.put('/api/students/:id', isAuthenticated, requireRole(["admin", "teacher"]), requireOwnership(), async (req, res) => {
     try {
       const validatedData = insertStudentSchema.partial().parse(req.body);
       const student = await storage.updateStudent(req.params.id, validatedData);
@@ -84,7 +85,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete('/api/students/:id', isAuthenticated, async (req, res) => {
+  app.delete('/api/students/:id', isAuthenticated, requireRole(["admin"]), async (req, res) => {
     try {
       await storage.deleteStudent(req.params.id);
       res.status(204).send();
@@ -95,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Teacher routes
-  app.get('/api/teachers', isAuthenticated, async (req, res) => {
+  app.get('/api/teachers', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req, res) => {
     try {
       const teachers = await storage.getTeachers();
       res.json(teachers);
@@ -105,7 +106,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/teachers', isAuthenticated, async (req, res) => {
+  app.post('/api/teachers', isAuthenticated, requireRole(["admin"]), async (req, res) => {
     try {
       const validatedData = insertTeacherSchema.parse(req.body);
       const teacher = await storage.createTeacher(validatedData);
@@ -120,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Exam routes
-  app.get('/api/exams', isAuthenticated, async (req, res) => {
+  app.get('/api/exams', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req, res) => {
     try {
       const { type } = req.query;
       const exams = type 
@@ -133,7 +134,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/exams/:id', isAuthenticated, async (req, res) => {
+  app.get('/api/exams/:id', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req, res) => {
     try {
       const exam = await storage.getExam(req.params.id);
       if (!exam) {
@@ -146,7 +147,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/exams', isAuthenticated, async (req: any, res) => {
+  app.post('/api/exams', isAuthenticated, requireRole(["admin", "teacher"]), async (req: any, res) => {
     try {
       const validatedData = insertExamSchema.parse({
         ...req.body,
@@ -163,7 +164,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/exams/:id/attempt', isAuthenticated, async (req: any, res) => {
+  app.post('/api/exams/:id/attempt', isAuthenticated, requireRole(["student"]), async (req: any, res) => {
     try {
       // Find student by user ID
       const user = await storage.getUser(req.user.claims.sub);
@@ -197,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Payment routes
-  app.get('/api/payments', isAuthenticated, async (req, res) => {
+  app.get('/api/payments', isAuthenticated, requireRole(["admin", "student", "parent"]), async (req, res) => {
     try {
       const payments = await storage.getPayments();
       res.json(payments);
@@ -207,7 +208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/payments', isAuthenticated, async (req, res) => {
+  app.post('/api/payments', isAuthenticated, requireRole(["admin"]), async (req, res) => {
     try {
       const validatedData = insertPaymentSchema.parse(req.body);
       const payment = await storage.createPayment(validatedData);
@@ -222,7 +223,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Message routes
-  app.get('/api/messages', isAuthenticated, async (req: any, res) => {
+  app.get('/api/messages', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const messages = await storage.getMessages(userId);
@@ -233,7 +234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/messages', isAuthenticated, async (req: any, res) => {
+  app.post('/api/messages', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req: any, res) => {
     try {
       const validatedData = insertMessageSchema.parse({
         ...req.body,
@@ -251,7 +252,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Resource routes
-  app.get('/api/resources', isAuthenticated, async (req, res) => {
+  app.get('/api/resources', isAuthenticated, requireRole(["admin", "teacher", "student", "parent"]), async (req, res) => {
     try {
       const resources = await storage.getResources();
       res.json(resources);
@@ -261,7 +262,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/resources', isAuthenticated, async (req: any, res) => {
+  app.post('/api/resources', isAuthenticated, requireRole(["admin", "teacher"]), async (req: any, res) => {
     try {
       const validatedData = insertResourceSchema.parse({
         ...req.body,
