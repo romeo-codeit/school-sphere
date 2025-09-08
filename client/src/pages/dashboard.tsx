@@ -1,0 +1,430 @@
+import { useQuery } from "@tanstack/react-query";
+import { TopNav } from "@/components/top-nav";
+import { StatsCard } from "@/components/stats-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Users, 
+  UserCheck, 
+  CreditCard, 
+  BarChart3, 
+  UserPlus, 
+  Upload, 
+  Megaphone, 
+  FileText,
+  TrendingUp,
+  TriangleAlert,
+  Eye,
+  Play,
+  Download
+} from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import type { Student } from "@shared/schema";
+
+export default function Dashboard() {
+  const { user } = useAuth();
+
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["/api/dashboard/stats"],
+  });
+
+  const { data: students, isLoading: studentsLoading } = useQuery({
+    queryKey: ["/api/students"],
+  });
+
+  const { data: resources } = useQuery({
+    queryKey: ["/api/resources"],
+  });
+
+  const recentStudents = students?.slice(0, 3) || [];
+  const featuredResources = resources?.slice(0, 4) || [];
+
+  const recentActivities = [
+    {
+      icon: UserPlus,
+      description: "New student registration completed",
+      timestamp: "2 minutes ago",
+      color: "bg-primary/10 text-primary"
+    },
+    {
+      icon: CreditCard,
+      description: "Payment received from student",
+      timestamp: "15 minutes ago",
+      color: "bg-secondary/10 text-secondary"
+    },
+    {
+      icon: FileText,
+      description: "New JAMB questions uploaded",
+      timestamp: "1 hour ago",
+      color: "bg-accent/10 text-accent"
+    },
+    {
+      icon: TriangleAlert,
+      description: "Payment overdue alert for 3 students",
+      timestamp: "2 hours ago",
+      color: "bg-destructive/10 text-destructive"
+    }
+  ];
+
+  return (
+    <div className="space-y-6">
+      <TopNav 
+        title="Admin Dashboard" 
+        subtitle={`Welcome back, ${user?.firstName || 'User'}`}
+      />
+      
+      <div className="p-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <StatsCard
+            title="Total Students"
+            value={statsLoading ? "Loading..." : stats?.totalStudents || 0}
+            icon={Users}
+            iconColor="bg-primary/10 text-primary"
+            trend={{
+              value: "+12% from last month",
+              isPositive: true,
+              icon: TrendingUp
+            }}
+          />
+          
+          <StatsCard
+            title="Active Teachers"
+            value={statsLoading ? "Loading..." : stats?.activeTeachers || 0}
+            icon={UserCheck}
+            iconColor="bg-secondary/10 text-secondary"
+            trend={{
+              value: "+3 new this month",
+              isPositive: true,
+              icon: TrendingUp
+            }}
+          />
+          
+          <StatsCard
+            title="Pending Payments"
+            value={statsLoading ? "Loading..." : stats?.pendingPayments || "₦0"}
+            icon={CreditCard}
+            iconColor="bg-accent/10 text-accent"
+            subtitle="23 overdue"
+          />
+          
+          <StatsCard
+            title="Average Attendance"
+            value={statsLoading ? "Loading..." : stats?.averageAttendance || "0%"}
+            icon={BarChart3}
+            iconColor="bg-destructive/10 text-destructive"
+            trend={{
+              value: "+2.1% this week",
+              isPositive: true,
+              icon: TrendingUp
+            }}
+          />
+        </div>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Students */}
+          <div className="lg:col-span-2">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Recent Students</CardTitle>
+                  <Button variant="outline" size="sm" data-testid="button-view-all-students">
+                    View All
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {studentsLoading ? (
+                  <div className="text-center py-8">Loading students...</div>
+                ) : recentStudents.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    No students found
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-border">
+                          <th className="text-left py-3 text-muted-foreground font-medium">Student</th>
+                          <th className="text-left py-3 text-muted-foreground font-medium">Class</th>
+                          <th className="text-left py-3 text-muted-foreground font-medium">Status</th>
+                          <th className="text-left py-3 text-muted-foreground font-medium">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        {recentStudents.map((student: Student) => (
+                          <tr key={student.id} className="hover:bg-muted/50">
+                            <td className="py-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                  <span className="text-primary font-medium">
+                                    {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
+                                  </span>
+                                </div>
+                                <div>
+                                  <p className="font-medium text-foreground" data-testid={`text-student-name-${student.id}`}>
+                                    {student.firstName} {student.lastName}
+                                  </p>
+                                  <p className="text-sm text-muted-foreground" data-testid={`text-student-id-${student.id}`}>
+                                    ID: {student.studentId}
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="py-4 text-foreground" data-testid={`text-student-class-${student.id}`}>
+                              {student.class}
+                            </td>
+                            <td className="py-4">
+                              <Badge 
+                                variant={student.status === 'active' ? 'default' : 'secondary'}
+                                className={student.status === 'active' ? 'bg-secondary/10 text-secondary' : 'bg-accent/10 text-accent'}
+                              >
+                                {student.status}
+                              </Badge>
+                            </td>
+                            <td className="py-4">
+                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.id}`}>
+                                <Eye className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Quick Actions & Recent Activity */}
+          <div className="space-y-6">
+            {/* Quick Actions */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button 
+                  className="w-full justify-start bg-primary hover:bg-primary/90"
+                  data-testid="button-add-student"
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add New Student
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start bg-secondary hover:bg-secondary/90"
+                  data-testid="button-upload-exam"
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Exam Questions
+                </Button>
+                
+                <Button 
+                  className="w-full justify-start bg-accent hover:bg-accent/90"
+                  data-testid="button-send-announcement"
+                >
+                  <Megaphone className="w-4 h-4 mr-2" />
+                  Send Announcement
+                </Button>
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  data-testid="button-generate-report"
+                >
+                  <BarChart3 className="w-4 h-4 mr-2" />
+                  Generate Report
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Recent Activity */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {recentActivities.map((activity, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.color}`}>
+                      <activity.icon className="w-4 h-4" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm text-foreground" data-testid={`text-activity-${index}`}>
+                        {activity.description}
+                      </p>
+                      <p className="text-xs text-muted-foreground" data-testid={`text-activity-time-${index}`}>
+                        {activity.timestamp}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Additional Sections */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+          {/* Attendance Chart Placeholder */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Attendance Overview</CardTitle>
+                <select className="border border-border rounded-lg px-3 py-2 text-sm">
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="term">This Term</option>
+                </select>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
+                <div className="text-center">
+                  <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">Attendance Chart</p>
+                  <p className="text-sm text-muted-foreground">Chart implementation needed</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Payment Status */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-secondary rounded-full"></div>
+                  <span className="font-medium text-foreground">Paid Students</span>
+                </div>
+                <span className="font-bold text-foreground" data-testid="text-paid-students">1,124</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-accent rounded-full"></div>
+                  <span className="font-medium text-foreground">Pending Payments</span>
+                </div>
+                <span className="font-bold text-foreground" data-testid="text-pending-payments">89</span>
+              </div>
+              
+              <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-lg">
+                <div className="flex items-center space-x-3">
+                  <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                  <span className="font-medium text-foreground">Overdue</span>
+                </div>
+                <span className="font-bold text-foreground" data-testid="text-overdue-payments">34</span>
+              </div>
+              
+              <div className="pt-4 border-t border-border">
+                <Button 
+                  className="w-full bg-primary hover:bg-primary/90"
+                  data-testid="button-view-payment-details"
+                >
+                  View Payment Details
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Exam Module Preview */}
+        <Card className="mt-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Exam Module</CardTitle>
+              <Button variant="outline" size="sm" data-testid="button-manage-exams">
+                Manage Exams
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-primary text-2xl" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">JAMB Questions</h4>
+                <p className="text-muted-foreground text-sm mb-4">Practice questions for JAMB preparation</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-jamb-count">2,456</p>
+                <p className="text-sm text-muted-foreground">Available Questions</p>
+              </div>
+              
+              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-secondary text-2xl" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">WAEC Questions</h4>
+                <p className="text-muted-foreground text-sm mb-4">West African Examination Council prep</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-waec-count">1,834</p>
+                <p className="text-sm text-muted-foreground">Available Questions</p>
+              </div>
+              
+              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-accent text-2xl" />
+                </div>
+                <h4 className="font-semibold text-foreground mb-2">NECO Questions</h4>
+                <p className="text-muted-foreground text-sm mb-4">National Examination Council questions</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-neco-count">1,567</p>
+                <p className="text-sm text-muted-foreground">Available Questions</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Resource Library Preview */}
+        <Card className="mt-8">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Resource Library</CardTitle>
+              <Button variant="outline" size="sm" data-testid="button-browse-resources">
+                Browse All
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {featuredResources.length === 0 ? (
+                <div className="col-span-full text-center py-8 text-muted-foreground">
+                  No resources available
+                </div>
+              ) : (
+                featuredResources.map((resource: any) => (
+                  <div key={resource.id} className="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="h-32 bg-muted flex items-center justify-center">
+                      <FileText className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <div className="p-4">
+                      <h4 className="font-semibold text-foreground mb-1" data-testid={`text-resource-title-${resource.id}`}>
+                        {resource.title}
+                      </h4>
+                      <p className="text-sm text-muted-foreground mb-2" data-testid={`text-resource-type-${resource.id}`}>
+                        {resource.type?.toUpperCase()} {resource.type}
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.id}`}>
+                          {resource.downloads} downloads
+                        </span>
+                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.id}`}>
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
