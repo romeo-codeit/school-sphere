@@ -1,8 +1,11 @@
 import { Client, Account, Databases } from 'appwrite';
 
-// TODO: Replace with your Appwrite project credentials
-const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = 'YOUR_PROJECT_ID';
+const APPWRITE_ENDPOINT = import.meta.env.VITE_APPWRITE_ENDPOINT;
+const APPWRITE_PROJECT_ID = import.meta.env.VITE_APPWRITE_PROJECT_ID;
+
+if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID) {
+  throw new Error("Missing Appwrite environment variables. Please check your .env file.");
+}
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

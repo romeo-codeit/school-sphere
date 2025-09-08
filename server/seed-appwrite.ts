@@ -1,9 +1,15 @@
 import { Client, Users, ID } from 'node-appwrite';
+import dotenv from 'dotenv';
 
-// TODO: Replace with your Appwrite project credentials
-const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1';
-const APPWRITE_PROJECT_ID = 'YOUR_PROJECT_ID';
-const APPWRITE_API_KEY = 'YOUR_API_KEY'; // This should be a secret!
+dotenv.config();
+
+const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
+const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
+const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY;
+
+if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY) {
+  throw new Error("Missing Appwrite environment variables. Please check your .env file.");
+}
 
 const client = new Client()
   .setEndpoint(APPWRITE_ENDPOINT)

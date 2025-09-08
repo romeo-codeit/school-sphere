@@ -42,34 +42,17 @@ npm install
 
 ## Configuration
 
-To connect the application to your Appwrite project, you need to configure your project ID and API endpoint in two places.
+This project uses a `.env` file to manage environment variables. To get started, copy the `.env.example` file to a new file named `.env`:
 
-### 1. Frontend Configuration
-
-Open the `client/src/lib/appwrite.ts` file and replace the placeholder values with your Appwrite project's credentials.
-
-```typescript
-// client/src/lib/appwrite.ts
-
-// TODO: Replace with your Appwrite project credentials
-const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1'; // Or your self-hosted endpoint
-const APPWRITE_PROJECT_ID = 'YOUR_PROJECT_ID'; // Replace with your Project ID
+```bash
+cp .env.example .env
 ```
 
-### 2. Seeding Script Configuration
+Now, open the `.env` file and fill in the required values for your Appwrite project.
 
-The seeding script requires an API key with `users.write` permissions to create the demo users. Open `server/seed-appwrite.ts` and update the credentials.
-
-**Important:** Treat your API key as a secret. Do not commit it to version control in a public repository.
-
-```typescript
-// server/seed-appwrite.ts
-
-// TODO: Replace with your Appwrite project credentials
-const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1'; // Must match the frontend endpoint
-const APPWRITE_PROJECT_ID = 'YOUR_PROJECT_ID'; // Replace with your Project ID
-const APPWRITE_API_KEY = 'YOUR_API_KEY'; // Replace with your secret API Key
-```
+-   `VITE_APPWRITE_ENDPOINT`: Your Appwrite project's API endpoint.
+-   `VITE_APPWRITE_PROJECT_ID`: Your Appwrite project's ID.
+-   `APPWRITE_API_KEY`: A secret API key with `users.write` permissions. This is used for the seeding script and should not be prefixed with `VITE_` to avoid exposing it to the client.
 
 ## Running the Application
 
