@@ -10,58 +10,111 @@ import {
   BookOpen, 
   Settings, 
   LogOut,
-  GraduationCap
+  GraduationCap,
+  UserCheck,
+  ClipboardList
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useRole } from "@/hooks/useRole";
+import { RoleGuard } from "@/components/RoleGuard";
 
-const navigationItems = [
-  { 
-    name: "Dashboard", 
-    href: "/", 
-    icon: LayoutDashboard, 
-    exact: true 
-  },
-  { 
-    name: "Students", 
-    href: "/students", 
-    icon: Users 
-  },
-  { 
-    name: "Exams", 
-    href: "/exams", 
-    icon: FileText 
-  },
-  { 
-    name: "Progress", 
-    href: "/progress", 
-    icon: TrendingUp 
-  },
-  { 
-    name: "Payments", 
-    href: "/payments", 
-    icon: CreditCard 
-  },
-  { 
-    name: "Messages", 
-    href: "/messages", 
-    icon: MessageSquare,
-    badge: 3 
-  },
-  { 
-    name: "Resources", 
-    href: "/resources", 
-    icon: BookOpen 
-  },
-];
+const getNavigationItems = (role: string | null) => {
+  const baseItems = [
+    { 
+      name: "Dashboard", 
+      href: "/", 
+      icon: LayoutDashboard, 
+      exact: true,
+      roles: ["admin", "teacher", "student", "parent"],
+      badge: undefined
+    },
+  ];
 
-const settingsItems = [
-  { 
-    name: "Settings", 
-    href: "/settings", 
-    icon: Settings 
-  },
-];
+  const adminItems = [
+    { 
+      name: "Students", 
+      href: "/students", 
+      icon: Users,
+      roles: ["admin", "teacher"]
+    },
+    { 
+      name: "Teachers", 
+      href: "/teachers", 
+      icon: UserCheck,
+      roles: ["admin"]
+    },
+  ];
+
+  const examItems = [
+    { 
+      name: "Exams", 
+      href: "/exams", 
+      icon: FileText,
+      roles: ["admin", "teacher", "student", "parent"]
+    },
+  ];
+
+  const progressItems = [
+    { 
+      name: "Progress", 
+      href: "/progress", 
+      icon: TrendingUp,
+      roles: ["admin", "teacher", "student", "parent"]
+    },
+    { 
+      name: "Attendance", 
+      href: "/attendance", 
+      icon: ClipboardList,
+      roles: ["admin", "teacher", "student", "parent"]
+    },
+  ];
+
+  const paymentItems = [
+    { 
+      name: "Payments", 
+      href: "/payments", 
+      icon: CreditCard,
+      roles: ["admin", "student", "parent"]
+    },
+  ];
+
+  const communicationItems = [
+    { 
+      name: "Messages", 
+      href: "/messages", 
+      icon: MessageSquare,
+      badge: 3,
+      roles: ["admin", "teacher", "student", "parent"],
+      exact: false
+    },
+    { 
+      name: "Resources", 
+      href: "/resources", 
+      icon: BookOpen,
+      roles: ["admin", "teacher", "student", "parent"]
+    },
+  ];
+
+  const allItems = [...baseItems, ...adminItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems].map(item => ({
+    ...item,
+    exact: item.exact || false,
+    badge: item.badge || undefined
+  }));
+  
+  return allItems.filter(item => role && item.roles.includes(role));
+};
+
+const getSettingsItems = (role: string | null) => {
+  return [
+    { 
+      name: "Settings", 
+      href: "/settings", 
+      icon: Settings,
+      roles: ["admin", "teacher", "student", "parent"]
+    },
+  ].filter(item => role && item.roles.includes(role));
+};
 
 interface SidebarProps {
   className?: string;
@@ -69,6 +122,10 @@ interface SidebarProps {
 
 export function Sidebar({ className }: SidebarProps) {
   const [location] = useLocation();
+  const { role } = useRole();
+  
+  const navigationItems = getNavigationItems(role);
+  const settingsItems = getSettingsItems(role);
 
   const isActive = (href: string, exact = false) => {
     if (exact) {

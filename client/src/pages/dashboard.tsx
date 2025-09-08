@@ -20,10 +20,13 @@ import {
   Download
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useRole } from "@/hooks/useRole";
+import { RoleGuard, AdminOnly, AdminOrTeacher } from "@/components/RoleGuard";
 import type { Student } from "@shared/schema";
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { role, isAdmin, isTeacher, isStudent, isParent } = useRole();
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ["/api/dashboard/stats"],
@@ -70,7 +73,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-6">
       <TopNav 
-        title="Admin Dashboard" 
+        title={`${role ? role.charAt(0).toUpperCase() + role.slice(1) : 'Dashboard'}`} 
         subtitle={`Welcome back, ${user?.firstName || 'User'}`}
       />
       
