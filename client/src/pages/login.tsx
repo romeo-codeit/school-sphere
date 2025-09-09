@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError(null);
     try {
       await login({ email, password });
-      setLocation("/dashboard");
+      setLocation("/");
     } catch (err) {
       setError("Invalid email or password. Please try again.");
     }
