@@ -24,6 +24,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/login" component={LoginPage} />
         <Route component={NotFound} />
       </Switch>
     );
