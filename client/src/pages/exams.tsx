@@ -13,15 +13,55 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
 import { useExams } from "@/hooks/useExams";
 import { useLocation } from "wouter";
+
+function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: boolean, onOpenChange: (open: boolean) => void }) {
+  if (!exam) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>{exam.title}</DialogTitle>
+          <DialogDescription>
+            {exam.subject} - {Array.isArray(exam.questions) ? exam.questions.length : 0} questions
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[70vh] overflow-y-auto pr-4 space-y-4">
+          {Array.isArray(exam.questions) && exam.questions.map((q: any, index: number) => (
+            <div key={index} className="p-4 border rounded-lg">
+              <p className="font-semibold">Question {index + 1}: {q.question}</p>
+              <ul className="list-disc pl-5 mt-2 space-y-1">
+                {Array.isArray(q.options) && q.options.map((option: string, i: number) => (
+                  <li key={i} className={option === q.correctAnswer ? "text-green-600 font-bold" : ""}>
+                    {option}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export default function Exams() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const { exams, isLoading } = useExams();
   const [, setLocation] = useLocation();
+  const [selectedExamForPreview, setSelectedExamForPreview] = useState<any | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
 
   const filteredExams = exams?.filter((exam: any) => {
     const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -39,6 +79,11 @@ export default function Exams() {
 
   const handleStartExam = (examId: string) => {
     setLocation(`/exams/${examId}/take`);
+  };
+
+  const handlePreviewExam = (exam: any) => {
+    setSelectedExamForPreview(exam);
+    setIsPreviewDialogOpen(true);
   };
 
   return (
@@ -214,6 +259,7 @@ export default function Exams() {
                               variant="outline" 
                               size="sm"
                               data-testid={`button-preview-exam-${exam.$id}`}
+                              onClick={() => handlePreviewExam(exam)}
                             >
                               <FileText className="w-4 h-4 mr-1" />
                               Preview
@@ -237,6 +283,11 @@ export default function Exams() {
           </CardContent>
         </Card>
       </div>
+      <ExamPreviewDialog
+        exam={selectedExamForPreview}
+        open={isPreviewDialogOpen}
+        onOpenChange={setIsPreviewDialogOpen}
+      />
     </div>
   );
 }

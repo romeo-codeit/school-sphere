@@ -22,25 +22,23 @@ export default function ExamTaking() {
 
   const [answers, setAnswers] = useState<{ [key: string]: string }>({});
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
-  const [examStarted, setExamStarted] = useState(false);
 
   useEffect(() => {
-    if (exam?.duration && !examStarted) {
+    if (exam?.duration) {
       setTimeLeft(exam.duration * 60);
     }
-  }, [exam, examStarted]);
+  }, [exam]);
 
   useEffect(() => {
-    if (!examStarted || timeLeft === 0) {
-      if (timeLeft === 0) handleSubmit();
-      return;
+    if (timeLeft === 0) {
+      handleSubmit();
     }
     if (!timeLeft) return;
     const intervalId = setInterval(() => {
       setTimeLeft(timeLeft - 1);
     }, 1000);
     return () => clearInterval(intervalId);
-  }, [timeLeft, examStarted]);
+  }, [timeLeft]);
 
   const handleAnswerChange = (questionIndex: number, value: string) => {
     setAnswers(prev => ({ ...prev, [questionIndex]: value }));
@@ -51,7 +49,7 @@ export default function ExamTaking() {
 
     let score = 0;
     let correctAnswers = 0;
-    exam.questions.forEach((q: any, index: number) => {
+    exam.questions.forEach((q, index) => {
       if (answers[index] === q.correctAnswer) {
         score += q.marks || 1;
         correctAnswers++;
@@ -84,28 +82,6 @@ export default function ExamTaking() {
     return <div className="p-6">Exam not found.</div>;
   }
 
-  if (!examStarted) {
-    return (
-      <div className="space-y-6">
-        <TopNav title={exam.title} subtitle={exam.subject} />
-        <div className="p-6 flex items-center justify-center">
-          <Card className="w-full max-w-2xl">
-            <CardHeader>
-              <CardTitle>Exam Instructions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p><strong>Subject:</strong> {exam.subject}</p>
-              <p><strong>Duration:</strong> {exam.duration} minutes</p>
-              <p><strong>Total Questions:</strong> {exam.questions.length}</p>
-              <p className="pt-4">Please read all questions carefully. The timer will start as soon as you click the "Start Exam" button. Good luck!</p>
-              <Button onClick={() => setExamStarted(true)} className="w-full mt-4">Start Exam</Button>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <TopNav title={exam.title} subtitle={exam.subject}>
@@ -117,15 +93,15 @@ export default function ExamTaking() {
       </TopNav>
 
       <div className="p-6 space-y-6">
-        {exam.questions.map((q: any, index: number) => (
+        {exam.questions.map((q, index) => (
           <Card key={index}>
             <CardHeader>
-              <CardTitle>Question {index + 1} ({q.marks || 1} Marks)</CardTitle>
+              <CardTitle>Question {index + 1}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="mb-4">{q.question}</p>
               <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
-                {q.options.map((option: string, i: number) => (
+                {q.options.map((option, i) => (
                   <div key={i} className="flex items-center space-x-2">
                     <RadioGroupItem value={option} id={`q${index}o${i}`} />
                     <Label htmlFor={`q${index}o${i}`}>{option}</Label>

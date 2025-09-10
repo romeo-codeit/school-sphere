@@ -26,13 +26,12 @@ import { useResources } from "@/hooks/useResources";
 import { usePayments } from "@/hooks/usePayments";
 import { useExams } from "@/hooks/useExams";
 import { useAttendance } from "@/hooks/useAttendance";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StudentForm } from "@/components/student-form";
 import { UploadExamForm } from "@/components/upload-exam-form";
 import { SendAnnouncementForm } from "@/components/send-announcement-form";
-import { useToast } from "@/hooks/use-toast";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -48,8 +47,7 @@ export default function Dashboard() {
   const [isUploadExamFormOpen, setIsUploadExamFormOpen] = useState(false);
   const [isSendAnnouncementFormOpen, setIsSendAnnouncementFormOpen] = useState(false);
 
-  const [, setLocation] = useLocation();
-  const { toast } = useToast();
+  const [location, setLocation] = useLocation();
 
   const recentStudents = students?.slice(0, 3) || [];
   const featuredResources = resources?.slice(0, 4) || [];
@@ -121,10 +119,6 @@ export default function Dashboard() {
     }
   ];
 
-  const navigate = (path: string) => {
-    setLocation(path);
-  };
-
   return (
     <div className="space-y-6">
       <TopNav 
@@ -188,7 +182,7 @@ export default function Dashboard() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recent Students</CardTitle>
-                  <Button variant="outline" size="sm" data-testid="button-view-all-students" onClick={() => navigate('/students')}>
+                  <Button variant="outline" size="sm" data-testid="button-view-all-students">
                     View All
                   </Button>
                 </div>
@@ -243,7 +237,7 @@ export default function Dashboard() {
                               </Badge>
                             </td>
                             <td className="py-4">
-                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`} onClick={() => navigate(`/students/${student.$id}`)}>
+                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`}>
                                 <Eye className="w-4 h-4" />
                               </Button>
                             </td>
@@ -493,7 +487,7 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.$id}`}>
                           {resource.downloads} downloads
                         </span>
-                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`} onClick={() => toast({ title: "Info", description: "Download functionality is not yet implemented." })}>
+                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`}>
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>

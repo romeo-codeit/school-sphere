@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForum, useChat } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
-import { useUsers } from "@/hooks/useUsers";
 import { AdminOrTeacher } from "@/components/RoleGuard";
 import { PlusCircle, MessageSquare, Send, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -28,10 +27,9 @@ import {
   DialogFooter,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 
 // Forum Components
-function ForumList({ onSelectThread, userMap }: { onSelectThread: (thread: any) => void, userMap: Map<string, string> }) {
+function ForumList({ onSelectThread }: { onSelectThread: (thread: any) => void }) {
   const { threads, isLoadingThreads } = useForum();
   const { hasPermission } = useRole();
 
@@ -59,7 +57,7 @@ function ForumList({ onSelectThread, userMap }: { onSelectThread: (thread: any) 
                 <CardHeader>
                   <CardTitle>{thread.title}</CardTitle>
                   <CardDescription>
-                    By {userMap.get(thread.createdBy) || '...'} on {new Date(thread.$createdAt).toLocaleDateString()}
+                    Created at {new Date(thread.$createdAt).toLocaleString()}
                   </CardDescription>
                 </CardHeader>
               </Card>
@@ -132,7 +130,7 @@ function NewThreadDialog() {
     );
 }
 
-function ThreadView({ thread, onBack, userMap }: { thread: any; onBack: () => void, userMap: Map<string, string> }) {
+function ThreadView({ thread, onBack }: { thread: any; onBack: () => void }) {
   const { useReplies, createReply } = useForum();
   const { data: replies, isLoading } = useReplies(thread.$id);
   const { user } = useAuth();
@@ -153,18 +151,13 @@ function ThreadView({ thread, onBack, userMap }: { thread: any; onBack: () => vo
       <Card>
         <CardHeader>
           <CardTitle>{thread.title}</CardTitle>
-          <CardDescription>
-            By {userMap.get(thread.createdBy) || '...'}
-          </CardDescription>
-          <p className="text-sm text-muted-foreground">{thread.content}</p>
+          <CardDescription>{thread.content}</CardDescription>
         </CardHeader>
         <CardContent>
-          <h3 className="text-lg font-semibold mb-4">Replies</h3>
           <div className="space-y-4">
             {isLoading ? <p>Loading replies...</p> : replies?.map((reply: any) => (
-              <div key={reply.$id} className="p-3 rounded-md border bg-muted/20">
-                <p className="font-semibold text-sm">{userMap.get(reply.createdBy) || '...'}</p>
-                <p className="text-foreground mt-1">{reply.content}</p>
+              <div key={reply.$id} className="p-3 rounded-md border">
+                {reply.content}
               </div>
             ))}
           </div>
@@ -181,7 +174,7 @@ function ThreadView({ thread, onBack, userMap }: { thread: any; onBack: () => vo
 }
 
 // Chat Components
-function ChatView({ userMap }: { userMap: Map<string, string> }) {
+function ChatView() {
     // For simplicity, we'll use a hardcoded conversation ID.
     // A real app would have a way to select conversations.
     const conversationId = "general-chat";
@@ -204,10 +197,10 @@ function ChatView({ userMap }: { userMap: Map<string, string> }) {
                 {isLoadingMessages ? <p>Loading...</p> : messages?.map((msg: any) => (
                     <div key={msg.$id} className="flex items-start space-x-3 my-2">
                         <Avatar>
-                            <AvatarFallback>{(userMap.get(msg.senderId) || '??').slice(0,2)}</AvatarFallback>
+                            <AvatarFallback>{msg.senderId.slice(0,2)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <p className="font-bold">{userMap.get(msg.senderId) || 'Unknown User'}</p>
+                            <p className="font-bold">{msg.senderId}</p>
                             <p>{msg.content}</p>
                         </div>
                     </div>
@@ -226,15 +219,6 @@ function ChatView({ userMap }: { userMap: Map<string, string> }) {
 
 export default function Communications() {
   const [selectedThread, setSelectedThread] = useState<any | null>(null);
-  const { users } = useUsers();
-
-  const userMap = useMemo(() => {
-    if (!users) return new Map();
-    return users.reduce((acc: any, user: any) => {
-      acc.set(user.$id, user.name || user.email);
-      return acc;
-    }, new Map());
-  }, [users]);
 
   return (
     <div className="space-y-6">
@@ -257,14 +241,138 @@ export default function Communications() {
               <ThreadView
                 thread={selectedThread}
                 onBack={() => setSelectedThread(null)}
-                userMap={userMap}
               />
             ) : (
-              <ForumList onSelectThread={setSelectedThread} userMap={userMap} />
+              <ForumList onSelectThread={setSelectedThread} />
             )}
           </TabsContent>
           <TabsContent value="chat" className="mt-6">
-            <ChatView userMap={userMap} />
+            <ChatView />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
+  );
+}
+
+function ThreadView({ thread, onBack }: { thread: any; onBack: () => void }) {
+  const { useReplies, createReply } = useForum();
+  const { data: replies, isLoading } = useReplies(thread.$id);
+  const { user } = useAuth();
+  const [replyContent, setReplyContent] = useState("");
+  const { hasPermission } = useRole();
+
+  const handleReply = async () => {
+    if (!user || !replyContent) return;
+    await createReply({ content: replyContent, createdBy: user.$id, parentThreadId: thread.$id });
+    setReplyContent("");
+  };
+
+  return (
+    <div>
+      <Button onClick={onBack} variant="ghost" className="mb-4">
+        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Threads
+      </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle>{thread.title}</CardTitle>
+          <CardDescription>{thread.content}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {isLoading ? <p>Loading replies...</p> : replies?.map((reply: any) => (
+              <div key={reply.$id} className="p-3 rounded-md border">
+                {reply.content}
+              </div>
+            ))}
+          </div>
+          {hasPermission("forum", "create") && (
+            <div className="mt-6">
+              <Textarea value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder="Write a reply..." />
+              <Button onClick={handleReply} className="mt-2">Post Reply</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// Chat Components
+function ChatView() {
+    // For simplicity, we'll use a hardcoded conversation ID.
+    // A real app would have a way to select conversations.
+    const conversationId = "general-chat";
+    const { messages, isLoadingMessages, sendMessage } = useChat(conversationId);
+    const { user } = useAuth();
+    const [message, setMessage] = useState("");
+
+    const handleSend = async () => {
+        if (!user || !message) return;
+        await sendMessage({ content: message, senderId: user.$id, conversationId });
+        setMessage("");
+    };
+
+    return (
+        <Card className="h-[70vh] flex flex-col">
+            <CardHeader>
+                <CardTitle>General Chat</CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto">
+                {isLoadingMessages ? <p>Loading...</p> : messages?.map((msg: any) => (
+                    <div key={msg.$id} className="flex items-start space-x-3 my-2">
+                        <Avatar>
+                            <AvatarFallback>{msg.senderId.slice(0,2)}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-bold">{msg.senderId}</p>
+                            <p>{msg.content}</p>
+                        </div>
+                    </div>
+                ))}
+            </CardContent>
+            <div className="p-4 border-t">
+                <div className="flex space-x-2">
+                    <Input value={message} onChange={e => setMessage(e.target.value)} placeholder="Type a message..." onKeyDown={e => e.key === 'Enter' && handleSend()} />
+                    <Button onClick={handleSend}><Send className="w-4 h-4" /></Button>
+                </div>
+            </div>
+        </Card>
+    );
+}
+
+
+export default function Communications() {
+  const [selectedThread, setSelectedThread] = useState<any | null>(null);
+
+  return (
+    <div className="space-y-6">
+      <TopNav
+        title="Communications"
+        subtitle="Engage in discussions and chats"
+      />
+      <div className="p-6">
+        <Tabs defaultValue="forum">
+          <TabsList>
+            <TabsTrigger value="forum">
+              <MessageSquare className="w-4 h-4 mr-2" /> Forum
+            </TabsTrigger>
+            <TabsTrigger value="chat">
+              <Send className="w-4 h-4 mr-2" /> Chat
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="forum" className="mt-6">
+            {selectedThread ? (
+              <ThreadView
+                thread={selectedThread}
+                onBack={() => setSelectedThread(null)}
+              />
+            ) : (
+              <ForumList onSelectThread={setSelectedThread} />
+            )}
+          </TabsContent>
+          <TabsContent value="chat" className="mt-6">
+            <ChatView />
           </TabsContent>
         </Tabs>
       </div>
