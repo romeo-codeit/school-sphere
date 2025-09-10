@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases, client } from '../lib/appwrite';
+import client, { databases } from '../lib/appwrite';
 import { ID, Query } from 'appwrite';
 import { useEffect } from 'react';
 
