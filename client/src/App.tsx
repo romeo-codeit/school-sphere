@@ -17,11 +17,15 @@ import Resources from "@/pages/resources";
 import Settings from "@/pages/settings";
 import VideoConferencing from "@/pages/video-conferencing";
 import Communications from "@/pages/communications";
+import Teachers from "@/pages/teachers";
+import Attendance from "@/pages/attendance";
+import Progress from "@/pages/progress";
 import { useState } from "react";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
   if (isLoading || !isAuthenticated) {
     return (
@@ -36,13 +40,20 @@ function Router() {
   return (
     <div className="h-screen flex bg-background">
       {/* Desktop Sidebar */}
-      <Sidebar className="hidden lg:block" />
+      <Sidebar
+        className="hidden lg:block"
+        isCollapsed={isSidebarCollapsed}
+        setIsCollapsed={setIsSidebarCollapsed}
+      />
       
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-50 lg:hidden">
           <div className="fixed left-0 top-0 h-full w-64 transform transition-transform duration-300">
-            <Sidebar />
+            <Sidebar
+              isCollapsed={false}
+              setIsCollapsed={() => {}}
+            />
             <button
               className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted z-10"
               onClick={() => setSidebarOpen(false)}
@@ -57,17 +68,23 @@ function Router() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
+        {/* Add a button to toggle mobile sidebar */}
+        <div className="lg:hidden p-4">
+          <button onClick={() => setSidebarOpen(true)}>Open Menu</button>
+        </div>
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/students" component={Students} />
           <Route path="/exams" component={Exams} />
-          <Route path="/progress" component={() => <div className="p-6">Progress page coming soon...</div>} />
+          <Route path="/progress" component={Progress} />
           <Route path="/payments" component={Payments} />
           <Route path="/messages" component={Messages} />
           <Route path="/resources" component={Resources} />
           <Route path="/settings" component={Settings} />
           <Route path="/video-conferencing" component={VideoConferencing} />
           <Route path="/communications" component={Communications} />
+          <Route path="/teachers" component={Teachers} />
+          <Route path="/attendance" component={Attendance} />
           <Route component={NotFound} />
         </Switch>
       </main>

@@ -124,6 +124,8 @@ const getSettingsItems = (role: string | null) => {
 
 interface SidebarProps {
   className?: string;
+  isCollapsed: boolean;
+  setIsCollapsed: (isCollapsed: boolean) => void;
 }
 
 export function Sidebar({ className }: SidebarProps) {
@@ -147,9 +149,12 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   return (
-    <aside className={cn("w-64 bg-card shadow-lg border-r border-border flex flex-col h-full", className)}>
-      <div className="p-6">
-        <div className="flex items-center space-x-3">
+    <aside className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full transition-all duration-300", {
+      "w-64": !isCollapsed,
+      "w-20": isCollapsed,
+    }, className)}>
+      <div className="p-4 flex items-center justify-between">
+        <div className={cn("flex items-center space-x-3", { "hidden": isCollapsed })}>
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
             <GraduationCap className="text-primary-foreground text-xl" />
           </div>
@@ -158,9 +163,12 @@ export function Sidebar({ className }: SidebarProps) {
             <p className="text-sm text-muted-foreground">School Portal</p>
           </div>
         </div>
+        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="mx-auto">
+          {isCollapsed ? ">>" : "<<"}
+        </Button>
       </div>
       
-      <nav className="px-4 pb-4 flex-1 overflow-y-auto">
+      <nav className="px-2 pb-4 flex-1 overflow-y-auto">
         <div className="space-y-2">
           {navigationItems.map((item) => (
             <Link 
@@ -168,52 +176,55 @@ export function Sidebar({ className }: SidebarProps) {
               href={item.href}
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+                { "justify-center": isCollapsed },
                 isActive(item.href, item.exact)
-                  ? "bg-primary/10 text-primary border-l-3 border-primary"
+                  ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
               data-testid={`link-${item.name.toLowerCase()}`}
             >
               <item.icon className="w-5 h-5" />
-              <span className="font-medium">{item.name}</span>
-              {item.badge && (
+              <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+              {item.badge && !isCollapsed && (
                 <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
                   {item.badge}
                 </Badge>
               )}
             </Link>
           ))}
-          
-          <div className="pt-4 border-t border-border">
-            {settingsItems.map((item) => (
-              <Link 
-                key={item.name} 
-                href={item.href}
-                className={cn(
-                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
-                  isActive(item.href)
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-                data-testid={`link-${item.name.toLowerCase()}`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className="font-medium">{item.name}</span>
-              </Link>
-            ))}
-            
-            <Button
-              variant="ghost"
-              className="w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground"
-              onClick={handleLogout}
-              data-testid="button-logout"
-            >
-              <LogOut className="w-5 h-5 mr-3" />
-              <span className="font-medium">Logout</span>
-            </Button>
-          </div>
         </div>
       </nav>
+      <div className="p-2 mt-auto border-t border-border">
+        {settingsItems.map((item) => (
+          <Link
+            key={item.name}
+            href={item.href}
+            className={cn(
+              "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+              { "justify-center": isCollapsed },
+              isActive(item.href)
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}
+            data-testid={`link-${item.name.toLowerCase()}`}
+          >
+            <item.icon className="w-5 h-5" />
+            <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+          </Link>
+        ))}
+
+        <Button
+          variant="ghost"
+          className={cn("w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground", {
+            "justify-center px-0": isCollapsed,
+          })}
+          onClick={handleLogout}
+          data-testid="button-logout"
+        >
+          <LogOut className="w-5 h-5" />
+          <span className={cn("font-medium ml-3", { "hidden": isCollapsed })}>Logout</span>
+        </Button>
+      </div>
     </aside>
   );
 }
