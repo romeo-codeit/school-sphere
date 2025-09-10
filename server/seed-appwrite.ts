@@ -163,10 +163,11 @@ const collections = [
     name: 'Video Meetings',
     attributes: [
         { id: 'topic', type: 'string', size: 255, required: true },
-        { id: 'description', type: 'string', size: 10000, required: false },
         { id: 'roomId', type: 'string', size: 255, required: true },
         { id: 'createdBy', type: 'string', size: 255, required: true },
         { id: 'allowedRoles', type: 'string', size: 50, required: false, array: true },
+        { id: 'classId', type: 'string', size: 255, required: false },
+        { id: 'teacherId', type: 'string', size: 255, required: false },
     ]
   },
   {

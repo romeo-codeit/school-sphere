@@ -17,7 +17,7 @@ export function useVideoConferencing() {
   });
 
   const createMeetingMutation = useMutation({
-    mutationFn: async (meetingData: { topic: string; description?: string; roomId: string; createdBy: string; allowedRoles?: string[] }) => {
+    mutationFn: async (meetingData: { topic: string; description?: string; roomId: string; createdBy: string; allowedRoles?: string[], classId?: string }) => {
       return await databases.createDocument(
         DATABASE_ID,
         VIDEO_MEETINGS_COLLECTION_ID,

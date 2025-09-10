@@ -19,6 +19,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useStudents } from '@/hooks/useStudents';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const generateRoomId = () => `EduManage-Meeting-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -28,12 +30,37 @@ export default function VideoConferencing() {
   const [activeRoom, setActiveRoom] = useState<any | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [topic, setTopic] = useState("");
+  const [selectedClass, setSelectedClass] = useState("");
   const { meetings, isLoading, createMeeting, deleteMeeting } = useVideoConferencing();
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { hasPermission } = useRole();
+  const { students } = useStudents();
   const jitsiContainerRef = useRef<HTMLDivElement>(null);
   const jitsiApiRef = useRef<any>(null);
   const { toast } = useToast();
+
+  const uniqueClasses = students ? [...new Set(students.map((student: any) => student.class))] : [];
+
+  const getUserClass = () => {
+    if (!user || !students) return null;
+    if (role === 'student') {
+      const student = students.find((s: any) => s.userId === user.$id);
+      return student?.class;
+    }
+    if (role === 'parent') {
+      const student = students.find((s: any) => s.parentEmail === user.email);
+      return student?.class;
+    }
+    return null;
+  };
+
+  const userClass = getUserClass();
+
+  const filteredMeetings = meetings?.filter((meeting: any) => {
+    if (role === 'admin' || role === 'teacher') return true;
+    if (!meeting.classId) return true;
+    return meeting.classId === userClass;
+  });
 
   useEffect(() => {
     const script = document.createElement('script');
@@ -90,10 +117,12 @@ export default function VideoConferencing() {
         topic,
         roomId: generateRoomId(),
         createdBy: user.$id,
+        classId: selectedClass || undefined,
       });
       toast({ title: "Success", description: "Meeting created successfully." });
       setIsFormOpen(false);
       setTopic("");
+      setSelectedClass("");
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -145,13 +174,28 @@ export default function VideoConferencing() {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
-                        <Label htmlFor="topic">Topic</Label>
-                        <Input
-                            id="topic"
-                            value={topic}
-                            onChange={(e) => setTopic(e.target.value)}
-                            placeholder="e.g. Weekly Staff Meeting"
-                        />
+                        <div>
+                            <Label htmlFor="topic">Topic</Label>
+                            <Input
+                                id="topic"
+                                value={topic}
+                                onChange={(e) => setTopic(e.target.value)}
+                                placeholder="e.g. Weekly Staff Meeting"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="class">Class (Optional)</Label>
+                            <Select onValueChange={setSelectedClass} value={selectedClass}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select a class" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {uniqueClasses.map((c: any) => (
+                                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button onClick={handleCreateMeeting} disabled={!topic}>Create</Button>
@@ -164,13 +208,15 @@ export default function VideoConferencing() {
           <CardContent>
             {isLoading ? (
               <p>Loading meetings...</p>
-            ) : meetings && meetings.length > 0 ? (
+            ) : filteredMeetings && filteredMeetings.length > 0 ? (
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {meetings.map((meeting: any) => (
+                {filteredMeetings.map((meeting: any) => (
                   <Card key={meeting.$id}>
                     <CardHeader>
                       <CardTitle className="text-lg">{meeting.topic}</CardTitle>
                       <CardDescription>
+                        {meeting.classId && `For Class: ${meeting.classId}`}
+                        <br />
                         Created at {new Date(meeting.$createdAt).toLocaleString()}
                       </CardDescription>
                     </CardHeader>
