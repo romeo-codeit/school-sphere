@@ -16,6 +16,17 @@ export function useExams() {
     },
   });
 
+  const useExam = (examId: string) => {
+    return useQuery({
+      queryKey: ['exams', examId],
+      queryFn: async () => {
+        if (!examId) return null;
+        return await databases.getDocument(DATABASE_ID, EXAMS_COLLECTION_ID, examId);
+      },
+      enabled: !!examId,
+    });
+  };
+
   const createExamMutation = useMutation({
     mutationFn: async (examData: any) => {
       return await databases.createDocument(
@@ -39,8 +50,9 @@ export function useExams() {
         examData
       );
     },
-    onSuccess: () => {
+    onSuccess: (_, { examId }) => {
       queryClient.invalidateQueries({ queryKey: ['exams'] });
+      queryClient.invalidateQueries({ queryKey: ['exams', examId] });
     },
   });
 
@@ -61,6 +73,7 @@ export function useExams() {
     exams,
     isLoading,
     error,
+    useExam,
     createExam: createExamMutation.mutateAsync,
     updateExam: updateExamMutation.mutateAsync,
     deleteExam: deleteExamMutation.mutateAsync,

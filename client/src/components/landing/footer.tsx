@@ -27,22 +27,22 @@ export function Footer() {
             <h3 className="font-semibold text-foreground mb-4">Product</h3>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#features" className="text-muted-foreground hover:text-primary">
                   Features
                 </a>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#pricing" className="text-muted-foreground hover:text-primary">
                   Pricing
                 </a>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#security" className="text-muted-foreground hover:text-primary">
                   Security
                 </a>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#contact" className="text-muted-foreground hover:text-primary">
                   Contact
                 </a>
               </li>
@@ -52,17 +52,17 @@ export function Footer() {
             <h3 className="font-semibold text-foreground mb-4">Company</h3>
             <ul className="space-y-2">
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#about" className="text-muted-foreground hover:text-primary">
                   About Us
                 </a>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#blog" className="text-muted-foreground hover:text-primary">
                   Blog
                 </a>
               </li>
               <li>
-                <a href="#" className="text-muted-foreground hover:text-primary">
+                <a href="#careers" className="text-muted-foreground hover:text-primary">
                   Careers
                 </a>
               </li>
@@ -73,13 +73,13 @@ export function Footer() {
               Connect With Us
             </h3>
             <div className="flex space-x-4">
-              <a href="#" className="text-muted-foreground hover:text-primary">
+              <a href="https://twitter.com/edumanage" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
                 <Twitter />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary">
+              <a href="https://linkedin.com/company/edumanage" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
                 <Linkedin />
               </a>
-              <a href="#" className="text-muted-foreground hover:text-primary">
+              <a href="https://facebook.com/edumanage" target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary">
                 <Facebook />
               </a>
             </div>

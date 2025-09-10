@@ -16,6 +16,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -33,9 +34,9 @@ const teacherFormSchema = z.object({
   lastName: z.string(),
   email: z.string().email().optional(),
   phone: z.string().optional(),
-  subjects: z.array(z.string()).optional(),
+  subjects: z.string().optional(),
   qualification: z.string().optional(),
-  experience: z.number().optional(),
+  experience: z.string().optional(),
   status: z.string(),
 });
 
@@ -59,23 +60,27 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
       lastName: teacher?.lastName || "",
       email: teacher?.email || "",
       phone: teacher?.phone || "",
-      subjects: teacher?.subjects || [],
+      subjects: teacher?.subjects?.join(', ') || "",
       qualification: teacher?.qualification || "",
-      experience: teacher?.experience || 0,
+      experience: teacher?.experience?.toString() || "",
       status: teacher?.status || "active",
     },
   });
 
   const onSubmit = async (data: TeacherFormData) => {
     try {
+      const subjectsArray = data.subjects?.split(',').map(s => s.trim());
+      const experienceNumber = data.experience ? parseInt(data.experience, 10) : undefined;
+      const teacherData = { ...data, subjects: subjectsArray, experience: experienceNumber };
+
       if (teacher) {
-        await updateTeacher({ teacherId: teacher.$id, teacherData: data });
+        await updateTeacher({ teacherId: teacher.$id, teacherData });
         toast({
           title: "Success",
           description: "Teacher updated successfully",
         });
       } else {
-        await createTeacher(data);
+        await createTeacher(teacherData);
         toast({
           title: "Success",
           description: "Teacher created successfully",
@@ -100,22 +105,25 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
             {teacher ? "Edit Teacher" : "Add New Teacher"}
           </DialogTitle>
         </DialogHeader>
-
+        
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="employeeId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Employee ID</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="employeeId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Employee ID</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -130,6 +138,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
                 name="lastName"
@@ -144,6 +153,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                 )}
               />
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -158,6 +168,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
                 name="phone"
@@ -172,6 +183,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                 )}
               />
             </div>
+
             <FormField
               control={form.control}
               name="subjects"
@@ -179,12 +191,13 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                 <FormItem>
                   <FormLabel>Subjects (comma-separated)</FormLabel>
                   <FormControl>
-                    <Input {...field} onChange={e => field.onChange(e.target.value.split(','))} />
+                    <Input {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -199,6 +212,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                   </FormItem>
                 )}
               />
+              
               <FormField
                 control={form.control}
                 name="experience"
@@ -206,13 +220,14 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                   <FormItem>
                     <FormLabel>Experience (years)</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} onChange={e => field.onChange(parseInt(e.target.value))} />
+                      <Input type="number" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
             </div>
+
             <FormField
               control={form.control}
               name="status"
@@ -234,15 +249,18 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                 </FormItem>
               )}
             />
+
             <div className="flex justify-end space-x-2">
-              <Button
-                type="button"
-                variant="outline"
+              <Button 
+                type="button" 
+                variant="outline" 
                 onClick={() => onOpenChange(false)}
               >
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button 
+                type="submit" 
+              >
                 {teacher ? "Update Teacher" : "Create Teacher"}
               </Button>
             </div>

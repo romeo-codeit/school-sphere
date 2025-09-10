@@ -16,6 +16,17 @@ export function useStudents() {
     },
   });
 
+  const useStudent = (studentId: string) => {
+    return useQuery({
+      queryKey: ['students', studentId],
+      queryFn: async () => {
+        if (!studentId) return null;
+        return await databases.getDocument(DATABASE_ID, STUDENTS_COLLECTION_ID, studentId);
+      },
+      enabled: !!studentId,
+    });
+  };
+
   const createStudentMutation = useMutation({
     mutationFn: async (studentData: any) => {
       return await databases.createDocument(
@@ -39,8 +50,9 @@ export function useStudents() {
         studentData
       );
     },
-    onSuccess: () => {
+    onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['students', studentId] });
     },
   });
 
@@ -61,6 +73,7 @@ export function useStudents() {
     students,
     isLoading,
     error,
+    useStudent,
     createStudent: createStudentMutation.mutateAsync,
     updateStudent: updateStudentMutation.mutateAsync,
     deleteStudent: deleteStudentMutation.mutateAsync,

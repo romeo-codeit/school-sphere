@@ -128,7 +128,7 @@ interface SidebarProps {
   setIsCollapsed: (isCollapsed: boolean) => void;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const { role } = useRole();
   const { logout } = useAuth();

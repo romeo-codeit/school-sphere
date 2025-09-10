@@ -22,11 +22,18 @@ export default function Landing() {
                 <h1 className="text-xl font-bold text-foreground">EduManage</h1>
               </div>
             </div>
-            <Link href="/login">
-              <Button asChild className="bg-primary hover:bg-primary/90">
-                <a>Sign In</a>
-              </Button>
-            </Link>
+                        <div className="flex items-center space-x-4">
+              <Link href="/login">
+                <Button asChild variant="ghost">
+                  <a>Sign In</a>
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button asChild className="bg-primary hover:bg-primary/90">
+                  <a>Sign Up</a>
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>

@@ -10,14 +10,17 @@ import Landing from "@/pages/landing";
 import LoginPage from "@/pages/login";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
+import StudentProfile from "@/pages/student-profile";
+import Teachers from "@/pages/teachers";
+import TeacherProfile from "@/pages/teacher-profile";
 import Exams from "@/pages/exams";
+import ExamTaking from "@/pages/exam-taking";
 import Payments from "@/pages/payments";
 import Messages from "@/pages/messages";
 import Resources from "@/pages/resources";
 import Settings from "@/pages/settings";
 import VideoConferencing from "@/pages/video-conferencing";
 import Communications from "@/pages/communications";
-import Teachers from "@/pages/teachers";
 import Attendance from "@/pages/attendance";
 import Progress from "@/pages/progress";
 import { useState } from "react";
@@ -75,7 +78,11 @@ function Router() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/students" component={Students} />
+          <Route path="/students/:id" component={StudentProfile} />
+          <Route path="/teachers" component={Teachers} />
+          <Route path="/teachers/:id" component={TeacherProfile} />
           <Route path="/exams" component={Exams} />
+          <Route path="/exams/:id/take" component={ExamTaking} />
           <Route path="/progress" component={Progress} />
           <Route path="/payments" component={Payments} />
           <Route path="/messages" component={Messages} />
@@ -83,7 +90,6 @@ function Router() {
           <Route path="/settings" component={Settings} />
           <Route path="/video-conferencing" component={VideoConferencing} />
           <Route path="/communications" component={Communications} />
-          <Route path="/teachers" component={Teachers} />
           <Route path="/attendance" component={Attendance} />
           <Route component={NotFound} />
         </Switch>

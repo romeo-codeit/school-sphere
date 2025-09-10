@@ -30,10 +30,40 @@ export function useMessages() {
     },
   });
 
+  const updateMessageMutation = useMutation({
+    mutationFn: async ({ id, ...messageData }: { id: string; [key: string]: any }) => {
+      return await databases.updateDocument(
+        DATABASE_ID,
+        MESSAGES_COLLECTION_ID,
+        id,
+        messageData
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+
+  const deleteMessageMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await databases.deleteDocument(
+        DATABASE_ID,
+        MESSAGES_COLLECTION_ID,
+        id
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['messages'] });
+    },
+  });
+
   return {
     messages,
     isLoading,
     error,
     createMessage: createMessageMutation.mutateAsync,
+    updateMessage: updateMessageMutation.mutateAsync,
+    deleteMessage: deleteMessageMutation.mutateAsync,
   };
+}
 }

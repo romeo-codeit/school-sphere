@@ -30,10 +30,40 @@ export function useResources() {
     },
   });
 
+  const updateResourceMutation = useMutation({
+    mutationFn: async ({ id, ...resourceData }: { id: string; [key: string]: any }) => {
+      return await databases.updateDocument(
+        DATABASE_ID,
+        RESOURCES_COLLECTION_ID,
+        id,
+        resourceData
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    },
+  });
+
+  const deleteResourceMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await databases.deleteDocument(
+        DATABASE_ID,
+        RESOURCES_COLLECTION_ID,
+        id
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['resources'] });
+    },
+  });
+
   return {
     resources,
     isLoading,
     error,
     createResource: createResourceMutation.mutateAsync,
+    updateResource: updateResourceMutation.mutateAsync,
+    deleteResource: deleteResourceMutation.mutateAsync,
   };
+}
 }

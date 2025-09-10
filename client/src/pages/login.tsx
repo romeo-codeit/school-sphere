@@ -45,7 +45,12 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -58,6 +63,12 @@ export default function LoginPage() {
             <Button type="submit" className="w-full">
               Sign In
             </Button>
+            <p className="text-center text-sm text-muted-foreground">
+              Don't have an account?{" "}
+              <Link href="/signup" className="text-primary hover:underline">
+                Sign Up
+              </Link>
+            </p>
           </form>
         </CardContent>
       </Card>

@@ -23,6 +23,15 @@ import { useRole } from "@/hooks/useRole";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useStudents } from "@/hooks/useStudents";
 import { useResources } from "@/hooks/useResources";
+import { usePayments } from "@/hooks/usePayments";
+import { useExams } from "@/hooks/useExams";
+import { useAttendance } from "@/hooks/useAttendance";
+import { useState } from "react";
+import { useLocation } from "wouter";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { StudentForm } from "@/components/student-form";
+import { UploadExamForm } from "@/components/upload-exam-form";
+import { SendAnnouncementForm } from "@/components/send-announcement-form";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -30,9 +39,58 @@ export default function Dashboard() {
   const { stats, isLoading: statsLoading } = useDashboard();
   const { students, isLoading: studentsLoading } = useStudents();
   const { resources } = useResources();
+  const { payments, isLoading: paymentsLoading } = usePayments();
+  const { exams, isLoading: examsLoading } = useExams();
+  const { attendanceData, isLoading: attendanceLoading } = useAttendance();
+
+  const [isStudentFormOpen, setIsStudentFormOpen] = useState(false);
+  const [isUploadExamFormOpen, setIsUploadExamFormOpen] = useState(false);
+  const [isSendAnnouncementFormOpen, setIsSendAnnouncementFormOpen] = useState(false);
+
+  const [location, setLocation] = useLocation();
 
   const recentStudents = students?.slice(0, 3) || [];
   const featuredResources = resources?.slice(0, 4) || [];
+
+  const [chartData, setChartData] = useState([]);
+
+  useEffect(() => {
+    if (attendanceData) {
+      const dailyAttendance: { [key: string]: { present: number; absent: number } } = {};
+
+      attendanceData.forEach((record: any) => {
+        const date = new Date(record.date); // Assuming 'date' field exists in attendance record
+        const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
+
+        if (!dailyAttendance[dayOfWeek]) {
+          dailyAttendance[dayOfWeek] = { present: 0, absent: 0 };
+        }
+
+        if (record.status === 'present') { // Assuming 'status' field exists with 'present' or 'absent'
+          dailyAttendance[dayOfWeek].present++;
+        } else if (record.status === 'absent') {
+          dailyAttendance[dayOfWeek].absent++;
+        }
+      });
+
+      const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      const formattedChartData = daysOrder.map(day => ({
+        name: day,
+        present: dailyAttendance[day]?.present || 0,
+        absent: dailyAttendance[day]?.absent || 0,
+      }));
+
+      setChartData(formattedChartData);
+    }
+  }, [attendanceData]);
+
+  const totalPaidStudents = payments?.filter((p: any) => p.status === 'paid').length || 0;
+  const totalPendingPayments = payments?.filter((p: any) => p.status === 'pending').length || 0;
+  const totalOverduePayments = payments?.filter((p: any) => p.status === 'overdue').length || 0;
+
+  const jambQuestions = exams?.filter((e: any) => e.type === 'JAMB').length || 0;
+  const waecQuestions = exams?.filter((e: any) => e.type === 'WAEC').length || 0;
+  const necoQuestions = exams?.filter((e: any) => e.type === 'NECO').length || 0;
 
   const recentActivities = [
     {
@@ -203,6 +261,7 @@ export default function Dashboard() {
               <CardContent className="space-y-3">
                 <Button 
                   className="w-full justify-start bg-primary hover:bg-primary/90"
+                  onClick={() => setIsStudentFormOpen(true)}
                   data-testid="button-add-student"
                 >
                   <UserPlus className="w-4 h-4 mr-2" />
@@ -211,6 +270,7 @@ export default function Dashboard() {
                 
                 <Button 
                   className="w-full justify-start bg-secondary hover:bg-secondary/90"
+                  onClick={() => setIsUploadExamFormOpen(true)}
                   data-testid="button-upload-exam"
                 >
                   <Upload className="w-4 h-4 mr-2" />
@@ -219,6 +279,7 @@ export default function Dashboard() {
                 
                 <Button 
                   className="w-full justify-start bg-accent hover:bg-accent/90"
+                  onClick={() => setIsSendAnnouncementFormOpen(true)}
                   data-testid="button-send-announcement"
                 >
                   <Megaphone className="w-4 h-4 mr-2" />
@@ -229,6 +290,7 @@ export default function Dashboard() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-generate-report"
+                  onClick={() => navigate('/progress')}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Generate Report
@@ -264,7 +326,7 @@ export default function Dashboard() {
 
         {/* Additional Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          {/* Attendance Chart Placeholder */}
+          {/* Attendance Chart */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
@@ -277,13 +339,20 @@ export default function Dashboard() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="h-64 bg-muted rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">Attendance Chart</p>
-                  <p className="text-sm text-muted-foreground">Chart implementation needed</p>
-                </div>
-              </div>
+              {attendanceLoading ? (
+                <div className="text-center py-8">Loading attendance data...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="present" fill="#8884d8" name="Present" />
+                    <Bar dataKey="absent" fill="#82ca9d" name="Absent" />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </CardContent>
           </Card>
 
@@ -298,7 +367,7 @@ export default function Dashboard() {
                   <div className="w-3 h-3 bg-secondary rounded-full"></div>
                   <span className="font-medium text-foreground">Paid Students</span>
                 </div>
-                <span className="font-bold text-foreground" data-testid="text-paid-students">1,124</span>
+                <span className="font-bold text-foreground" data-testid="text-paid-students">{totalPaidStudents}</span>
               </div>
               
               <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg">
@@ -306,7 +375,7 @@ export default function Dashboard() {
                   <div className="w-3 h-3 bg-accent rounded-full"></div>
                   <span className="font-medium text-foreground">Pending Payments</span>
                 </div>
-                <span className="font-bold text-foreground" data-testid="text-pending-payments">89</span>
+                <span className="font-bold text-foreground" data-testid="text-pending-payments">{totalPendingPayments}</span>
               </div>
               
               <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-lg">
@@ -314,13 +383,14 @@ export default function Dashboard() {
                   <div className="w-3 h-3 bg-destructive rounded-full"></div>
                   <span className="font-medium text-foreground">Overdue</span>
                 </div>
-                <span className="font-bold text-foreground" data-testid="text-overdue-payments">34</span>
+                <span className="font-bold text-foreground" data-testid="text-overdue-payments">{totalOverduePayments}</span>
               </div>
               
               <div className="pt-4 border-t border-border">
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90"
                   data-testid="button-view-payment-details"
+                  onClick={() => navigate('/payments')}
                 >
                   View Payment Details
                 </Button>
@@ -334,7 +404,12 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Exam Module</CardTitle>
-              <Button variant="outline" size="sm" data-testid="button-manage-exams">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                data-testid="button-manage-exams"
+                onClick={() => navigate('/exams')}
+              >
                 Manage Exams
               </Button>
             </div>
@@ -347,7 +422,7 @@ export default function Dashboard() {
                 </div>
                 <h4 className="font-semibold text-foreground mb-2">JAMB Questions</h4>
                 <p className="text-muted-foreground text-sm mb-4">Practice questions for JAMB preparation</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-jamb-count">2,456</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-jamb-count">{jambQuestions}</p>
                 <p className="text-sm text-muted-foreground">Available Questions</p>
               </div>
               
@@ -357,7 +432,7 @@ export default function Dashboard() {
                 </div>
                 <h4 className="font-semibold text-foreground mb-2">WAEC Questions</h4>
                 <p className="text-muted-foreground text-sm mb-4">West African Examination Council prep</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-waec-count">1,834</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-waec-count">{waecQuestions}</p>
                 <p className="text-sm text-muted-foreground">Available Questions</p>
               </div>
               
@@ -367,7 +442,7 @@ export default function Dashboard() {
                 </div>
                 <h4 className="font-semibold text-foreground mb-2">NECO Questions</h4>
                 <p className="text-muted-foreground text-sm mb-4">National Examination Council questions</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-neco-count">1,567</p>
+                <p className="text-2xl font-bold text-foreground" data-testid="text-neco-count">{necoQuestions}</p>
                 <p className="text-sm text-muted-foreground">Available Questions</p>
               </div>
             </div>
@@ -379,7 +454,12 @@ export default function Dashboard() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Resource Library</CardTitle>
-              <Button variant="outline" size="sm" data-testid="button-browse-resources">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                data-testid="button-browse-resources"
+                onClick={() => navigate('/resources')}
+              >
                 Browse All
               </Button>
             </div>
@@ -419,6 +499,21 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <StudentForm
+        open={isStudentFormOpen}
+        onOpenChange={setIsStudentFormOpen}
+      />
+
+      <UploadExamForm
+        open={isUploadExamFormOpen}
+        onOpenChange={setIsUploadExamFormOpen}
+      />
+
+      <SendAnnouncementForm
+        open={isSendAnnouncementFormOpen}
+        onOpenChange={setIsSendAnnouncementFormOpen}
+      />
     </div>
   );
 }

@@ -1,41 +1,34 @@
 import { useQuery } from '@tanstack/react-query';
 import { useStudents } from './useStudents';
-import { useResources } from './useResources';
+import { useTeachers } from './useTeachers';
 import { usePayments } from './usePayments';
+import { useAttendance } from './useAttendance';
 
 export function useDashboard() {
-  const { students } = useStudents();
-  const { resources } = useResources();
-  const { payments } = usePayments();
+  const { students, isLoading: isLoadingStudents } = useStudents();
+  const { teachers, isLoading: isLoadingTeachers } = useTeachers();
+  const { payments, isLoading: isLoadingPayments } = usePayments();
+  const { attendance, isLoading: isLoadingAttendance } = useAttendance();
 
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['dashboardStats', students, resources, payments],
-    queryFn: () => {
-      // TODO: This is a client-side calculation. For better performance,
-      // this should be moved to an Appwrite Function.
-      const totalStudents = students?.length || 0;
-      const totalResources = resources?.length || 0;
-      const totalPayments = payments?.length || 0;
-      const pendingPayments = payments?.filter((p: any) => p.status === 'pending').length || 0;
+  const isLoading = isLoadingStudents || isLoadingTeachers || isLoadingPayments || isLoadingAttendance;
 
-      // These are placeholders as we don't have teacher data yet.
-      const activeTeachers = 0;
-      const averageAttendance = '0%';
+  const stats = {
+    totalStudents: students?.length || 0,
+    activeTeachers: teachers?.filter(t => t.status === 'active').length || 0,
+    pendingPayments: payments?.filter(p => p.status === 'pending').reduce((sum, p) => sum + parseFloat(p.amount.toString()), 0) || 0,
+    averageAttendance: 0, // Will calculate below
+  };
 
-      return {
-        totalStudents,
-        totalResources,
-        totalPayments,
-        pendingPayments,
-        activeTeachers,
-        averageAttendance,
-      };
-    },
-    enabled: !!students && !!resources && !!payments,
-  });
+  // Calculate average attendance
+  if (attendance && students && students.length > 0) {
+    const totalMarkedRecords = attendance.filter(a => a.status === 'present' || a.status === 'absent').length;
+    const presentRecords = attendance.filter(a => a.status === 'present').length;
+    stats.averageAttendance = totalMarkedRecords > 0 ? (presentRecords / totalMarkedRecords) * 100 : 0;
+  }
 
   return {
     stats,
     isLoading,
+    error: null, // Handle errors from individual hooks if needed
   };
 }

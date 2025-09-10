@@ -15,12 +15,13 @@ import {
 } from "@/components/ui/table";
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
 import { useExams } from "@/hooks/useExams";
+import { useLocation } from "wouter";
 
 export default function Exams() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
-
   const { exams, isLoading } = useExams();
+  const [, setLocation] = useLocation();
 
   const filteredExams = exams?.filter((exam: any) => {
     const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -34,6 +35,10 @@ export default function Exams() {
     waec: exams?.filter((e: any) => e.type === "waec").length || 0,
     neco: exams?.filter((e: any) => e.type === "neco").length || 0,
     internal: exams?.filter((e: any) => e.type === "internal").length || 0,
+  };
+
+  const handleStartExam = (examId: string) => {
+    setLocation(`/exams/${examId}/take`);
   };
 
   return (
@@ -215,6 +220,7 @@ export default function Exams() {
                             </Button>
                             <Button 
                               size="sm"
+                              onClick={() => handleStartExam(exam.$id)}
                               data-testid={`button-start-exam-${exam.$id}`}
                             >
                               <Play className="w-4 h-4 mr-1" />

@@ -19,19 +19,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { AdminOnly } from "@/components/RoleGuard";
 import { useStudents } from "@/hooks/useStudents";
+import { useLocation } from "wouter";
 
 export default function Students() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const { canAccess } = useRole();
   const { students, isLoading, deleteStudent } = useStudents();
+  const [, setLocation] = useLocation();
 
   const filteredStudents = students?.filter((student: any) =>
     `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -49,10 +63,19 @@ export default function Students() {
     setIsFormOpen(true);
   };
 
-  const handleDeleteStudent = async (id: string) => {
-    if (confirm("Are you sure you want to delete this student?")) {
+  const handleViewStudent = (studentId: string) => {
+    setLocation(`/students/${studentId}`);
+  };
+
+  const openDeleteDialog = (id: string) => {
+    setStudentToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (studentToDelete) {
       try {
-        await deleteStudent(id);
+        await deleteStudent(studentToDelete);
         toast({
           title: "Success",
           description: "Student deleted successfully",
@@ -64,6 +87,8 @@ export default function Students() {
           variant: "destructive",
         });
       }
+      setStudentToDelete(null);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -190,7 +215,7 @@ export default function Students() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem data-testid={`button-view-student-${student.$id}`}>
+                              <DropdownMenuItem onClick={() => handleViewStudent(student.$id)} data-testid={`button-view-student-${student.$id}`}>
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
@@ -202,7 +227,7 @@ export default function Students() {
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem 
-                                onClick={() => handleDeleteStudent(student.$id)}
+                                onClick={() => openDeleteDialog(student.$id)}
                                 className="text-destructive"
                                 data-testid={`button-delete-student-${student.$id}`}
                               >
@@ -227,6 +252,21 @@ export default function Students() {
         onOpenChange={setIsFormOpen}
         student={selectedStudent}
       />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the student record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

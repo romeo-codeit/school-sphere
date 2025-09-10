@@ -16,6 +16,17 @@ export function useTeachers() {
     },
   });
 
+  const useTeacher = (teacherId: string) => {
+    return useQuery({
+      queryKey: ['teachers', teacherId],
+      queryFn: async () => {
+        if (!teacherId) return null;
+        return await databases.getDocument(DATABASE_ID, TEACHERS_COLLECTION_ID, teacherId);
+      },
+      enabled: !!teacherId,
+    });
+  };
+
   const createTeacherMutation = useMutation({
     mutationFn: async (teacherData: any) => {
       return await databases.createDocument(
@@ -39,8 +50,9 @@ export function useTeachers() {
         teacherData
       );
     },
-    onSuccess: () => {
+    onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
+      queryClient.invalidateQueries({ queryKey: ['teachers', teacherId] });
     },
   });
 
@@ -61,6 +73,7 @@ export function useTeachers() {
     teachers,
     isLoading,
     error,
+    useTeacher,
     createTeacher: createTeacherMutation.mutateAsync,
     updateTeacher: updateTeacherMutation.mutateAsync,
     deleteTeacher: deleteTeacherMutation.mutateAsync,

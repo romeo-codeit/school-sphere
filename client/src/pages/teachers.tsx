@@ -19,19 +19,33 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserPlus, Search, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { AdminOnly } from "@/components/RoleGuard";
 import { useTeachers } from "@/hooks/useTeachers";
+import { useLocation } from "wouter";
 
 export default function Teachers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
   const { toast } = useToast();
   const { hasPermission } = useRole();
   const { teachers, isLoading, deleteTeacher } = useTeachers();
+  const [, setLocation] = useLocation();
 
   const filteredTeachers = teachers?.filter((teacher: any) =>
     `${teacher.firstName} ${teacher.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -48,10 +62,19 @@ export default function Teachers() {
     setIsFormOpen(true);
   };
 
-  const handleDeleteTeacher = async (id: string) => {
-    if (confirm("Are you sure you want to delete this teacher?")) {
+  const handleViewTeacher = (teacherId: string) => {
+    setLocation(`/teachers/${teacherId}`);
+  };
+
+  const openDeleteDialog = (id: string) => {
+    setTeacherToDelete(id);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (teacherToDelete) {
       try {
-        await deleteTeacher(id);
+        await deleteTeacher(teacherToDelete);
         toast({
           title: "Success",
           description: "Teacher deleted successfully",
@@ -63,6 +86,8 @@ export default function Teachers() {
           variant: "destructive",
         });
       }
+      setTeacherToDelete(null);
+      setIsDeleteDialogOpen(false);
     }
   };
 
@@ -142,11 +167,15 @@ export default function Teachers() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleViewTeacher(teacher.$id)}>
+                                <Eye className="mr-2 h-4 w-4" />
+                                View Details
+                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => handleEditTeacher(teacher)}>
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDeleteTeacher(teacher.$id)} className="text-destructive">
+                              <DropdownMenuItem onClick={() => openDeleteDialog(teacher.$id)} className="text-destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
                               </DropdownMenuItem>
@@ -168,6 +197,21 @@ export default function Teachers() {
         onOpenChange={setIsFormOpen}
         teacher={selectedTeacher}
       />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the teacher record.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>Continue</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
