@@ -12,6 +12,9 @@ export interface RolePermissions {
   settings: string[];
   attendance: string[];
   grades: string[];
+  videoConferencing: string[];
+  forum: string[];
+  chat: string[];
 }
 
 const permissions: Record<UserRole, RolePermissions> = {
@@ -24,7 +27,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["create", "read", "update", "delete"],
     settings: ["create", "read", "update", "delete"],
     attendance: ["create", "read", "update", "delete"],
-    grades: ["create", "read", "update", "delete"]
+    grades: ["create", "read", "update", "delete"],
+    videoConferencing: ["create", "read", "update", "delete"],
+    forum: ["create", "read", "update", "delete"],
+    chat: ["create", "read", "update", "delete"],
   },
   teacher: {
     students: ["read", "update"],
@@ -35,7 +41,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["create", "read", "update"],
     settings: ["read"],
     attendance: ["create", "read", "update"],
-    grades: ["create", "read", "update"]
+    grades: ["create", "read", "update"],
+    videoConferencing: ["create", "read"],
+    forum: ["create", "read", "update"],
+    chat: ["create", "read", "update"],
   },
   student: {
     students: ["read"],
@@ -46,7 +55,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["read"],
     settings: ["read"],
     attendance: ["read"],
-    grades: ["read"]
+    grades: ["read"],
+    videoConferencing: ["read"],
+    forum: ["create", "read"], // Can reply (create) and read
+    chat: ["create", "read"],
   },
   parent: {
     students: ["read"],
@@ -57,7 +69,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["read"],
     settings: ["read"],
     attendance: ["read"],
-    grades: ["read"]
+    grades: ["read"],
+    videoConferencing: ["read"],
+    forum: ["read"], // Can only read
+    chat: ["create", "read"],
   }
 };
 

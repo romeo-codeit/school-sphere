@@ -158,6 +158,37 @@ const collections = [
         { id: 'remarks', type: 'string', size: 10000, required: false },
     ]
   },
+  {
+    id: 'videoMeetings',
+    name: 'Video Meetings',
+    attributes: [
+        { id: 'topic', type: 'string', size: 255, required: true },
+        { id: 'description', type: 'string', size: 10000, required: false },
+        { id: 'roomId', type: 'string', size: 255, required: true },
+        { id: 'createdBy', type: 'string', size: 255, required: true },
+        { id: 'allowedRoles', type: 'string', size: 50, required: false, array: true },
+    ]
+  },
+  {
+    id: 'chatMessages',
+    name: 'Chat Messages',
+    attributes: [
+        { id: 'conversationId', type: 'string', size: 255, required: true },
+        { id: 'senderId', type: 'string', size: 255, required: true },
+        { id: 'content', type: 'string', size: 10000, required: true },
+        { id: 'readBy', type: 'string', size: 255, required: false, array: true },
+    ]
+  },
+  {
+    id: 'forumThreads',
+    name: 'Forum Threads',
+    attributes: [
+        { id: 'title', type: 'string', size: 255, required: false }, // Not required for replies
+        { id: 'content', type: 'string', size: 10000, required: true },
+        { id: 'createdBy', type: 'string', size: 255, required: true },
+        { id: 'parentThreadId', type: 'string', size: 255, required: false }, // For replies
+    ]
+  },
 ];
 
 async function createDatabaseIfNotExists() {

@@ -7,7 +7,8 @@ import {
   TrendingUp, 
   CreditCard, 
   MessageSquare, 
-  BookOpen, 
+  BookOpen,
+  Video,
   Settings, 
   LogOut,
   GraduationCap,
@@ -80,17 +81,22 @@ const getNavigationItems = (role: string | null) => {
   ];
 
   const communicationItems = [
-    { 
-      name: "Messages", 
-      href: "/messages", 
+    {
+      name: "Video Conferencing",
+      href: "/video-conferencing",
+      icon: Video,
+      roles: ["admin", "teacher", "student", "parent"],
+    },
+    {
+      name: "Communications",
+      href: "/communications",
       icon: MessageSquare,
-      badge: 3,
       roles: ["admin", "teacher", "student", "parent"],
       exact: false
     },
-    { 
-      name: "Resources", 
-      href: "/resources", 
+    {
+      name: "Resources",
+      href: "/resources",
       icon: BookOpen,
       roles: ["admin", "teacher", "student", "parent"]
     },
