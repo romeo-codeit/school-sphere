@@ -147,7 +147,7 @@ export function Sidebar({ className }: SidebarProps) {
   };
 
   return (
-    <aside className={cn("w-64 bg-card shadow-lg border-r border-border", className)}>
+    <aside className={cn("w-64 bg-card shadow-lg border-r border-border flex flex-col h-full", className)}>
       <div className="p-6">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
@@ -160,7 +160,7 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </div>
       
-      <nav className="px-4 pb-4">
+      <nav className="px-4 pb-4 flex-1 overflow-y-auto">
         <div className="space-y-2">
           {navigationItems.map((item) => (
             <Link 

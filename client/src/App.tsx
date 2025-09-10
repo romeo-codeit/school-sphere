@@ -15,6 +15,8 @@ import Payments from "@/pages/payments";
 import Messages from "@/pages/messages";
 import Resources from "@/pages/resources";
 import Settings from "@/pages/settings";
+import VideoConferencing from "@/pages/video-conferencing";
+import Communications from "@/pages/communications";
 import { useState } from "react";
 
 function Router() {
@@ -32,7 +34,7 @@ function Router() {
   }
 
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="h-screen flex bg-background">
       {/* Desktop Sidebar */}
       <Sidebar className="hidden lg:block" />
       
@@ -64,6 +66,8 @@ function Router() {
           <Route path="/messages" component={Messages} />
           <Route path="/resources" component={Resources} />
           <Route path="/settings" component={Settings} />
+          <Route path="/video-conferencing" component={VideoConferencing} />
+          <Route path="/communications" component={Communications} />
           <Route component={NotFound} />
         </Switch>
       </main>
