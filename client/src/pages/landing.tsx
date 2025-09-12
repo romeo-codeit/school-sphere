@@ -5,9 +5,11 @@ import { HowItWorks } from "@/components/landing/how-it-works";
 import { Footer } from "@/components/landing/footer";
 import { Button } from "@/components/ui/button";
 import { GraduationCap } from "lucide-react";
-import { Link } from "wouter";
+import { useLocation } from "wouter";
 
 export default function Landing() {
+  const [, setLocation] = useLocation();
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -22,17 +24,13 @@ export default function Landing() {
                 <h1 className="text-xl font-bold text-foreground">EduManage</h1>
               </div>
             </div>
-                        <div className="flex items-center space-x-4">
-              <Link href="/login">
-                <Button asChild variant="ghost">
-                  <a>Sign In</a>
-                </Button>
-              </Link>
-              <Link href="/signup">
-                <Button asChild className="bg-primary hover:bg-primary/90">
-                  <a>Sign Up</a>
-                </Button>
-              </Link>
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" onClick={() => setLocation('/login')}>
+                Sign In
+              </Button>
+              <Button className="bg-primary hover:bg-primary/90" onClick={() => setLocation('/signup')}>
+                Sign Up
+              </Button>
             </div>
           </div>
         </div>
@@ -54,11 +52,9 @@ export default function Landing() {
               Join hundreds of schools already using EduManage to streamline
               their operations and improve educational outcomes.
             </p>
-            <Link href="/login">
-              <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3">
-                <a>Start Now</a>
-              </Button>
-            </Link>
+            <Button size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3" onClick={() => setLocation('/login')}>
+              Start Now
+            </Button>
           </div>
         </section>
       </main>

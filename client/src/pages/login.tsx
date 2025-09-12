@@ -1,4 +1,3 @@
-
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
