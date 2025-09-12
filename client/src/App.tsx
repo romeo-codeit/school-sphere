@@ -9,6 +9,7 @@ import { Sidebar } from "@/components/sidebar";
 import NotFound from "@/pages/not-found";
 import Landing from "@/pages/landing";
 import LoginPage from "@/pages/login";
+import SignUpPage from "@/pages/signup";
 import Dashboard from "@/pages/dashboard";
 import Students from "@/pages/students";
 import StudentProfile from "@/pages/student-profile";
@@ -24,6 +25,8 @@ import VideoConferencing from "@/pages/video-conferencing";
 import Communications from "@/pages/communications";
 import Attendance from "@/pages/attendance";
 import Progress from "@/pages/progress";
+import CreateUserPage from "@/pages/create-user";
+import { RoleGuard } from "@/components/RoleGuard";
 import { useState } from "react";
 
 function Router() {
@@ -36,6 +39,7 @@ function Router() {
       <Switch>
         <Route path="/" component={Landing} />
         <Route path="/login" component={LoginPage} />
+        <Route path="/signup" component={SignUpPage} />
         <Route component={NotFound} />
       </Switch>
     );
@@ -91,6 +95,9 @@ function Router() {
           <Route path="/video-conferencing" component={VideoConferencing} />
           <Route path="/communications" component={Communications} />
           <Route path="/attendance" component={Attendance} />
+          <RoleGuard allowedRoles={["admin"]}>
+            <Route path="/create-user" component={CreateUserPage} />
+          </RoleGuard>
           <Route component={NotFound} />
         </Switch>
       </main>

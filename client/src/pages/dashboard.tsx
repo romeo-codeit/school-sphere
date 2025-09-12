@@ -286,6 +286,14 @@ export default function Dashboard() {
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Generate Report
                 </Button>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={() => setLocation('/create-user')}
+                >
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Create New User
+                </Button>
               </CardContent>
             </Card>
 

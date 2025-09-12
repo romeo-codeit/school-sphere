@@ -2,8 +2,10 @@
 > rest-express@1.0.0 dev:client
 > vite
 
+Port 5173 is in use, trying another one...
+Port 5174 is in use, trying another one...
 
-  VITE v5.4.19  ready in 494 ms
+  VITE v5.4.19  ready in 763 ms
 
-  ➜  Local:   http://localhost:5173/
+  ➜  Local:   http://localhost:5175/
   ➜  Network: use --host to expose
