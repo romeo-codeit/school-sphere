@@ -66,4 +66,3 @@ export function useResources() {
     deleteResource: deleteResourceMutation.mutateAsync,
   };
 }
-}

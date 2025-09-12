@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { TopNav } from "@/components/top-nav";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -154,7 +155,7 @@ export default function Attendance() {
 
             {isLoading ? (
               <div className="text-center py-8">Loading attendance records...</div>
-            ) : filteredAttendance.length === 0 ? (
+            ) : currentAttendancePage.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 No attendance records found.
               </div>
@@ -172,7 +173,7 @@ export default function Attendance() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredAttendance.map((record: any) => (
+                    {currentAttendancePage.map((record: any) => (
                       <TableRow key={record.$id}>
                         <TableCell>{getStudentName(record.studentId)}</TableCell>
                         <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
@@ -218,6 +219,27 @@ export default function Attendance() {
                 </Table>
               </div>
             )}
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <span className="text-sm">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -245,4 +267,3 @@ export default function Attendance() {
     </div>
   );
 }
-

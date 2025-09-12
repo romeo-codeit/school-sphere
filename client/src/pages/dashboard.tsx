@@ -26,7 +26,8 @@ import { useResources } from "@/hooks/useResources";
 import { usePayments } from "@/hooks/usePayments";
 import { useExams } from "@/hooks/useExams";
 import { useAttendance } from "@/hooks/useAttendance";
-import { useState } from "react";
+import { useActivities } from "@/hooks/useActivities";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StudentForm } from "@/components/student-form";
@@ -41,24 +42,39 @@ export default function Dashboard() {
   const { resources } = useResources();
   const { payments, isLoading: paymentsLoading } = usePayments();
   const { exams, isLoading: examsLoading } = useExams();
-  const { attendanceData, isLoading: attendanceLoading } = useAttendance();
+  const { attendance, isLoading: attendanceLoading } = useAttendance();
 
   const [isStudentFormOpen, setIsStudentFormOpen] = useState(false);
   const [isUploadExamFormOpen, setIsUploadExamFormOpen] = useState(false);
   const [isSendAnnouncementFormOpen, setIsSendAnnouncementFormOpen] = useState(false);
+  const [attendanceFilter, setAttendanceFilter] = useState('week');
 
   const [location, setLocation] = useLocation();
 
   const recentStudents = students?.slice(0, 3) || [];
   const featuredResources = resources?.slice(0, 4) || [];
 
-  const [chartData, setChartData] = useState([]);
+  const [chartData, setChartData] = useState<any[]>([]);
+
+  const handleAttendanceFilterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setAttendanceFilter(e.target.value);
+    // TODO: Implement data fetching based on filter
+    console.log("Selected attendance filter:", e.target.value);
+  };
+
+  const handleDownloadResource = (resourceId: string) => {
+    // TODO: Implement actual download logic
+    console.log(`Downloading resource ${resourceId}`);
+    // downloadResource(resourceId);
+  };
+
+  
 
   useEffect(() => {
-    if (attendanceData) {
+    if (attendance) {
       const dailyAttendance: { [key: string]: { present: number; absent: number } } = {};
 
-      attendanceData.forEach((record: any) => {
+      attendance.forEach((record: any) => {
         const date = new Date(record.date); // Assuming 'date' field exists in attendance record
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
 
@@ -82,7 +98,7 @@ export default function Dashboard() {
 
       setChartData(formattedChartData);
     }
-  }, [attendanceData]);
+  }, [attendance, attendanceFilter]);
 
   const totalPaidStudents = payments?.filter((p: any) => p.status === 'paid').length || 0;
   const totalPendingPayments = payments?.filter((p: any) => p.status === 'pending').length || 0;
@@ -92,32 +108,7 @@ export default function Dashboard() {
   const waecQuestions = exams?.filter((e: any) => e.type === 'WAEC').length || 0;
   const necoQuestions = exams?.filter((e: any) => e.type === 'NECO').length || 0;
 
-  const recentActivities = [
-    {
-      icon: UserPlus,
-      description: "New student registration completed",
-      timestamp: "2 minutes ago",
-      color: "bg-primary/10 text-primary"
-    },
-    {
-      icon: CreditCard,
-      description: "Payment received from student",
-      timestamp: "15 minutes ago",
-      color: "bg-secondary/10 text-secondary"
-    },
-    {
-      icon: FileText,
-      description: "New JAMB questions uploaded",
-      timestamp: "1 hour ago",
-      color: "bg-accent/10 text-accent"
-    },
-    {
-      icon: TriangleAlert,
-      description: "Payment overdue alert for 3 students",
-      timestamp: "2 hours ago",
-      color: "bg-destructive/10 text-destructive"
-    }
-  ];
+    const { activities: recentActivities, isLoading: activitiesLoading } = useActivities();
 
   return (
     <div className="space-y-6">
@@ -158,7 +149,7 @@ export default function Dashboard() {
             value={statsLoading ? "Loading..." : stats?.pendingPayments || "₦0"}
             icon={CreditCard}
             iconColor="bg-accent/10 text-accent"
-            subtitle="23 overdue"
+            subtitle={`${totalOverduePayments} overdue`}
           />
           
           <StatsCard
@@ -182,7 +173,7 @@ export default function Dashboard() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>Recent Students</CardTitle>
-                  <Button variant="outline" size="sm" data-testid="button-view-all-students">
+                  <Button variant="outline" size="sm" data-testid="button-view-all-students" onClick={() => setLocation('/students')}>
                     View All
                   </Button>
                 </div>
@@ -237,7 +228,7 @@ export default function Dashboard() {
                               </Badge>
                             </td>
                             <td className="py-4">
-                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`}>
+                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`} onClick={() => setLocation(`/students/${student.$id}`)}>
                                 <Eye className="w-4 h-4" />
                               </Button>
                             </td>
@@ -290,7 +281,7 @@ export default function Dashboard() {
                   variant="outline" 
                   className="w-full justify-start"
                   data-testid="button-generate-report"
-                  onClick={() => navigate('/progress')}
+                  onClick={() => setLocation('/progress')}
                 >
                   <BarChart3 className="w-4 h-4 mr-2" />
                   Generate Report
@@ -304,21 +295,25 @@ export default function Dashboard() {
                 <CardTitle>Recent Activity</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.color}`}>
-                      <activity.icon className="w-4 h-4" />
+                {activitiesLoading ? (
+                  <div className="text-center py-8">Loading activities...</div>
+                ) : (
+                  recentActivities && recentActivities.map((activity: any, index: number) => (
+                    <div key={index} className="flex items-start space-x-3">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.color}`}>
+                        <activity.icon className="w-4 h-4" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm text-foreground" data-testid={`text-activity-${index}`}>
+                          {activity.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground" data-testid={`text-activity-time-${index}`}>
+                          {activity.timestamp}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-foreground" data-testid={`text-activity-${index}`}>
-                        {activity.description}
-                      </p>
-                      <p className="text-xs text-muted-foreground" data-testid={`text-activity-time-${index}`}>
-                        {activity.timestamp}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
             </Card>
           </div>
@@ -331,7 +326,7 @@ export default function Dashboard() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Attendance Overview</CardTitle>
-                <select className="border border-border rounded-lg px-3 py-2 text-sm">
+                <select className="border border-border rounded-lg px-3 py-2 text-sm" onChange={handleAttendanceFilterChange} value={attendanceFilter}>
                   <option value="week">This Week</option>
                   <option value="month">This Month</option>
                   <option value="term">This Term</option>
@@ -340,8 +335,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               {attendanceLoading ? (
-                <div className="text-center py-8">Loading attendance data...</div>
-              ) : (
+                <div className="text-center py-8">Loading attendance data...</div>                ) : (
                 <ResponsiveContainer width="100%" height={250}>
                   <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -390,7 +384,7 @@ export default function Dashboard() {
                 <Button 
                   className="w-full bg-primary hover:bg-primary/90"
                   data-testid="button-view-payment-details"
-                  onClick={() => navigate('/payments')}
+                  onClick={() => setLocation('/payments')}
                 >
                   View Payment Details
                 </Button>
@@ -408,7 +402,7 @@ export default function Dashboard() {
                 variant="outline" 
                 size="sm" 
                 data-testid="button-manage-exams"
-                onClick={() => navigate('/exams')}
+                onClick={() => setLocation('/exams')}
               >
                 Manage Exams
               </Button>
@@ -458,7 +452,7 @@ export default function Dashboard() {
                 variant="outline" 
                 size="sm" 
                 data-testid="button-browse-resources"
-                onClick={() => navigate('/resources')}
+                onClick={() => setLocation('/resources')}
               >
                 Browse All
               </Button>
@@ -487,7 +481,7 @@ export default function Dashboard() {
                         <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.$id}`}>
                           {resource.downloads} downloads
                         </span>
-                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`}>
+                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`} onClick={() => handleDownloadResource(resource.$id)}>
                           <Download className="w-4 h-4" />
                         </Button>
                       </div>

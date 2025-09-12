@@ -66,4 +66,3 @@ export function useMessages() {
     deleteMessage: deleteMessageMutation.mutateAsync,
   };
 }
-}

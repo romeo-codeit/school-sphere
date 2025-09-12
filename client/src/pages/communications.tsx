@@ -16,6 +16,7 @@ import { AdminOrTeacher } from "@/components/RoleGuard";
 import { PlusCircle, MessageSquare, Send, ArrowLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -128,131 +129,6 @@ function NewThreadDialog() {
             </DialogContent>
         </Dialog>
     );
-}
-
-function ThreadView({ thread, onBack }: { thread: any; onBack: () => void }) {
-  const { useReplies, createReply } = useForum();
-  const { data: replies, isLoading } = useReplies(thread.$id);
-  const { user } = useAuth();
-  const [replyContent, setReplyContent] = useState("");
-  const { hasPermission } = useRole();
-
-  const handleReply = async () => {
-    if (!user || !replyContent) return;
-    await createReply({ content: replyContent, createdBy: user.$id, parentThreadId: thread.$id });
-    setReplyContent("");
-  };
-
-  return (
-    <div>
-      <Button onClick={onBack} variant="ghost" className="mb-4">
-        <ArrowLeft className="w-4 h-4 mr-2" /> Back to Threads
-      </Button>
-      <Card>
-        <CardHeader>
-          <CardTitle>{thread.title}</CardTitle>
-          <CardDescription>{thread.content}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {isLoading ? <p>Loading replies...</p> : replies?.map((reply: any) => (
-              <div key={reply.$id} className="p-3 rounded-md border">
-                {reply.content}
-              </div>
-            ))}
-          </div>
-          {hasPermission("forum", "create") && (
-            <div className="mt-6">
-              <Textarea value={replyContent} onChange={e => setReplyContent(e.target.value)} placeholder="Write a reply..." />
-              <Button onClick={handleReply} className="mt-2">Post Reply</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
-
-// Chat Components
-function ChatView() {
-    // For simplicity, we'll use a hardcoded conversation ID.
-    // A real app would have a way to select conversations.
-    const conversationId = "general-chat";
-    const { messages, isLoadingMessages, sendMessage } = useChat(conversationId);
-    const { user } = useAuth();
-    const [message, setMessage] = useState("");
-
-    const handleSend = async () => {
-        if (!user || !message) return;
-        await sendMessage({ content: message, senderId: user.$id, conversationId });
-        setMessage("");
-    };
-
-    return (
-        <Card className="h-[70vh] flex flex-col">
-            <CardHeader>
-                <CardTitle>General Chat</CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto">
-                {isLoadingMessages ? <p>Loading...</p> : messages?.map((msg: any) => (
-                    <div key={msg.$id} className="flex items-start space-x-3 my-2">
-                        <Avatar>
-                            <AvatarFallback>{msg.senderId.slice(0,2)}</AvatarFallback>
-                        </Avatar>
-                        <div>
-                            <p className="font-bold">{msg.senderId}</p>
-                            <p>{msg.content}</p>
-                        </div>
-                    </div>
-                ))}
-            </CardContent>
-            <div className="p-4 border-t">
-                <div className="flex space-x-2">
-                    <Input value={message} onChange={e => setMessage(e.target.value)} placeholder="Type a message..." onKeyDown={e => e.key === 'Enter' && handleSend()} />
-                    <Button onClick={handleSend}><Send className="w-4 h-4" /></Button>
-                </div>
-            </div>
-        </Card>
-    );
-}
-
-
-export default function Communications() {
-  const [selectedThread, setSelectedThread] = useState<any | null>(null);
-
-  return (
-    <div className="space-y-6">
-      <TopNav
-        title="Communications"
-        subtitle="Engage in discussions and chats"
-      />
-      <div className="p-6">
-        <Tabs defaultValue="forum">
-          <TabsList>
-            <TabsTrigger value="forum">
-              <MessageSquare className="w-4 h-4 mr-2" /> Forum
-            </TabsTrigger>
-            <TabsTrigger value="chat">
-              <Send className="w-4 h-4 mr-2" /> Chat
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="forum" className="mt-6">
-            {selectedThread ? (
-              <ThreadView
-                thread={selectedThread}
-                onBack={() => setSelectedThread(null)}
-              />
-            ) : (
-              <ForumList onSelectThread={setSelectedThread} />
-            )}
-          </TabsContent>
-          <TabsContent value="chat" className="mt-6">
-            <ChatView />
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
 }
 
 function ThreadView({ thread, onBack }: { thread: any; onBack: () => void }) {

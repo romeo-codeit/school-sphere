@@ -145,7 +145,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
 
   const handleLogout = async () => {
     await logout();
-    setLocation('/landing');
+    setLocation('/');
   };
 
   return (

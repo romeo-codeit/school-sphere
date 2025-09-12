@@ -17,7 +17,7 @@ export default function NotFound() {
             The page you are looking for does not exist.
           </p>
           <div className="mt-6 text-center">
-            <Link href="/dashboard">
+            <Link href="/">
               <Button>Go to Dashboard</Button>
             </Link>
           </div>

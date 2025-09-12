@@ -1,5 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
+import { Menu, X } from "lucide-react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -53,17 +54,14 @@ function Router() {
       {sidebarOpen && (
         <div className="fixed inset-0 bg-foreground/50 backdrop-blur-sm z-50 lg:hidden">
           <div className="fixed left-0 top-0 h-full w-64 transform transition-transform duration-300">
-            <Sidebar
-              isCollapsed={false}
-              setIsCollapsed={() => {}}
-            />
+            <Sidebar isCollapsed={false} setIsCollapsed={() => setSidebarOpen(false)} />
             <button
               className="absolute top-4 right-4 p-2 rounded-lg hover:bg-muted z-10"
               onClick={() => setSidebarOpen(false)}
               data-testid="button-close-mobile-nav"
             >
               <span className="sr-only">Close sidebar</span>
-              ✕
+              <X className="h-6 w-6" />
             </button>
           </div>
         </div>
@@ -71,9 +69,11 @@ function Router() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-auto">
-        {/* Add a button to toggle mobile sidebar */}
-        <div className="lg:hidden p-4">
-          <button onClick={() => setSidebarOpen(true)}>Open Menu</button>
+        {/* Mobile Header */}
+        <div className="lg:hidden p-4 sticky top-0 bg-background z-10 border-b">
+          <button onClick={() => setSidebarOpen(true)}>
+            <Menu className="h-6 w-6" />
+          </button>
         </div>
         <Switch>
           <Route path="/" component={Dashboard} />
