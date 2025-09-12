@@ -47,6 +47,14 @@ export function useAuth() {
 
   const userRole = user?.prefs?.role || null;
 
+  const createUserByAdminMutation = useMutation({
+    mutationFn: async ({ email, password, name, role }) => {
+      // This function does NOT log in the new user, so it's safe for an admin to call.
+      const newUser = await account.create(ID.unique(), email, password, name);
+      await account.updatePrefs(newUser.$id, { role });
+    },
+  });
+
   return {
     user,
     isLoading,
@@ -55,5 +63,6 @@ export function useAuth() {
     login: loginMutation.mutateAsync,
     logout: logoutMutation.mutateAsync,
     register: registerMutation.mutateAsync,
+    createUserByAdmin: createUserByAdminMutation.mutateAsync,
   };
 }

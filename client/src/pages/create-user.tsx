@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function CreateUserPage() {
-  const { register } = useAuth();
+  const { createUserByAdmin } = useAuth();
   const { toast } = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -22,7 +22,7 @@ export default function CreateUserPage() {
     setError(null);
     setSuccess(null);
     try {
-      await register({ email, password, name, role });
+      await createUserByAdmin({ email, password, name, role });
       setSuccess(`User ${email} with role ${role} created successfully!`);
       toast({
         title: "Success",
