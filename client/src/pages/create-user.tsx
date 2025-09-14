@@ -34,7 +34,11 @@ export default function CreateUserPage() {
       setName("");
       setRole("student");
     } catch (err: any) {
-      setError(err.message || "Failed to create user.");
+        if (err.code === 409) {
+            setError("User with this email already exists.");
+        } else {
+            setError(err.message || "Failed to create user.");
+        }
     }
   };
 

@@ -36,12 +36,20 @@ export function useAuth() {
       await account.create(ID.unique(), email, password, name);
       // Log in the user after registration
       await account.createEmailPasswordSession(email, password);
-
       // After creating the user, we need to update their prefs to store the role.
-      // Appwrite's built-in roles are not sufficient for our needs.
       await account.updatePrefs({ role });
-
       queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+  });
+
+  const createUserByAdminMutation = useMutation({
+    mutationFn: async ({ email, password, name, role }) => {
+      // This function does NOT log in the new user, so it's safe for an admin to call.
+      const newUser = await account.create(ID.unique(), email, password, name);
+      await account.updatePrefs(newUser.$id, { role });
+    },
+    onSuccess: () => {
+        // We don't need to invalidate user queries here, as the admin's session is unchanged.
     },
   });
 
