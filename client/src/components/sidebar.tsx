@@ -37,13 +37,17 @@ const getNavigationItems = (role: string | null) => {
       name: "Students", 
       href: "/students", 
       icon: Users,
-      roles: ["admin", "teacher"]
+      roles: ["admin", "teacher"],
+      exact: false,
+      badge: undefined
     },
     { 
       name: "Teachers", 
       href: "/teachers", 
       icon: UserCheck,
-      roles: ["admin"]
+      roles: ["admin"],
+      exact: false,
+      badge: undefined
     },
   ];
 
@@ -52,7 +56,9 @@ const getNavigationItems = (role: string | null) => {
       name: "Exams", 
       href: "/exams", 
       icon: FileText,
-      roles: ["admin", "teacher", "student", "parent"]
+      roles: ["admin", "teacher", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
   ];
 
@@ -61,13 +67,17 @@ const getNavigationItems = (role: string | null) => {
       name: "Progress", 
       href: "/progress", 
       icon: TrendingUp,
-      roles: ["admin", "teacher", "student", "parent"]
+      roles: ["admin", "teacher", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
     { 
       name: "Attendance", 
       href: "/attendance", 
       icon: ClipboardList,
-      roles: ["admin", "teacher", "student", "parent"]
+      roles: ["admin", "teacher", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
   ];
 
@@ -76,7 +86,9 @@ const getNavigationItems = (role: string | null) => {
       name: "Payments", 
       href: "/payments", 
       icon: CreditCard,
-      roles: ["admin", "student", "parent"]
+      roles: ["admin", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
   ];
 
@@ -86,27 +98,28 @@ const getNavigationItems = (role: string | null) => {
       href: "/video-conferencing",
       icon: Video,
       roles: ["admin", "teacher", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
     {
       name: "Communications",
       href: "/communications",
       icon: MessageSquare,
       roles: ["admin", "teacher", "student", "parent"],
-      exact: false
+      exact: false,
+      badge: undefined
     },
     {
       name: "Resources",
       href: "/resources",
       icon: BookOpen,
-      roles: ["admin", "teacher", "student", "parent"]
+      roles: ["admin", "teacher", "student", "parent"],
+      exact: false,
+      badge: undefined
     },
   ];
 
-  const allItems = [...baseItems, ...adminItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems].map(item => ({
-    ...item,
-    exact: item.exact || false,
-    badge: item.badge || undefined
-  }));
+  const allItems = [...baseItems, ...adminItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems];
   
   return allItems.filter(item => role && item.roles.includes(role));
 };

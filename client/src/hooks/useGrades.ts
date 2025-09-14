@@ -15,7 +15,11 @@ export function useGrades(studentId: string) {
         GRADES_COLLECTION_ID,
         [Query.equal('studentId', studentId)]
       );
-      return response.documents;
+      return response.documents.map((doc: any) => ({
+        subject: doc.subject as string,
+        score: doc.score as string,
+        totalMarks: doc.totalMarks as string,
+      }));
     },
     enabled: !!studentId,
   });

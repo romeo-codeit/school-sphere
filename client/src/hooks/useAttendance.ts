@@ -26,7 +26,9 @@ export function useAttendance(studentId?: string, limit?: number, offset?: numbe
         ATTENDANCE_COLLECTION_ID,
         queries
       );
-      return response.documents;
+      return response.documents.map((doc: any) => ({
+        status: doc.status as 'present' | 'absent' | 'late' | 'excused',
+      }));
     },
   });
 

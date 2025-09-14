@@ -11,9 +11,27 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, BarChart, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
-export function GradesChart({ grades }) {
+interface Grade {
+  subject: string;
+  score: string;
+  totalMarks: string;
+}
+
+interface AttendanceRecord {
+  status: 'present' | 'absent' | 'late' | 'excused';
+}
+
+interface ExamAttempt {
+  id: string;
+  examId: string;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+}
+
+export function GradesChart({ grades }: { grades: Grade[] }) {
   const data = useMemo(() => {
-    return grades?.map(grade => ({
+    return grades?.map((grade: Grade) => ({
       name: grade.subject,
       score: parseFloat(grade.score),
       totalMarks: parseFloat(grade.totalMarks),
@@ -39,10 +57,10 @@ export function GradesChart({ grades }) {
   );
 }
 
-export function AttendanceSummary({ attendance }) {
+export function AttendanceSummary({ attendance }: { attendance: AttendanceRecord[] }) {
     const summary = useMemo(() => {
         const counts = { present: 0, absent: 0, late: 0, excused: 0 };
-        attendance?.forEach(record => {
+        attendance?.forEach((record: AttendanceRecord) => {
             if (record.status in counts) {
                 counts[record.status]++;
             }
@@ -92,7 +110,7 @@ export function AttendanceSummary({ attendance }) {
     );
 }
 
-export function ExamAttemptsTable({ examAttempts }) {
+export function ExamAttemptsTable({ examAttempts }: { examAttempts: ExamAttempt[] }) {
     if (!examAttempts || examAttempts.length === 0) {
         return <p>No exam attempts available.</p>;
     }
@@ -108,7 +126,7 @@ export function ExamAttemptsTable({ examAttempts }) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {examAttempts.map(attempt => (
+                {examAttempts.map((attempt: ExamAttempt) => (
                     <TableRow key={attempt.id}>
                         <TableCell>{attempt.examId}</TableCell> {/* Ideally, we would fetch exam title here */}
                         <TableCell>{attempt.score}</TableCell>
@@ -134,9 +152,9 @@ export default function Progress() {
     return selectedStudentId;
   }, [role, user, selectedStudentId]);
 
-  const { grades, isLoading: isLoadingGrades } = useGrades(studentIdToFetch);
-  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentIdToFetch);
-  const { examAttempts, isLoading: isLoadingExamAttempts } = useExamAttempts(studentIdToFetch);
+  const { grades, isLoading: isLoadingGrades } = useGrades(studentIdToFetch || '');
+  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentIdToFetch || '');
+  const { examAttempts, isLoading: isLoadingExamAttempts } = useExamAttempts(studentIdToFetch || '');
 
   const handleStudentChange = (studentId: string) => {
     setSelectedStudentId(studentId);
@@ -176,7 +194,7 @@ export default function Progress() {
                 <CardTitle>Grades</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades} />}
+                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades || []} />}
               </CardContent>
             </Card>
 
@@ -185,7 +203,7 @@ export default function Progress() {
                 <CardTitle>Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance} />}
+                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
               </CardContent>
             </Card>
 
@@ -194,7 +212,7 @@ export default function Progress() {
                 <CardTitle>Exam Attempts</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingExamAttempts ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts} />}
+                {isLoadingExamAttempts ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts || []} />}
               </CardContent>
             </Card>
           </div>

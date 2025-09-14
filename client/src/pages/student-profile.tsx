@@ -11,7 +11,16 @@ import { GradesChart, AttendanceSummary } from "./progress"; // Reusing componen
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 
-function PaymentsTable({ payments }) {
+interface Payment {
+  $id: string;
+  purpose: string;
+  amount: number;
+  status: 'paid' | 'pending' | 'overdue';
+  paidDate?: string;
+  dueDate: string;
+}
+
+function PaymentsTable({ payments }: { payments: Payment[] }) {
     if (!payments || payments.length === 0) {
         return <p>No payments available.</p>;
     }
@@ -27,7 +36,7 @@ function PaymentsTable({ payments }) {
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {payments.map(payment => (
+                {payments.map((payment: Payment) => (
                     <TableRow key={payment.$id}>
                         <TableCell>{payment.purpose}</TableCell>
                         <TableCell>₦{parseFloat(payment.amount.toString()).toLocaleString()}</TableCell>
@@ -53,10 +62,10 @@ export default function StudentProfile() {
   const params = useParams();
   const studentId = params.id;
   const { useStudent } = useStudents();
-  const { data: student, isLoading: isLoadingStudent } = useStudent(studentId);
-  const { grades, isLoading: isLoadingGrades } = useGrades(studentId);
-  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentId);
-  const { payments, isLoading: isLoadingPayments } = usePayments(studentId);
+  const { data: student, isLoading: isLoadingStudent } = useStudent(studentId || "");
+  const { grades, isLoading: isLoadingGrades } = useGrades(studentId || "");
+  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentId || "");
+  const { payments, isLoading: isLoadingPayments } = usePayments(studentId || "");
 
   if (isLoadingStudent) {
     return <div className="p-6">Loading student profile...</div>;
@@ -101,7 +110,7 @@ export default function StudentProfile() {
                 <CardTitle>Grades</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades} />}
+                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades || []} />}
               </CardContent>
             </Card>
           </TabsContent>
@@ -111,7 +120,7 @@ export default function StudentProfile() {
                 <CardTitle>Attendance</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance} />}
+                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
               </CardContent>
             </Card>
           </TabsContent>
@@ -121,7 +130,7 @@ export default function StudentProfile() {
                 <CardTitle>Payments</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingPayments ? <p>Loading payments...</p> : <PaymentsTable payments={payments} />}
+                {isLoadingPayments ? <p>Loading payments...</p> : <PaymentsTable payments={payments || []} />}
               </CardContent>
             </Card>
           </TabsContent>

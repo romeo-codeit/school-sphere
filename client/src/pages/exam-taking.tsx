@@ -10,11 +10,26 @@ import { useExamAttempts } from "@/hooks/useExamAttempts";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 
+interface Question {
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  marks?: number;
+}
+
+interface Exam {
+  $id: string;
+  title: string;
+  subject: string;
+  duration: number;
+  questions: Question[];
+}
+
 export default function ExamTaking() {
   const params = useParams();
   const examId = params.id;
   const { useExam } = useExams();
-  const { data: exam, isLoading: isLoadingExam } = useExam(examId);
+  const { data: exam, isLoading: isLoadingExam } = useExam(examId || "");
   const { createExamAttempt } = useExamAttempts();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -49,7 +64,7 @@ export default function ExamTaking() {
 
     let score = 0;
     let correctAnswers = 0;
-    exam.questions.forEach((q, index) => {
+    exam.questions.forEach((q: Question, index: number) => {
       if (answers[index] === q.correctAnswer) {
         score += q.marks || 1;
         correctAnswers++;
@@ -64,7 +79,7 @@ export default function ExamTaking() {
         score,
         totalQuestions: exam.questions.length,
         correctAnswers,
-        timeSpent: exam.duration - Math.floor(timeLeft / 60),
+        timeSpent: exam.duration - Math.floor((timeLeft || 0) / 60),
         completedAt: new Date().toISOString(),
       });
       toast({ title: "Success", description: "Exam submitted successfully." });
@@ -84,16 +99,15 @@ export default function ExamTaking() {
 
   return (
     <div className="space-y-6">
-      <TopNav title={exam.title} subtitle={exam.subject}>
-        {timeLeft !== null && (
-          <div className="text-lg font-medium">
-            Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-          </div>
-        )}
-      </TopNav>
+      <TopNav title={exam.title} subtitle={exam.subject} />
+      {timeLeft !== null && (
+        <div className="p-6 text-lg font-medium">
+          Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
+        </div>
+      )}
 
       <div className="p-6 space-y-6">
-        {exam.questions.map((q, index) => (
+        {exam.questions.map((q: Question, index: number) => (
           <Card key={index}>
             <CardHeader>
               <CardTitle>Question {index + 1}</CardTitle>
@@ -101,7 +115,7 @@ export default function ExamTaking() {
             <CardContent>
               <p className="mb-4">{q.question}</p>
               <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
-                {q.options.map((option, i) => (
+                {q.options.map((option: string, i: number) => (
                   <div key={i} className="flex items-center space-x-2">
                     <RadioGroupItem value={option} id={`q${index}o${i}`} />
                     <Label htmlFor={`q${index}o${i}`}>{option}</Label>
@@ -119,3 +133,4 @@ export default function ExamTaking() {
     </div>
   );
 }
+

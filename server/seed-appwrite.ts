@@ -194,11 +194,11 @@ const collections = [
 
 async function createDatabaseIfNotExists() {
   try {
-    await databases.get(APPWRITE_DATABASE_ID);
+    await databases.get(APPWRITE_DATABASE_ID!!);
   } catch (error: any) {
     if (error.code === 404) {
       try {
-        await databases.create(APPWRITE_DATABASE_ID, APPWRITE_DATABASE_NAME);
+        await databases.create(APPWRITE_DATABASE_ID!, APPWRITE_DATABASE_NAME);
         console.log(`Database '${APPWRITE_DATABASE_NAME}' created.`);
       } catch (creationError) {
         console.error("Error creating database:", creationError);
@@ -216,10 +216,10 @@ async function seedCollections() {
 
   for (const collection of collections) {
     try {
-      await databases.getCollection(APPWRITE_DATABASE_ID, collection.id);
+      await databases.getCollection(APPWRITE_DATABASE_ID!, collection.id);
     } catch (error) {
       console.log(`Creating collection '${collection.name}'...`);
-      await databases.createCollection(APPWRITE_DATABASE_ID, collection.id, collection.name, [
+      await databases.createCollection(APPWRITE_DATABASE_ID!, collection.id, collection.name, [
         Permission.read(Role.any()),
         Permission.create(Role.users()),
         Permission.update(Role.users()),
@@ -232,16 +232,18 @@ async function seedCollections() {
       try {
         switch (attr.type) {
           case 'string':
-            await databases.createStringAttribute(APPWRITE_DATABASE_ID, collection.id, attr.id, attr.size, attr.required, undefined, attr.array);
+            await databases.createStringAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.size || 255, attr.required, undefined, attr.array);
             break;
           case 'integer':
-            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            // @ts-ignore
+            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
             break;
           case 'float':
-            await databases.createFloatAttribute(APPWRITE_DATABASE_ID, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            // @ts-ignore
+            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
             break;
           case 'boolean':
-            await databases.createBooleanAttribute(APPWRITE_DATABASE_ID, collection.id, attr.id, attr.required, undefined, attr.array);
+            await databases.createBooleanAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, attr.array);
             break;
         }
       } catch (error: any) {
@@ -340,7 +342,7 @@ async function seedDemoData() {
       class: 'JSS 1A',
       status: 'active',
     };
-    const studentDoc = await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), studentData);
+    const studentDoc = await databases.createDocument(APPWRITE_DATABASE_ID!, 'students', ID.unique(), studentData);
     studentId = studentDoc.$id;
     console.log('Student record created.');
   } catch (error: any) {
@@ -358,7 +360,7 @@ async function seedDemoData() {
         subjects: ['Mathematics', 'Physics'],
         status: 'active',
     };
-    await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), teacherData);
+    await databases.createDocument(APPWRITE_DATABASE_ID!, 'teachers', ID.unique(), teacherData);
     console.log('Teacher record created.');
   } catch (error: any) {
     if (error.code !== 409) console.error('Error creating teacher record:', error);
@@ -375,7 +377,7 @@ async function seedDemoData() {
         createdBy: teacherUserId,
         isActive: true,
     };
-    await databases.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), examData);
+    await databases.createDocument(APPWRITE_DATABASE_ID!, 'exams', ID.unique(), examData);
     console.log('JAMB exam record created.');
 
     const waecExamData = {
@@ -387,7 +389,7 @@ async function seedDemoData() {
         createdBy: teacherUserId,
         isActive: true,
     };
-    await databases.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), waecExamData);
+    await databases.createDocument(APPWRITE_DATABASE_ID!, 'exams', ID.unique(), waecExamData);
     console.log('WAEC exam record created.');
 
     const necoExamData = {
@@ -399,7 +401,7 @@ async function seedDemoData() {
         createdBy: teacherUserId,
         isActive: true,
     };
-    await databases.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), necoExamData);
+    await databases.createDocument(APPWRITE_DATABASE_ID!, 'exams', ID.unique(), necoExamData);
     console.log('NECO exam record created.');
 
   } catch (error: any) {
@@ -415,7 +417,7 @@ async function seedDemoData() {
             purpose: 'School Fees',
             status: 'pending',
         };
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'payments', ID.unique(), paymentData);
+        await databases.createDocument(APPWRITE_DATABASE_ID!, 'payments', ID.unique(), paymentData);
         console.log('Payment record created.');
       } catch (error: any) {
         if (error.code !== 409) console.error('Error creating payment record:', error);
@@ -431,7 +433,7 @@ async function seedDemoData() {
             status: 'present',
             markedBy: teacherUserId,
         };
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'attendance', ID.unique(), attendanceData);
+        await databases.createDocument(APPWRITE_DATABASE_ID!, 'attendance', ID.unique(), attendanceData);
         console.log('Attendance record created.');
       } catch (error: any) {
         if (error.code !== 409) console.error('Error creating attendance record:', error);

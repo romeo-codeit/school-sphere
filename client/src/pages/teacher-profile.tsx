@@ -8,7 +8,7 @@ export default function TeacherProfile() {
   const params = useParams();
   const teacherId = params.id;
   const { useTeacher } = useTeachers();
-  const { data: teacher, isLoading: isLoadingTeacher } = useTeacher(teacherId);
+  const { data: teacher, isLoading: isLoadingTeacher } = useTeacher(teacherId || "");
 
   if (isLoadingTeacher) {
     return <div className="p-6">Loading teacher profile...</div>;

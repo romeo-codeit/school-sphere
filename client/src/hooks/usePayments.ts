@@ -20,7 +20,14 @@ export function usePayments(studentId?: string) {
         PAYMENTS_COLLECTION_ID,
         queries
       );
-      return response.documents;
+      return response.documents.map((doc: any) => ({
+        $id: doc.$id,
+        purpose: doc.purpose as string,
+        amount: doc.amount as number,
+        status: doc.status as 'paid' | 'pending' | 'overdue',
+        paidDate: doc.paidDate as string | undefined,
+        dueDate: doc.dueDate as string,
+      }));
     },
   });
 

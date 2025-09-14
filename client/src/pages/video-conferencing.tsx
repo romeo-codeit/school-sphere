@@ -39,7 +39,7 @@ export default function VideoConferencing() {
   const jitsiApiRef = useRef<any>(null);
   const { toast } = useToast();
 
-  const uniqueClasses = students ? [...new Set(students.map((student: any) => student.class))] : [];
+  const uniqueClasses = students ? Array.from(new Set(students.map((student: any) => student.class))) : [];
 
   const getUserClass = () => {
     if (!user || !students) return null;
@@ -139,12 +139,13 @@ export default function VideoConferencing() {
   if (activeRoom) {
     return (
       <div className="h-screen flex flex-col">
-        <TopNav title={activeRoom.topic} subtitle={`Room: ${activeRoom.roomId}`}>
+        <TopNav title={activeRoom.topic} subtitle={`Room: ${activeRoom.roomId}`} />
+        <div className="p-2">
             <Button onClick={handleLeaveMeeting} variant="outline">
                 <LogOut className="w-4 h-4 mr-2" />
                 Leave Meeting
             </Button>
-        </TopNav>
+        </div>
         <div ref={jitsiContainerRef} className="flex-1"></div>
       </div>
     );

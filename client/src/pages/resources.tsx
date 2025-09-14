@@ -103,7 +103,7 @@ export default function Resources() {
     link: resources?.filter((r: any) => r.type === "link").length || 0,
   };
 
-  const subjects = [...new Set(resources?.map((r: any) => r.subject).filter(Boolean))] || [];
+  const subjects = Array.from(new Set(resources?.map((r: any) => r.subject).filter(Boolean) || []));
 
   const getTypeIcon = (type: string) => {
     switch (type) {

@@ -80,8 +80,8 @@ export default function Settings() {
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
+      firstName: user?.prefs?.firstName || "",
+      lastName: user?.prefs?.lastName || "",
       email: user?.email || "",
       phone: "",
       address: "",
@@ -182,7 +182,7 @@ export default function Settings() {
                     <div className="flex items-center space-x-6 mb-6">
                       <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
                         <span className="text-3xl font-bold text-primary">
-                          {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+                          {user?.prefs?.firstName?.charAt(0)}{user?.prefs?.lastName?.charAt(0)}
                         </span>
                       </div>
                       <div>

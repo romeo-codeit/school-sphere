@@ -10,6 +10,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -33,38 +34,10 @@ const examFormSchema = z.object({
   title: z.string().min(1, "Title is required"),
   type: z.enum(["jamb", "waec", "neco", "internal"]),
   subject: z.string().min(1, "Subject is required"),
-  duration: z.string().transform(Number).optional(),
-  totalMarks: z.string().transform(Number).optional(),
-  passingMarks: z.string().transform(Number).optional(),
-  questions: z.string().transform((val, ctx) => {
-    try {
-      const parsed = JSON.parse(val);
-      if (!Array.isArray(parsed)) {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          message: "Questions must be a JSON array",
-        });
-        return z.NEVER;
-      }
-      // Basic validation for each question object
-      for (const q of parsed) {
-        if (typeof q.question !== 'string' || !Array.isArray(q.options) || q.options.some(o => typeof o !== 'string') || typeof q.correctAnswer !== 'string') {
-          ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Each question must have a 'question' (string), 'options' (array of strings), and 'correctAnswer' (string)",
-          });
-          return z.NEVER;
-        }
-      }
-      return parsed;
-    } catch (e) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Invalid JSON format for questions",
-      });
-      return z.NEVER;
-    }
-  }),
+  duration: z.string().optional(),
+  totalMarks: z.string().optional(),
+  passingMarks: z.string().optional(),
+  questions: z.string(),
 });
 
 type ExamFormData = z.infer<typeof examFormSchema>;
@@ -98,8 +71,28 @@ export function UploadExamForm({ open, onOpenChange }: UploadExamFormProps) {
       return;
     }
     try {
-      await createExam({
+      let questions;
+      try {
+        questions = JSON.parse(data.questions);
+      } catch (e) {
+        toast({
+          title: "Error",
+          description: "Invalid JSON format for questions",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const numericData = {
         ...data,
+        questions,
+        duration: data.duration ? parseInt(data.duration, 10) : undefined,
+        totalMarks: data.totalMarks ? parseInt(data.totalMarks, 10) : undefined,
+        passingMarks: data.passingMarks ? parseInt(data.passingMarks, 10) : undefined,
+      };
+
+      await createExam({
+        ...numericData,
         createdBy: user.$id,
         isActive: true,
       });

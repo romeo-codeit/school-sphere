@@ -20,7 +20,13 @@ export function useExamAttempts(studentId?: string) {
         EXAM_ATTEMPTS_COLLECTION_ID,
         queries
       );
-      return response.documents;
+      return response.documents.map((doc: any) => ({
+        id: doc.$id,
+        examId: doc.examId as string,
+        score: doc.score as number,
+        totalQuestions: doc.totalQuestions as number,
+        correctAnswers: doc.correctAnswers as number,
+      }));
     },
     enabled: !!studentId,
   });

@@ -306,7 +306,7 @@ export default function Dashboard() {
                 {activitiesLoading ? (
                   <div className="text-center py-8">Loading activities...</div>
                 ) : (
-                  recentActivities && recentActivities.map((activity: any, index: number) => (
+                  Array.isArray(recentActivities) && recentActivities.map((activity: any, index: number) => (
                     <div key={index} className="flex items-start space-x-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.color}`}>
                         <activity.icon className="w-4 h-4" />

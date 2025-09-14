@@ -18,7 +18,7 @@ export function useAuth() {
   });
 
   const loginMutation = useMutation({
-    mutationFn: async ({ email, password }) => {
+    mutationFn: async ({ email, password }: { email: string, password: string }) => {
       await account.createEmailPasswordSession(email, password);
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
@@ -32,7 +32,7 @@ export function useAuth() {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async ({ email, password, name, role }) => {
+    mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
       await account.create(ID.unique(), email, password, name);
       // Log in the user after registration
       await account.createEmailPasswordSession(email, password);
@@ -43,10 +43,13 @@ export function useAuth() {
   });
 
   const createUserByAdminMutation = useMutation({
-    mutationFn: async ({ email, password, name, role }) => {
+    mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
       // This function does NOT log in the new user, so it's safe for an admin to call.
-      const newUser = await account.create(ID.unique(), email, password, name);
-      await account.updatePrefs(newUser.$id, { role });
+      await account.create(ID.unique(), email, password, name);
+      // Log in the user after registration
+      await account.createEmailPasswordSession(email, password);
+      // After creating the user, we need to update their prefs to store the role.
+      await account.updatePrefs({ role });
     },
     onSuccess: () => {
         // We don't need to invalidate user queries here, as the admin's session is unchanged.
@@ -54,14 +57,6 @@ export function useAuth() {
   });
 
   const userRole = user?.prefs?.role || null;
-
-  const createUserByAdminMutation = useMutation({
-    mutationFn: async ({ email, password, name, role }) => {
-      // This function does NOT log in the new user, so it's safe for an admin to call.
-      const newUser = await account.create(ID.unique(), email, password, name);
-      await account.updatePrefs(newUser.$id, { role });
-    },
-  });
 
   return {
     user,
