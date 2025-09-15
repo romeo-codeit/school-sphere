@@ -11,10 +11,12 @@ import {
   Video,
   Settings, 
   LogOut,
-  GraduationCap,
   UserCheck,
-  ClipboardList
+  ClipboardList,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
+import { Logo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/hooks/useRole";
@@ -153,7 +155,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
     if (exact) {
       return location === href;
     }
-    return location.startsWith(href);
+    return location.startsWith(href + '/') || location === href;
   };
 
   const handleLogout = async () => {
@@ -168,46 +170,51 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
     }, className)}>
       <div className="p-4 flex items-center justify-between">
         <div className={cn("flex items-center space-x-3", { "hidden": isCollapsed })}>
-          <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
-            <GraduationCap className="text-primary-foreground text-xl" />
-          </div>
+          <Logo />
           <div>
             <h1 className="text-xl font-bold text-foreground">EduManage</h1>
             <p className="text-sm text-muted-foreground">School Portal</p>
           </div>
         </div>
-        <Button variant="ghost" size="icon" onClick={() => setIsCollapsed(!isCollapsed)} className="mx-auto">
-          {isCollapsed ? ">>" : "<<"}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="rounded-full hover:bg-muted"
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </Button>
       </div>
       
-      <nav className="px-2 pb-4 flex-1 overflow-y-auto">
-        <div className="space-y-2">
-          {navigationItems.map((item) => (
-            <Link 
-              key={item.name} 
-              href={item.href}
-              className={cn(
-                "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
-                { "justify-center": isCollapsed },
-                isActive(item.href, item.exact)
-                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-              )}
-              data-testid={`link-${item.name.toLowerCase()}`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
-              {item.badge && !isCollapsed && (
-                <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
-                  {item.badge}
-                </Badge>
-              )}
-            </Link>
-          ))}
-        </div>
-      </nav>
-      <div className="p-2 mt-auto border-t border-border">
+      <div className="flex-1 overflow-y-auto">
+        <nav className="px-2 py-4">
+          <div className="space-y-2">
+            {navigationItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+                  { "justify-center": isCollapsed },
+                  isActive(item.href, item.exact)
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                data-testid={`link-${item.name.toLowerCase()}`}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+                {item.badge && !isCollapsed && (
+                  <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
+                    {item.badge}
+                  </Badge>
+                )}
+              </Link>
+            ))}
+          </div>
+        </nav>
+      </div>
+      <div className="p-2 border-t border-border">
         {settingsItems.map((item) => (
           <Link
             key={item.name}

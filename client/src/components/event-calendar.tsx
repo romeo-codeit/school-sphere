@@ -4,12 +4,17 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export function EventCalendar() {
+  // TODO: Fetch and pass events to the DayPicker component
+  // Example:
+  // const { events } = useEvents();
+  // const eventDays = events.map(e => new Date(e.date));
+  // <DayPicker modifiers={{ events: eventDays }} />
   return (
     <Card>
       <CardHeader>
         <CardTitle>Event Calendar</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <DayPicker
           showOutsideDays
           className="p-0"

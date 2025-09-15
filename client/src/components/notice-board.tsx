@@ -1,33 +1,29 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Rss, BookOpen, Mic } from "lucide-react";
+import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon } from "lucide-react";
+import { format } from 'date-fns';
 
-const notices = [
-  {
-    icon: Rss,
-    title: "Inter-school competition",
-    description: "sports/singing/drawing/drama",
-    date: "10 Feb, 2023",
-    category: "Competition",
-    categoryColor: "text-red-500"
-  },
-  {
-    icon: BookOpen,
-    title: "Disciplinary action if school discipline is not followed",
-    date: "6 Feb, 2023",
-    category: "School Event",
-    categoryColor: "text-blue-500"
-  },
-  {
-    icon: Mic,
-    title: "Disciplinary action on holiday",
-    date: "24 Jan, 2023",
-    category: "Notice",
-    categoryColor: "text-green-500"
-  },
-];
+interface Notice {
+  $id: string;
+  activity: string;
+  date: string;
+  // This is a placeholder, as the data model doesn't have a specific icon or category
+  icon?: LucideIcon;
+  category?: string;
+}
 
-export function NoticeBoard() {
+interface NoticeBoardProps {
+  notices: Notice[];
+}
+
+const getIconForActivity = (activity: string): LucideIcon => {
+  if (activity.toLowerCase().includes('exam')) return BookOpen;
+  if (activity.toLowerCase().includes('payment')) return Rss;
+  if (activity.toLowerCase().includes('announcement')) return Mic;
+  return Rss; // Default icon
+}
+
+export function NoticeBoard({ notices }: NoticeBoardProps) {
   return (
     <Card>
       <CardHeader>
@@ -38,23 +34,27 @@ export function NoticeBoard() {
       </CardHeader>
       <CardContent>
         <ul className="space-y-4">
-          {notices.map((notice, index) => (
-            <li key={index} className="flex items-center space-x-4 p-2 rounded-lg hover:bg-muted/50">
-              <div className="p-2 bg-muted rounded-lg">
-                <notice.icon className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1">
-                <p className="font-semibold text-foreground">{notice.title}</p>
-                {notice.description && <p className="text-sm text-muted-foreground">{notice.description}</p>}
-              </div>
-              <div className="text-right">
-                <p className="text-sm font-medium text-muted-foreground">{notice.date}</p>
-              </div>
-              <Button variant="ghost" size="icon" className="w-8 h-8">
-                <MoreHorizontal className="w-4 h-4" />
-              </Button>
-            </li>
-          ))}
+          {notices.map((notice) => {
+            const Icon = getIconForActivity(notice.activity);
+            return (
+              <li key={notice.$id} className="flex items-center space-x-4 p-2 rounded-lg hover:bg-muted/50">
+                <div className="p-2 bg-muted rounded-lg">
+                  <Icon className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-foreground">{notice.activity}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {format(new Date(notice.date), "dd MMM, yyyy")}
+                  </p>
+                </div>
+                <Button variant="ghost" size="icon" className="w-8 h-8">
+                  <MoreHorizontal className="w-4 h-4" />
+                </Button>
+              </li>
+            )
+          })}
         </ul>
       </CardContent>
     </Card>

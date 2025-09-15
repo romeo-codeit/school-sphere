@@ -35,7 +35,7 @@ import { UploadExamForm } from "@/components/upload-exam-form";
 import { SendAnnouncementForm } from "@/components/send-announcement-form";
 import { StudentsProgressChart } from "@/components/students-progress-chart";
 import { NoticeBoard } from "@/components/notice-board";
-import { CommunityWidget } from "@/components/community-widget";
+import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 
 const RoundedBar = (props: any) => {
@@ -133,7 +133,21 @@ export default function Dashboard() {
   const waecQuestions = exams?.filter((e: any) => e.type === 'WAEC').length || 0;
   const necoQuestions = exams?.filter((e: any) => e.type === 'NECO').length || 0;
 
-    const { activities: recentActivities, isLoading: activitiesLoading } = useActivities();
+  const { activities: recentActivities, isLoading: activitiesLoading } = useActivities();
+
+  const studentGenderData = [
+    { name: 'Male', value: 0, fill: 'var(--primary)' },
+    { name: 'Female', value: 0, fill: 'var(--secondary)' }
+  ];
+
+  if (students && students.length > 0) {
+    const maleStudents = students.filter((s: any) => s.gender.toLowerCase() === 'male').length;
+    const femaleStudents = students.filter((s: any) => s.gender.toLowerCase() === 'female').length;
+    const totalStudents = students.length;
+
+    studentGenderData[0].value = (maleStudents / totalStudents) * 100;
+    studentGenderData[1].value = (femaleStudents / totalStudents) * 100;
+  }
 
   return (
     <div className="space-y-6">
@@ -180,7 +194,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                    <CardTitle>Earnings</CardTitle>
+                    <CardTitle>Weekly Attendance</CardTitle>
                 </CardHeader>
                 <CardContent>
                   {attendanceLoading ? (
@@ -199,22 +213,22 @@ export default function Dashboard() {
                             borderRadius: 'var(--radius)'
                           }}
                         />
-                        <Bar dataKey="present" fill="var(--primary)" name="Earnings" shape={<RoundedBar />} />
-                        <Bar dataKey="absent" fill="var(--secondary)" name="Expenses" shape={<RoundedBar />} />
+                        <Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} />
+                        <Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} />
                       </BarChart>
                     </ResponsiveContainer>
                   )}
                 </CardContent>
               </Card>
-              <StudentsProgressChart />
+              <StudentsProgressChart data={studentGenderData} />
             </div>
-            <NoticeBoard />
+            <NoticeBoard notices={recentActivities || []} />
           </div>
 
           {/* Right Sidebar Content */}
           <div className="space-y-6">
             <EventCalendar />
-            <CommunityWidget />
+            <RecentActivityWidget activities={recentActivities || []} />
           </div>
         </div>
 

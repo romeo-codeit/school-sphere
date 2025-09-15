@@ -7,12 +7,18 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-const data = [
-  { name: "Male", value: 55, fill: "var(--primary)" },
-  { name: "Female", value: 45, fill: "var(--secondary)" },
-];
+interface StudentsProgressChartProps {
+  data: {
+    name: string;
+    value: number;
+    fill: string;
+  }[];
+}
 
-export function StudentsProgressChart() {
+export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
+  const maleData = data.find(d => d.name.toLowerCase() === 'male');
+  const femaleData = data.find(d => d.name.toLowerCase() === 'female');
+
   return (
     <Card>
       <CardHeader>
@@ -40,19 +46,23 @@ export function StudentsProgressChart() {
                 cornerRadius={10}
                 isAnimationActive={false}
               />
-              <Tooltip />
+              <Tooltip formatter={(value: number) => `${value}%`} />
             </RadialBarChart>
           </ResponsiveContainer>
         </div>
         <div className="flex justify-center space-x-4 mt-4">
+          {maleData && (
             <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-primary mr-2"></div>
-                <span>Male: 55%</span>
+              <div className="w-3 h-3 rounded-full bg-primary mr-2"></div>
+              <span>Male: {maleData.value}%</span>
             </div>
+          )}
+          {femaleData && (
             <div className="flex items-center">
-                <div className="w-3 h-3 rounded-full bg-secondary mr-2"></div>
-                <span>Female: 45%</span>
+              <div className="w-3 h-3 rounded-full bg-secondary mr-2"></div>
+              <span>Female: {femaleData.value}%</span>
             </div>
+          )}
         </div>
       </CardContent>
     </Card>
