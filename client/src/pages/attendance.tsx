@@ -59,7 +59,7 @@ export default function Attendance() {
     const studentName = student ? `${student.firstName} ${student.lastName}` : "";
     
     const matchesSearch = (
-      record.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (record.studentId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       studentName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 

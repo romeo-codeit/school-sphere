@@ -33,6 +33,31 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { StudentForm } from "@/components/student-form";
 import { UploadExamForm } from "@/components/upload-exam-form";
 import { SendAnnouncementForm } from "@/components/send-announcement-form";
+import { StudentsProgressChart } from "@/components/students-progress-chart";
+import { NoticeBoard } from "@/components/notice-board";
+import { CommunityWidget } from "@/components/community-widget";
+import { EventCalendar } from "@/components/event-calendar";
+
+const RoundedBar = (props: any) => {
+  const { fill, x, y, width, height } = props;
+  const radius = 6;
+
+  const getPath = (x: number, y: number, width: number, height: number) => {
+    if (height === 0) {
+      return '';
+    }
+    return `M${x},${y + height}
+            L${x},${y + radius}
+            C${x},${y} ${x},${y} ${x + radius},${y}
+            L${x + width - radius},${y}
+            C${x + width},${y} ${x + width},${y} ${x + width},${y + radius}
+            L${x + width},${y + height}
+            Z`;
+  };
+
+  return <path d={getPath(x, y, width, height)} stroke="none" fill={fill} />;
+};
+
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -125,11 +150,6 @@ export default function Dashboard() {
             value={statsLoading ? "Loading..." : stats?.totalStudents || 0}
             icon={Users}
             iconColor="bg-primary/10 text-primary"
-            trend={{
-              value: "+12% from last month",
-              isPositive: true,
-              icon: TrendingUp
-            }}
           />
           
           <StatsCard
@@ -137,11 +157,6 @@ export default function Dashboard() {
             value={statsLoading ? "Loading..." : stats?.activeTeachers || 0}
             icon={UserCheck}
             iconColor="bg-secondary/10 text-secondary"
-            trend={{
-              value: "+3 new this month",
-              isPositive: true,
-              icon: TrendingUp
-            }}
           />
           
           <StatsCard
@@ -149,7 +164,6 @@ export default function Dashboard() {
             value={statsLoading ? "Loading..." : stats?.pendingPayments || "₦0"}
             icon={CreditCard}
             iconColor="bg-accent/10 text-accent"
-            subtitle={`${totalOverduePayments} overdue`}
           />
           
           <StatsCard
@@ -157,206 +171,55 @@ export default function Dashboard() {
             value={statsLoading ? "Loading..." : stats?.averageAttendance || "0%"}
             icon={BarChart3}
             iconColor="bg-destructive/10 text-destructive"
-            trend={{
-              value: "+2.1% this week",
-              isPositive: true,
-              icon: TrendingUp
-            }}
           />
         </div>
 
         {/* Main Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Recent Students */}
-          <div className="lg:col-span-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>Recent Students</CardTitle>
-                  <Button variant="outline" size="sm" data-testid="button-view-all-students" onClick={() => setLocation('/students')}>
-                    View All
-                  </Button>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {studentsLoading ? (
-                  <div className="text-center py-8">Loading students...</div>
-                ) : recentStudents.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No students found
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-border">
-                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Student</th>
-                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Class</th>
-                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Status</th>
-                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {recentStudents.map((student: any) => (
-                          <tr key={student.$id} className="hover:bg-muted/50">
-                            <td className="px-6 py-4">
-                              <div className="flex items-center space-x-3">
-                                <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                  <span className="text-primary font-medium">
-                                    {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                                  </span>
-                                </div>
-                                <div>
-                                  <p className="font-medium text-foreground" data-testid={`text-student-name-${student.$id}`}>
-                                    {student.firstName} {student.lastName}
-                                  </p>
-                                  <p className="text-sm text-muted-foreground" data-testid={`text-student-id-${student.$id}`}>
-                                    ID: {student.studentId}
-                                  </p>
-                                </div>
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 text-foreground" data-testid={`text-student-class-${student.$id}`}>
-                              {student.class}
-                            </td>
-                            <td className="px-6 py-4">
-                              <Badge 
-                                variant={student.status === 'active' ? 'secondary-soft' : 'destructive-soft'}
-                              >
-                                {student.status}
-                              </Badge>
-                            </td>
-                            <td className="px-6 py-4">
-                              <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`} onClick={() => setLocation(`/students/${student.$id}`)}>
-                                <Eye className="w-4 h-4" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <div className="lg:col-span-2 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card>
+                <CardHeader>
+                    <CardTitle>Earnings</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {attendanceLoading ? (
+                    <div className="text-center py-8">Loading chart data...</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart data={chartData} barSize={10}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                        <YAxis axisLine={false} tickLine={false} />
+                        <Tooltip
+                          cursor={{fill: 'transparent'}}
+                          contentStyle={{
+                            backgroundColor: 'var(--card)',
+                            border: '1px solid var(--border)',
+                            borderRadius: 'var(--radius)'
+                          }}
+                        />
+                        <Bar dataKey="present" fill="var(--primary)" name="Earnings" shape={<RoundedBar />} />
+                        <Bar dataKey="absent" fill="var(--secondary)" name="Expenses" shape={<RoundedBar />} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+              <StudentsProgressChart />
+            </div>
+            <NoticeBoard />
           </div>
 
-          {/* Quick Actions & Recent Activity */}
+          {/* Right Sidebar Content */}
           <div className="space-y-6">
-            {/* Quick Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Actions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button 
-                  className="w-full justify-start bg-primary hover:bg-primary/90"
-                  onClick={() => setIsStudentFormOpen(true)}
-                  data-testid="button-add-student"
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add New Student
-                </Button>
-                
-                <Button 
-                  className="w-full justify-start bg-secondary hover:bg-secondary/90"
-                  onClick={() => setIsUploadExamFormOpen(true)}
-                  data-testid="button-upload-exam"
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Exam Questions
-                </Button>
-                
-                <Button 
-                  className="w-full justify-start bg-accent hover:bg-accent/90"
-                  onClick={() => setIsSendAnnouncementFormOpen(true)}
-                  data-testid="button-send-announcement"
-                >
-                  <Megaphone className="w-4 h-4 mr-2" />
-                  Send Announcement
-                </Button>
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  data-testid="button-generate-report"
-                  onClick={() => setLocation('/progress')}
-                >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Generate Report
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={() => setLocation('/create-user')}
-                >
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Create New User
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {activitiesLoading ? (
-                  <div className="text-center py-8">Loading activities...</div>
-                ) : (
-                  Array.isArray(recentActivities) && recentActivities.map((activity: any, index: number) => (
-                    <div key={index} className="flex items-start space-x-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${activity.color}`}>
-                        <activity.icon className="w-4 h-4" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm text-foreground" data-testid={`text-activity-${index}`}>
-                          {activity.description}
-                        </p>
-                        <p className="text-xs text-muted-foreground" data-testid={`text-activity-time-${index}`}>
-                          {activity.timestamp}
-                        </p>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
+            <EventCalendar />
+            <CommunityWidget />
           </div>
         </div>
 
         {/* Additional Sections */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
-          {/* Attendance Chart */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Attendance Overview</CardTitle>
-                <select className="border border-border rounded-lg px-3 py-2 text-sm" onChange={handleAttendanceFilterChange} value={attendanceFilter}>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="term">This Term</option>
-                </select>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {attendanceLoading ? (
-                <div className="text-center py-8">Loading attendance data...</div>                ) : (
-                <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={chartData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Bar dataKey="present" fill="#8884d8" name="Present" />
-                    <Bar dataKey="absent" fill="#82ca9d" name="Absent" />
-                  </BarChart>
-                </ResponsiveContainer>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Payment Status */}
           <Card>
             <CardHeader>
@@ -398,107 +261,107 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
-        </div>
 
-        {/* Exam Module Preview */}
-        <Card className="mt-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Exam Module</CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                data-testid="button-manage-exams"
-                onClick={() => setLocation('/exams')}
-              >
-                Manage Exams
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-primary text-2xl" />
-                </div>
-                <h4 className="font-semibold text-foreground mb-2">JAMB Questions</h4>
-                <p className="text-muted-foreground text-sm mb-4">Practice questions for JAMB preparation</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-jamb-count">{jambQuestions}</p>
-                <p className="text-sm text-muted-foreground">Available Questions</p>
+          {/* Exam Module Preview */}
+          <Card className="mt-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Exam Module</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-manage-exams"
+                  onClick={() => setLocation('/exams')}
+                >
+                  Manage Exams
+                </Button>
               </div>
-              
-              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
-                <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-secondary text-2xl" />
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-primary text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-foreground mb-2">JAMB Questions</h4>
+                  <p className="text-muted-foreground text-sm mb-4">Practice questions for JAMB preparation</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-jamb-count">{jambQuestions}</p>
+                  <p className="text-sm text-muted-foreground">Available Questions</p>
                 </div>
-                <h4 className="font-semibold text-foreground mb-2">WAEC Questions</h4>
-                <p className="text-muted-foreground text-sm mb-4">West African Examination Council prep</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-waec-count">{waecQuestions}</p>
-                <p className="text-sm text-muted-foreground">Available Questions</p>
-              </div>
-              
-              <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
-                <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-accent text-2xl" />
-                </div>
-                <h4 className="font-semibold text-foreground mb-2">NECO Questions</h4>
-                <p className="text-muted-foreground text-sm mb-4">National Examination Council questions</p>
-                <p className="text-2xl font-bold text-foreground" data-testid="text-neco-count">{necoQuestions}</p>
-                <p className="text-sm text-muted-foreground">Available Questions</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* Resource Library Preview */}
-        <Card className="mt-8">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Resource Library</CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                data-testid="button-browse-resources"
-                onClick={() => setLocation('/resources')}
-              >
-                Browse All
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {featuredResources.length === 0 ? (
-                <div className="col-span-full text-center py-8 text-muted-foreground">
-                  No resources available
+                <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                  <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-secondary text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-foreground mb-2">WAEC Questions</h4>
+                  <p className="text-muted-foreground text-sm mb-4">West African Examination Council prep</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-waec-count">{waecQuestions}</p>
+                  <p className="text-sm text-muted-foreground">Available Questions</p>
                 </div>
-              ) : (
-                featuredResources.map((resource: any) => (
-                  <div key={resource.$id} className="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-                    <div className="h-32 bg-muted flex items-center justify-center">
-                      <FileText className="w-8 h-8 text-muted-foreground" />
-                    </div>
-                    <div className="p-4">
-                      <h4 className="font-semibold text-foreground mb-1" data-testid={`text-resource-title-${resource.$id}`}>
-                        {resource.title}
-                      </h4>
-                      <p className="text-sm text-muted-foreground mb-2" data-testid={`text-resource-type-${resource.$id}`}>
-                        {resource.type?.toUpperCase()} {resource.type}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.$id}`}>
-                          {resource.downloads} downloads
-                        </span>
-                        <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`} onClick={() => handleDownloadResource(resource.$id)}>
-                          <Download className="w-4 h-4" />
-                        </Button>
+
+                <div className="text-center p-6 border border-border rounded-lg hover:shadow-md transition-shadow">
+                  <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-accent text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-foreground mb-2">NECO Questions</h4>
+                  <p className="text-muted-foreground text-sm mb-4">National Examination Council questions</p>
+                  <p className="text-2xl font-bold text-foreground" data-testid="text-neco-count">{necoQuestions}</p>
+                  <p className="text-sm text-muted-foreground">Available Questions</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Resource Library Preview */}
+          <Card className="mt-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Resource Library</CardTitle>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  data-testid="button-browse-resources"
+                  onClick={() => setLocation('/resources')}
+                >
+                  Browse All
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {featuredResources.length === 0 ? (
+                  <div className="col-span-full text-center py-8 text-muted-foreground">
+                    No resources available
+                  </div>
+                ) : (
+                  featuredResources.map((resource: any) => (
+                    <div key={resource.$id} className="border border-border rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+                      <div className="h-32 bg-muted flex items-center justify-center">
+                        <FileText className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                      <div className="p-4">
+                        <h4 className="font-semibold text-foreground mb-1" data-testid={`text-resource-title-${resource.$id}`}>
+                          {resource.title}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-2" data-testid={`text-resource-type-${resource.$id}`}>
+                          {resource.type?.toUpperCase()} {resource.type}
+                        </p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-muted-foreground" data-testid={`text-resource-downloads-${resource.$id}`}>
+                            {resource.downloads} downloads
+                          </span>
+                          <Button variant="ghost" size="sm" data-testid={`button-download-resource-${resource.$id}`} onClick={() => handleDownloadResource(resource.$id)}>
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       <StudentForm
