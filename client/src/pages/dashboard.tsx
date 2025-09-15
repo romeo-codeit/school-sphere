@@ -190,16 +190,16 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="border-b border-border">
-                          <th className="text-left py-3 text-muted-foreground font-medium">Student</th>
-                          <th className="text-left py-3 text-muted-foreground font-medium">Class</th>
-                          <th className="text-left py-3 text-muted-foreground font-medium">Status</th>
-                          <th className="text-left py-3 text-muted-foreground font-medium">Actions</th>
+                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Student</th>
+                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Class</th>
+                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Status</th>
+                          <th className="text-left px-6 py-3 text-muted-foreground font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {recentStudents.map((student: any) => (
                           <tr key={student.$id} className="hover:bg-muted/50">
-                            <td className="py-4">
+                            <td className="px-6 py-4">
                               <div className="flex items-center space-x-3">
                                 <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
                                   <span className="text-primary font-medium">
@@ -216,18 +216,17 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </td>
-                            <td className="py-4 text-foreground" data-testid={`text-student-class-${student.$id}`}>
+                            <td className="px-6 py-4 text-foreground" data-testid={`text-student-class-${student.$id}`}>
                               {student.class}
                             </td>
-                            <td className="py-4">
+                            <td className="px-6 py-4">
                               <Badge 
-                                variant={student.status === 'active' ? 'default' : 'secondary'}
-                                className={student.status === 'active' ? 'bg-secondary/10 text-secondary' : 'bg-accent/10 text-accent'}
+                                variant={student.status === 'active' ? 'secondary-soft' : 'destructive-soft'}
                               >
                                 {student.status}
                               </Badge>
                             </td>
-                            <td className="py-4">
+                            <td className="px-6 py-4">
                               <Button variant="ghost" size="sm" data-testid={`button-view-student-${student.$id}`} onClick={() => setLocation(`/students/${student.$id}`)}>
                                 <Eye className="w-4 h-4" />
                               </Button>
@@ -467,7 +466,7 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {featuredResources.length === 0 ? (
                 <div className="col-span-full text-center py-8 text-muted-foreground">
                   No resources available

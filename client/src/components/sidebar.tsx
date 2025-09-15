@@ -163,7 +163,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
 
   return (
     <aside className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full transition-all duration-300", {
-      "w-64": !isCollapsed,
+      "w-60": !isCollapsed,
       "w-20": isCollapsed,
     }, className)}>
       <div className="p-4 flex items-center justify-between">
@@ -191,7 +191,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
                 "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
                 { "justify-center": isCollapsed },
                 isActive(item.href, item.exact)
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
               )}
               data-testid={`link-${item.name.toLowerCase()}`}
@@ -216,7 +216,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
               "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
               { "justify-center": isCollapsed },
               isActive(item.href)
-                ? "bg-primary/10 text-primary"
+                ? "bg-primary text-primary-foreground hover:bg-primary/90"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
             )}
             data-testid={`link-${item.name.toLowerCase()}`}
