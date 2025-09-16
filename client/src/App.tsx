@@ -34,16 +34,16 @@ function Router() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  if (isLoading || !isAuthenticated) {
-    return (
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={SignUpPage} />
-        <Route component={NotFound} />
-      </Switch>
-    );
-  }
+  // if (isLoading || !isAuthenticated) {
+  //   return (
+  //     <Switch>
+  //       <Route path="/" component={Landing} />
+  //       <Route path="/login" component={LoginPage} />
+  //       <Route path="/signup" component={SignUpPage} />
+  //       <Route component={NotFound} />
+  //     </Switch>
+  //   );
+  // }
 
   return (
     <div className="h-screen flex bg-background">

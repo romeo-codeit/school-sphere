@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow, isValid } from 'date-fns';
 
 interface Activity {
   $id: string;
@@ -12,6 +12,15 @@ interface Activity {
 interface RecentActivityWidgetProps {
   activities: Activity[];
 }
+
+const formatTimestamp = (timestamp: string) => {
+  if (!timestamp) return 'No date';
+  const date = new Date(timestamp);
+  if (!isValid(date)) {
+    return 'Invalid date';
+  }
+  return formatDistanceToNow(date, { addSuffix: true });
+};
 
 export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) {
   return (
@@ -29,7 +38,7 @@ export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) 
               <div className="flex-1">
                 <p className="font-semibold text-foreground text-sm">{activity.activity}</p>
                 <p className="text-xs text-muted-foreground">
-                  {formatDistanceToNow(new Date(activity.date), { addSuffix: true })}
+                  {formatTimestamp(activity.date)}
                 </p>
               </div>
             </li>

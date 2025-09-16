@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon } from "lucide-react";
+import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon, FileText } from "lucide-react";
 import { format } from 'date-fns';
 
 interface Notice {
@@ -17,10 +17,11 @@ interface NoticeBoardProps {
 }
 
 const getIconForActivity = (activity: string): LucideIcon => {
+  if (!activity) return FileText; // Guard against undefined activity
   if (activity.toLowerCase().includes('exam')) return BookOpen;
   if (activity.toLowerCase().includes('payment')) return Rss;
   if (activity.toLowerCase().includes('announcement')) return Mic;
-  return Rss; // Default icon
+  return FileText; // Default icon
 }
 
 export function NoticeBoard({ notices }: NoticeBoardProps) {

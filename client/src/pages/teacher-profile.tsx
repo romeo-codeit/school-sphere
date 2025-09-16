@@ -2,7 +2,9 @@ import { useParams } from "wouter";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { useTeachers } from "@/hooks/useTeachers";
+import { Mail, Phone, Book, Award, Briefcase, UserCheck } from "lucide-react";
 
 export default function TeacherProfile() {
   const params = useParams();
@@ -11,30 +13,45 @@ export default function TeacherProfile() {
   const { data: teacher, isLoading: isLoadingTeacher } = useTeacher(teacherId || "");
 
   if (isLoadingTeacher) {
-    return <div className="p-6">Loading teacher profile...</div>;
+    return <div className="p-6 text-center">Loading teacher profile...</div>;
   }
 
   if (!teacher) {
-    return <div className="p-6">Teacher not found.</div>;
+    return <div className="p-6 text-center">Teacher not found.</div>;
   }
+
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'success';
+      case 'on-leave':
+        return 'secondary';
+      default:
+        return 'destructive';
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <TopNav title="Teacher Profile" subtitle={`${teacher.firstName} ${teacher.lastName}`} />
+      <TopNav title="Teacher Profile" subtitle={`Details for ${teacher.firstName} ${teacher.lastName}`} />
 
       <div className="p-6 space-y-6">
-        <Card>
+        <Card className="overflow-hidden">
+          <div className="h-24 bg-primary/10" />
           <CardContent className="pt-6">
-            <div className="flex items-center space-x-6">
-              <Avatar className="h-24 w-24">
+            <div className="flex items-start -mt-16">
+              <Avatar className="h-24 w-24 border-4 border-background">
                 <AvatarImage src={teacher.profileImageUrl} />
                 <AvatarFallback className="text-3xl">
                   {teacher.firstName?.charAt(0)}{teacher.lastName?.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="ml-6">
                 <h1 className="text-2xl font-bold">{teacher.firstName} {teacher.lastName}</h1>
                 <p className="text-muted-foreground">Employee ID: {teacher.employeeId}</p>
+                <Badge variant={getStatusVariant(teacher.status)} className="mt-2">
+                  {teacher.status}
+                </Badge>
               </div>
             </div>
           </CardContent>
@@ -42,15 +59,29 @@ export default function TeacherProfile() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Personal Information</CardTitle>
+            <CardTitle>Details</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
-            <p><strong>Email:</strong> {teacher.email}</p>
-            <p><strong>Phone:</strong> {teacher.phone}</p>
-            <p><strong>Subjects:</strong> {teacher.subjects?.join(', ')}</p>
-            <p><strong>Qualification:</strong> {teacher.qualification}</p>
-            <p><strong>Experience:</strong> {teacher.experience} years</p>
-            <p><strong>Status:</strong> {teacher.status}</p>
+          <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="flex items-center space-x-3">
+              <Mail className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">{teacher.email || 'N/A'}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Phone className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">{teacher.phone || 'N/A'}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Book className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">Subjects: {teacher.subjects?.join(', ') || 'N/A'}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Award className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">Qualification: {teacher.qualification || 'N/A'}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Briefcase className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">Experience: {teacher.experience} years</span>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -7,9 +7,10 @@ import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { useAttendance } from "@/hooks/useAttendance";
 import { usePayments } from "@/hooks/usePayments";
-import { GradesChart, AttendanceSummary } from "./progress"; // Reusing components from progress page
+import { GradesChart, AttendanceSummary } from "./progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Mail, Phone, Home, User, GraduationCap } from "lucide-react";
 
 interface Payment {
   $id: string;
@@ -22,39 +23,47 @@ interface Payment {
 
 function PaymentsTable({ payments }: { payments: Payment[] }) {
     if (!payments || payments.length === 0) {
-        return <p>No payments available.</p>;
+        return <p className="text-center text-muted-foreground py-4">No payments available.</p>;
     }
 
+    const getStatusVariant = (status: string) => {
+      switch (status) {
+        case 'paid':
+          return 'success';
+        case 'overdue':
+          return 'destructive';
+        default:
+          return 'secondary';
+      }
+    };
+
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Purpose</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {payments.map((payment: Payment) => (
-                    <TableRow key={payment.$id}>
-                        <TableCell>{payment.purpose}</TableCell>
-                        <TableCell>₦{parseFloat(payment.amount.toString()).toLocaleString()}</TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={
-                              payment.status === 'paid' ? 'default' : 
-                              payment.status === 'overdue' ? 'destructive' : 'secondary'
-                            }
-                          >
-                            {payment.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{new Date(payment.paidDate || payment.dueDate).toLocaleDateString()}</TableCell>
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted hover:bg-muted">
+                        <TableHead className="py-3">Purpose</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {payments.map((payment: Payment) => (
+                        <TableRow key={payment.$id} className="hover:bg-muted/50">
+                            <TableCell>{payment.purpose}</TableCell>
+                            <TableCell>₦{parseFloat(payment.amount.toString()).toLocaleString()}</TableCell>
+                            <TableCell>
+                              <Badge variant={getStatusVariant(payment.status)}>
+                                {payment.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{new Date(payment.paidDate || payment.dueDate).toLocaleDateString()}</TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 
@@ -68,38 +77,62 @@ export default function StudentProfile() {
   const { payments, isLoading: isLoadingPayments } = usePayments(studentId || "");
 
   if (isLoadingStudent) {
-    return <div className="p-6">Loading student profile...</div>;
+    return <div className="p-6 text-center">Loading student profile...</div>;
   }
 
   if (!student) {
-    return <div className="p-6">Student not found.</div>;
+    return <div className="p-6 text-center">Student not found.</div>;
   }
 
   return (
     <div className="space-y-6">
-      <TopNav title="Student Profile" subtitle={`${student.firstName} ${student.lastName}`} />
+      <TopNav title="Student Profile" subtitle={`Details for ${student.firstName} ${student.lastName}`} />
 
       <div className="p-6 space-y-6">
-        <Card>
+        <Card className="overflow-hidden">
+          <div className="h-24 bg-primary/10" />
           <CardContent className="pt-6">
-            <div className="flex items-center space-x-6">
-              <Avatar className="h-24 w-24">
+            <div className="flex items-start -mt-16">
+              <Avatar className="h-24 w-24 border-4 border-background">
                 <AvatarImage src={student.profileImageUrl} />
                 <AvatarFallback className="text-3xl">
                   {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <div>
+              <div className="ml-6">
                 <h1 className="text-2xl font-bold">{student.firstName} {student.lastName}</h1>
                 <p className="text-muted-foreground">Student ID: {student.studentId}</p>
                 <p className="text-muted-foreground">Class: {student.class}</p>
               </div>
             </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-6 border-t">
+              <div className="flex items-center space-x-3">
+                <Mail className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">{student.email || 'N/A'}</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Phone className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">{student.phone || 'N/A'}</span>
+              </div>
+              <div className="flex items-center space-x-3 col-span-2">
+                <Home className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">{student.address || 'N/A'}</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">Parent: {student.parentName || 'N/A'}</span>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Phone className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">{student.parentPhone || 'N/A'}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
 
-        <Tabs defaultValue="grades">
-          <TabsList>
+        <Tabs defaultValue="grades" className="mt-6">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="grades">Grades</TabsTrigger>
             <TabsTrigger value="attendance">Attendance</TabsTrigger>
             <TabsTrigger value="payments">Payments</TabsTrigger>
@@ -107,30 +140,30 @@ export default function StudentProfile() {
           <TabsContent value="grades" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Grades</CardTitle>
+                <CardTitle>Academic Performance</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades || []} />}
+                {isLoadingGrades ? <p className="text-center py-8">Loading grades...</p> : <GradesChart grades={grades || []} />}
               </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="attendance" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Attendance</CardTitle>
+                <CardTitle>Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
+                {isLoadingAttendance ? <p className="text-center py-8">Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
               </CardContent>
             </Card>
           </TabsContent>
           <TabsContent value="payments" className="mt-6">
             <Card>
               <CardHeader>
-                <CardTitle>Payments</CardTitle>
+                <CardTitle>Payment History</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingPayments ? <p>Loading payments...</p> : <PaymentsTable payments={payments || []} />}
+                {isLoadingPayments ? <p className="text-center py-8">Loading payments...</p> : <PaymentsTable payments={payments || []} />}
               </CardContent>
             </Card>
           </TabsContent>

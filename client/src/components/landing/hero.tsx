@@ -13,11 +13,9 @@ export function Hero() {
             Empower your educators, engage your students, and streamline your
             administration with our all-in-one platform.
           </p>
-          <Link href="/login">
-            <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3">
-              <a>Get Started</a>
-            </Button>
-          </Link>
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-lg px-8 py-3">
+            <Link href="/login">Get Started</Link>
+          </Button>
         </div>
         <div>
           <img

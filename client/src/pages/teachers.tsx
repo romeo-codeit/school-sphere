@@ -91,6 +91,17 @@ export default function Teachers() {
     }
   };
 
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'success';
+      case 'on-leave':
+        return 'secondary';
+      default:
+        return 'destructive';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <TopNav title="Teachers" subtitle="Manage teacher records and information" />
@@ -116,7 +127,7 @@ export default function Teachers() {
                   placeholder="Search teachers..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-muted border-0 focus-visible:ring-primary"
                 />
               </div>
             </div>
@@ -128,23 +139,28 @@ export default function Teachers() {
                 No teachers found.
               </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Teacher</TableHead>
+                    <TableRow className="bg-muted hover:bg-muted">
+                      <TableHead className="py-3">Teacher</TableHead>
                       <TableHead>Employee ID</TableHead>
                       <TableHead>Subjects</TableHead>
                       <TableHead>Contact</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredTeachers.map((teacher: any) => (
-                      <TableRow key={teacher.$id}>
+                      <TableRow key={teacher.$id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                <span className="text-primary font-medium text-sm">
+                                  {teacher.firstName?.charAt(0)}{teacher.lastName?.charAt(0)}
+                                </span>
+                              </div>
                             <div>
                               <p className="font-medium">{teacher.firstName} {teacher.lastName}</p>
                               <p className="text-sm text-muted-foreground">{teacher.email}</p>
@@ -155,11 +171,11 @@ export default function Teachers() {
                         <TableCell>{teacher.subjects?.join(', ')}</TableCell>
                         <TableCell>{teacher.phone}</TableCell>
                         <TableCell>
-                          <Badge variant={teacher.status === 'active' ? 'default' : 'secondary'}>
+                          <Badge variant={getStatusVariant(teacher.status)}>
                             {teacher.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" className="h-8 w-8 p-0">
@@ -171,14 +187,16 @@ export default function Teachers() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleEditTeacher(teacher)}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => openDeleteDialog(teacher.$id)} className="text-destructive">
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
+                              <AdminOnly>
+                                <DropdownMenuItem onClick={() => handleEditTeacher(teacher)}>
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => openDeleteDialog(teacher.$id)} className="text-destructive">
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </AdminOnly>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>

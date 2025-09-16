@@ -92,6 +92,17 @@ export default function Students() {
     }
   };
 
+  const getStatusVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'success';
+      case 'suspended':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <TopNav title="Students" subtitle="Manage student records and information" />
@@ -110,7 +121,6 @@ export default function Students() {
             </div>
           </CardHeader>
           <CardContent>
-            {/* Search and Filters */}
             <div className="flex items-center space-x-4 mb-6">
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -118,13 +128,12 @@ export default function Students() {
                   placeholder="Search students..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-10 bg-muted border-0 focus-visible:ring-primary"
                   data-testid="input-search-students"
                 />
               </div>
             </div>
 
-            {/* Access Control Check */}
             {!canAccess(["admin", "teacher"]) ? (
               <div className="text-center py-8">
                 <div className="text-muted-foreground mb-2">Access Denied</div>
@@ -137,22 +146,22 @@ export default function Students() {
                 {searchQuery ? "No students found matching your search." : "No students found."}
               </div>
             ) : (
-              <div className="rounded-md border">
+              <div className="overflow-x-auto">
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
+                    <TableRow className="bg-muted hover:bg-muted">
+                      <TableHead className="py-3">Student</TableHead>
                       <TableHead>Student ID</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Contact</TableHead>
                       <TableHead>Parent/Guardian</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredStudents.map((student: any) => (
-                      <TableRow key={student.$id}>
+                      <TableRow key={student.$id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
@@ -190,20 +199,13 @@ export default function Students() {
                         </TableCell>
                         <TableCell>
                           <Badge 
-                            variant={student.status === 'active' ? 'default' : 'secondary'}
-                            className={
-                              student.status === 'active' 
-                                ? 'bg-secondary/10 text-secondary' 
-                                : student.status === 'suspended'
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-accent/10 text-accent'
-                            }
+                            variant={getStatusVariant(student.status)}
                             data-testid={`badge-student-status-${student.$id}`}
                           >
                             {student.status}
                           </Badge>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button 
@@ -219,21 +221,23 @@ export default function Students() {
                                 <Eye className="mr-2 h-4 w-4" />
                                 View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleEditStudent(student)}
-                                data-testid={`button-edit-student-${student.$id}`}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => openDeleteDialog(student.$id)}
-                                className="text-destructive"
-                                data-testid={`button-delete-student-${student.$id}`}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
+                              <AdminOnly>
+                                <DropdownMenuItem
+                                  onClick={() => handleEditStudent(student)}
+                                  data-testid={`button-edit-student-${student.$id}`}
+                                >
+                                  <Edit className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(student.$id)}
+                                  className="text-destructive"
+                                  data-testid={`button-delete-student-${student.$id}`}
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </AdminOnly>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
