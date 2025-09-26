@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { StudentForm } from "@/components/student-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,36 +30,51 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { useRole } from "@/hooks/useRole";
-import { AdminOnly } from "@/components/RoleGuard";
 import { useStudents } from "@/hooks/useStudents";
 import { useLocation } from "wouter";
-import { Student } from "~/shared/schema";
+
+// A simple debounce hook to prevent API calls on every keystroke
+function useDebounce(value: string, delay: number) {
+    const [debouncedValue, setDebouncedValue] = useState(value);
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedValue(value);
+        }, delay);
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [value, delay]);
+    return debouncedValue;
+}
 
 export default function Students() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const { toast } = useToast();
-  const { canAccess } = useRole();
-  const { students, isLoading, deleteStudent } = useStudents();
+  const { hasPermission } = useRole();
   const [, setLocation] = useLocation();
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  const filteredStudents = students?.filter((student: Student) =>
-    `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.class.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const { students, total, isLoading, deleteStudent } = useStudents({
+      page: currentPage,
+      limit: 10,
+      search: debouncedSearchQuery,
+  });
+
+  const totalPages = total ? Math.ceil(total / 10) : 1;
 
   const handleAddStudent = () => {
     setSelectedStudent(null);
     setIsFormOpen(true);
   };
 
-  const handleEditStudent = (student: Student) => {
+  const handleEditStudent = (student: any) => {
     setSelectedStudent(student);
     setIsFormOpen(true);
   };
@@ -77,16 +92,12 @@ export default function Students() {
     if (studentToDelete) {
       try {
         await deleteStudent(studentToDelete);
-        toast({
-          title: "Success",
-          description: "Student deleted successfully",
-        });
+        toast({ title: "Success", description: "Student deleted successfully" });
+        if (students?.length === 1 && currentPage > 1) {
+            setCurrentPage(currentPage - 1);
+        }
       } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete student",
-          variant: "destructive",
-        });
+        toast({ title: "Error", description: error.message || "Failed to delete student", variant: "destructive" });
       }
       setStudentToDelete(null);
       setIsDeleteDialogOpen(false);
@@ -95,12 +106,9 @@ export default function Students() {
 
   const getStatusVariant = (status: string) => {
     switch (status) {
-      case 'active':
-        return 'success';
-      case 'suspended':
-        return 'destructive';
-      default:
-        return 'secondary';
+      case 'active': return 'default';
+      case 'suspended': return 'destructive';
+      default: return 'secondary';
     }
   };
 
@@ -113,12 +121,11 @@ export default function Students() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Student Management</CardTitle>
-              <AdminOnly>
+              {hasPermission('students', 'create') && (
                 <Button onClick={handleAddStudent} data-testid="button-add-student">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Student
+                  <UserPlus className="w-4 h-4 mr-2" /> Add Student
                 </Button>
-              </AdminOnly>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -126,150 +133,65 @@ export default function Students() {
               <div className="relative flex-1 max-w-sm">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search students..."
+                  placeholder="Search by name or ID..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-muted border-0 focus-visible:ring-primary"
-                  data-testid="input-search-students"
+                  className="pl-10"
                 />
               </div>
             </div>
 
-            {!canAccess(["admin", "teacher"]) ? (
-              <div className="text-center py-8">
-                <div className="text-muted-foreground mb-2">Access Denied</div>
-                <p className="text-sm">You don't have permission to view student records.</p>
-              </div>
-            ) : isLoading ? (
-              <div className="text-center py-8">Loading students...</div>
-            ) : filteredStudents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? "No students found matching your search." : "No students found."}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted hover:bg-muted">
-                      <TableHead className="py-3">Student</TableHead>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Parent/Guardian</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudents.map((student: Student) => (
-                      <TableRow key={student.$id} className="hover:bg-muted/50">
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <span className="text-primary font-medium text-sm">
-                                {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium" data-testid={`text-student-name-${student.$id}`}>
-                                {student.firstName} {student.lastName}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {student.email}
-                              </p>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell data-testid={`text-student-id-${student.$id}`}>
-                          {student.studentId}
-                        </TableCell>
-                        <TableCell data-testid={`text-student-class-${student.$id}`}>
-                          {student.class}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p>{student.phone}</p>
-                            <p className="text-muted-foreground">{student.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p>{student.parentName}</p>
-                            <p className="text-muted-foreground">{student.parentPhone}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={getStatusVariant(student.status)}
-                            data-testid={`badge-student-status-${student.$id}`}
-                          >
-                            {student.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0"
-                                data-testid={`button-student-actions-${student.$id}`}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleViewStudent(student.$id)} data-testid={`button-view-student-${student.$id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              <AdminOnly>
-                                <DropdownMenuItem
-                                  onClick={() => handleEditStudent(student)}
-                                  data-testid={`button-edit-student-${student.$id}`}
-                                >
-                                  <Edit className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => openDeleteDialog(student.$id)}
-                                  className="text-destructive"
-                                  data-testid={`button-delete-student-${student.$id}`}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </AdminOnly>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+            {isLoading ? <div className="text-center py-8">Loading students...</div> :
+             !students || students.length === 0 ? <div className="text-center py-8 text-muted-foreground">{searchQuery ? "No students found." : "No students have been added."}</div> :
+             (
+              <>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow><TableHead>Student</TableHead><TableHead>Student ID</TableHead><TableHead>Class</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {students.map((student: any) => (
+                        <TableRow key={student.$id}>
+                          <TableCell>
+                            <div className="font-medium">{student.firstName} {student.lastName}</div>
+                            <div className="text-sm text-muted-foreground">{student.email}</div>
+                          </TableCell>
+                          <TableCell>{student.studentId}</TableCell>
+                          <TableCell>{student.classId}</TableCell>
+                          <TableCell><Badge variant={getStatusVariant(student.status)}>{student.status}</Badge></TableCell>
+                          <TableCell className="text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleViewStudent(student.$id)}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
+                                {hasPermission('students', 'update') && <DropdownMenuItem onClick={() => handleEditStudent(student)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>}
+                                {hasPermission('students', 'delete') && <DropdownMenuItem onClick={() => openDeleteDialog(student.$id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Previous</Button>
+                    <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Next</Button>
+                </div>
+              </>
             )}
           </CardContent>
         </Card>
       </div>
 
-      <StudentForm
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        student={selectedStudent}
-      />
+      <StudentForm open={isFormOpen} onOpenChange={setIsFormOpen} student={selectedStudent} />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the student record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDelete}>Continue</AlertDialogAction>
-          </AlertDialogFooter>
+          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete the student record.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Continue</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>

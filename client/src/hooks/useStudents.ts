@@ -1,51 +1,57 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { InsertStudent, Student } from './shared/schema';
+import { databases, ID } from '@/lib/appwrite';
+import { DB } from '@/lib/db';
+import { Query } from 'appwrite';
 
-const API_URL = '/api/students';
+interface StudentFilters {
+    page?: number;
+    limit?: number;
+    search?: string;
+    classId?: string;
+}
 
-export function useStudents() {
+export function useStudents(filters: StudentFilters = {}) {
   const queryClient = useQueryClient();
+  const { page = 1, limit = 10, search = '', classId } = filters;
 
-  const { data: students, isLoading, error } = useQuery<Student[]>({
-    queryKey: ['students'],
+  const queryKey = ['students', { page, limit, search, classId }];
+
+  const { data, isLoading, error } = useQuery({
+    queryKey,
     queryFn: async () => {
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error('Failed to fetch students');
+      const queries = [
+          Query.limit(limit),
+          Query.offset((page - 1) * limit),
+          Query.orderDesc('$createdAt'),
+      ];
+      if (search) {
+          // Appwrite search needs a search index on the attributes.
+          // Assuming 'name' and 'studentId' are indexed.
+          queries.push(Query.search('search', search));
       }
-      const data = await response.json();
-      return data.documents;
+      if (classId) {
+          queries.push(Query.equal('classId', classId));
+      }
+
+      const response = await databases.listDocuments(DB.id, 'students', queries);
+      return response; // Returning the whole response to get total count for pagination
     },
   });
 
   const useStudent = (studentId: string) => {
-    return useQuery<Student>({
+    return useQuery({
       queryKey: ['students', studentId],
       queryFn: async () => {
         if (!studentId) return null;
-        const response = await fetch(`${API_URL}/${studentId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch student');
-        }
-        return await response.json();
+        return await databases.getDocument(DB.id, 'students', studentId);
       },
       enabled: !!studentId,
     });
   };
 
   const createStudentMutation = useMutation({
-    mutationFn: async (studentData: InsertStudent) => {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(studentData),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create student');
-      }
-      return await response.json();
+    mutationFn: async (studentData: any) => {
+      return await databases.createDocument(DB.id, 'students', ID.unique(), studentData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -53,18 +59,8 @@ export function useStudents() {
   });
 
   const updateStudentMutation = useMutation({
-    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: Partial<InsertStudent> }) => {
-      const response = await fetch(`${API_URL}/${studentId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(studentData),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update student');
-      }
-      return await response.json();
+    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
+      return await databases.updateDocument(DB.id, 'students', studentId, studentData);
     },
     onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -74,12 +70,7 @@ export function useStudents() {
 
   const deleteStudentMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      const response = await fetch(`${API_URL}/${studentId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete student');
-      }
+      return await databases.deleteDocument(DB.id, 'students', studentId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -87,7 +78,8 @@ export function useStudents() {
   });
 
   return {
-    students,
+    students: data?.documents,
+    total: data?.total,
     isLoading,
     error,
     useStudent,

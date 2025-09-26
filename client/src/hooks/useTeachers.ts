@@ -1,51 +1,52 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { InsertTeacher, Teacher } from '../../shared/schema';
+import { databases, ID } from '@/lib/appwrite';
+import { DB } from '@/lib/db';
+import { Query } from 'appwrite';
 
-const API_URL = '/api/teachers';
+interface TeacherFilters {
+    page?: number;
+    limit?: number;
+    search?: string;
+}
 
-export function useTeachers() {
+export function useTeachers(filters: TeacherFilters = {}) {
   const queryClient = useQueryClient();
+  const { page = 1, limit = 10, search = '' } = filters;
 
-  const { data: teachers, isLoading, error } = useQuery<Teacher[]>({
-    queryKey: ['teachers'],
+  const queryKey = ['teachers', { page, limit, search }];
+
+  const { data, isLoading, error } = useQuery({
+    queryKey,
     queryFn: async () => {
-      const response = await fetch(API_URL);
-      if (!response.ok) {
-        throw new Error('Failed to fetch teachers');
+      const queries = [
+          Query.limit(limit),
+          Query.offset((page - 1) * limit),
+          Query.orderDesc('$createdAt'),
+      ];
+      if (search) {
+          // Assuming 'name' and 'employeeId' are indexed for search
+          queries.push(Query.search('search', search));
       }
-      const data = await response.json();
-      return data.documents;
+
+      const response = await databases.listDocuments(DB.id, 'teachers', queries);
+      return response; // Return the whole response for total count
     },
   });
 
   const useTeacher = (teacherId: string) => {
-    return useQuery<Teacher>({
+    return useQuery({
       queryKey: ['teachers', teacherId],
       queryFn: async () => {
         if (!teacherId) return null;
-        const response = await fetch(`${API_URL}/${teacherId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch teacher');
-        }
-        return await response.json();
+        return await databases.getDocument(DB.id, 'teachers', teacherId);
       },
       enabled: !!teacherId,
     });
   };
 
   const createTeacherMutation = useMutation({
-    mutationFn: async (teacherData: InsertTeacher) => {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(teacherData),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to create teacher');
-      }
-      return await response.json();
+    mutationFn: async (teacherData: any) => {
+      return await databases.createDocument(DB.id, 'teachers', ID.unique(), teacherData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -53,18 +54,8 @@ export function useTeachers() {
   });
 
   const updateTeacherMutation = useMutation({
-    mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: Partial<InsertTeacher> }) => {
-      const response = await fetch(`${API_URL}/${teacherId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(teacherData),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to update teacher');
-      }
-      return await response.json();
+    mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
+      return await databases.updateDocument(DB.id, 'teachers', teacherId, teacherData);
     },
     onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -74,12 +65,7 @@ export function useTeachers() {
 
   const deleteTeacherMutation = useMutation({
     mutationFn: async (teacherId: string) => {
-      const response = await fetch(`${API_URL}/${teacherId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        throw new Error('Failed to delete teacher');
-      }
+      return await databases.deleteDocument(DB.id, 'teachers', teacherId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -87,7 +73,8 @@ export function useTeachers() {
   });
 
   return {
-    teachers,
+    teachers: data?.documents,
+    total: data?.total,
     isLoading,
     error,
     useTeacher,
