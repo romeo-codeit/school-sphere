@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const EXAM_ATTEMPTS_COLLECTION_ID = 'exam_attempts';
+const API_URL = '/api/examAttempts';
 
 export function useExamAttempts(studentId?: string) {
   const queryClient = useQueryClient();
@@ -11,16 +8,16 @@ export function useExamAttempts(studentId?: string) {
   const { data: examAttempts, isLoading, error } = useQuery({
     queryKey: ['examAttempts', studentId],
     queryFn: async () => {
-      const queries = [];
+      let url = API_URL;
       if (studentId) {
-        queries.push(Query.equal('studentId', studentId));
+        url += `?studentId=${studentId}`;
       }
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        EXAM_ATTEMPTS_COLLECTION_ID,
-        queries
-      );
-      return response.documents.map((doc: any) => ({
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch exam attempts');
+      }
+      const data = await response.json();
+      return data.documents.map((doc: any) => ({
         id: doc.$id,
         examId: doc.examId as string,
         score: doc.score as number,
@@ -33,12 +30,17 @@ export function useExamAttempts(studentId?: string) {
 
   const createExamAttemptMutation = useMutation({
     mutationFn: async (examAttemptData: any) => {
-      return await databases.createDocument(
-        DATABASE_ID,
-        EXAM_ATTEMPTS_COLLECTION_ID,
-        ID.unique(),
-        examAttemptData
-      );
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(examAttemptData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create exam attempt');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['examAttempts'] });

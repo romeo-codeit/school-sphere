@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const PAYMENTS_COLLECTION_ID = 'payments';
+const API_URL = '/api/payments';
 
 export function usePayments(studentId?: string) {
   const queryClient = useQueryClient();
@@ -11,16 +8,16 @@ export function usePayments(studentId?: string) {
   const { data: payments, isLoading, error } = useQuery({
     queryKey: ['payments', studentId],
     queryFn: async () => {
-      const queries = [];
+      let url = API_URL;
       if (studentId) {
-        queries.push(Query.equal('studentId', studentId));
+        url += `?studentId=${studentId}`;
       }
-      const response = await databases.listDocuments(
-        DATABASE_ID, 
-        PAYMENTS_COLLECTION_ID,
-        queries
-      );
-      return response.documents.map((doc: any) => ({
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Failed to fetch payments');
+      }
+      const data = await response.json();
+      return data.documents.map((doc: any) => ({
         $id: doc.$id,
         purpose: doc.purpose as string,
         amount: doc.amount as number,
@@ -33,12 +30,17 @@ export function usePayments(studentId?: string) {
 
   const createPaymentMutation = useMutation({
     mutationFn: async (paymentData: any) => {
-      return await databases.createDocument(
-        DATABASE_ID,
-        PAYMENTS_COLLECTION_ID,
-        ID.unique(),
-        paymentData
-      );
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create payment');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
@@ -47,12 +49,17 @@ export function usePayments(studentId?: string) {
 
   const updatePaymentMutation = useMutation({
     mutationFn: async ({ paymentId, paymentData }: { paymentId: string, paymentData: any }) => {
-      return await databases.updateDocument(
-        DATABASE_ID,
-        PAYMENTS_COLLECTION_ID,
-        paymentId,
-        paymentData
-      );
+      const response = await fetch(`${API_URL}/${paymentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(paymentData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update payment');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });
@@ -61,11 +68,12 @@ export function usePayments(studentId?: string) {
 
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
-      return await databases.deleteDocument(
-        DATABASE_ID,
-        PAYMENTS_COLLECTION_ID,
-        paymentId
-      );
+      const response = await fetch(`${API_URL}/${paymentId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete payment');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payments'] });

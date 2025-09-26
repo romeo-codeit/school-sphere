@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -36,8 +36,8 @@
   --sidebar-accent-foreground: hsl(221, 91%, 60%);
   --sidebar-border: hsl(220, 13%, 91%);
   --sidebar-ring: hsl(221, 91%, 60%);
-  --font-sans: 'Inter', sans-serif;
-  --font-heading: 'Inter', sans-serif;
+  --font-sans: 'Poppins', sans-serif;
+  --font-heading: 'Poppins', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 1rem;
@@ -86,8 +86,8 @@
   --sidebar-accent-foreground: hsl(221, 91%, 60%);
   --sidebar-border: hsl(215, 19%, 27%);
   --sidebar-ring: hsl(221, 91%, 60%);
-  --font-sans: 'Inter', sans-serif;
-  --font-heading: 'Inter', sans-serif;
+  --font-sans: 'Poppins', sans-serif;
+  --font-heading: 'Poppins', sans-serif;
   --font-serif: Georgia, serif;
   --font-mono: Menlo, monospace;
   --radius: 1rem;

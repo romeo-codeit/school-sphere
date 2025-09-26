@@ -35,11 +35,12 @@ import { useRole } from "@/hooks/useRole";
 import { AdminOnly } from "@/components/RoleGuard";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useLocation } from "wouter";
+import { Teacher } from "~/shared/schema";
 
 export default function Teachers() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedTeacher, setSelectedTeacher] = useState<any | null>(null);
+  const [selectedTeacher, setSelectedTeacher] = useState<Teacher | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [teacherToDelete, setTeacherToDelete] = useState<string | null>(null);
   const { toast } = useToast();
@@ -47,7 +48,7 @@ export default function Teachers() {
   const { teachers, isLoading, deleteTeacher } = useTeachers();
   const [, setLocation] = useLocation();
 
-  const filteredTeachers = teachers?.filter((teacher: any) =>
+  const filteredTeachers = teachers?.filter((teacher: Teacher) =>
     `${teacher.firstName} ${teacher.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     teacher.employeeId.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
@@ -57,7 +58,7 @@ export default function Teachers() {
     setIsFormOpen(true);
   };
 
-  const handleEditTeacher = (teacher: any) => {
+  const handleEditTeacher = (teacher: Teacher) => {
     setSelectedTeacher(teacher);
     setIsFormOpen(true);
   };
@@ -132,11 +133,16 @@ export default function Teachers() {
               </div>
             </div>
 
-            {isLoading ? (
+            {!hasPermission("teachers", "read") ? (
+              <div className="text-center py-8">
+                <div className="text-muted-foreground mb-2">Access Denied</div>
+                <p className="text-sm">You don't have permission to view teacher records.</p>
+              </div>
+            ) : isLoading ? (
               <div className="text-center py-8">Loading teachers...</div>
             ) : filteredTeachers.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                No teachers found.
+                {searchQuery ? "No teachers found matching your search." : "No teachers found."}
               </div>
             ) : (
               <div className="overflow-x-auto">
@@ -152,7 +158,7 @@ export default function Teachers() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredTeachers.map((teacher: any) => (
+                    {filteredTeachers.map((teacher: Teacher) => (
                       <TableRow key={teacher.$id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center space-x-3">

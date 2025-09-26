@@ -1,40 +1,51 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
+import { InsertTeacher, Teacher } from '../../shared/schema';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const TEACHERS_COLLECTION_ID = 'teachers';
+const API_URL = '/api/teachers';
 
 export function useTeachers() {
   const queryClient = useQueryClient();
 
-  const { data: teachers, isLoading, error } = useQuery({
+  const { data: teachers, isLoading, error } = useQuery<Teacher[]>({
     queryKey: ['teachers'],
     queryFn: async () => {
-      const response = await databases.listDocuments(DATABASE_ID, TEACHERS_COLLECTION_ID);
-      return response.documents;
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error('Failed to fetch teachers');
+      }
+      const data = await response.json();
+      return data.documents;
     },
   });
 
   const useTeacher = (teacherId: string) => {
-    return useQuery({
+    return useQuery<Teacher>({
       queryKey: ['teachers', teacherId],
       queryFn: async () => {
         if (!teacherId) return null;
-        return await databases.getDocument(DATABASE_ID, TEACHERS_COLLECTION_ID, teacherId);
+        const response = await fetch(`${API_URL}/${teacherId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch teacher');
+        }
+        return await response.json();
       },
       enabled: !!teacherId,
     });
   };
 
   const createTeacherMutation = useMutation({
-    mutationFn: async (teacherData: any) => {
-      return await databases.createDocument(
-        DATABASE_ID,
-        TEACHERS_COLLECTION_ID,
-        ID.unique(),
-        teacherData
-      );
+    mutationFn: async (teacherData: InsertTeacher) => {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(teacherData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create teacher');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -42,13 +53,18 @@ export function useTeachers() {
   });
 
   const updateTeacherMutation = useMutation({
-    mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
-      return await databases.updateDocument(
-        DATABASE_ID,
-        TEACHERS_COLLECTION_ID,
-        teacherId,
-        teacherData
-      );
+    mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: Partial<InsertTeacher> }) => {
+      const response = await fetch(`${API_URL}/${teacherId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(teacherData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update teacher');
+      }
+      return await response.json();
     },
     onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -58,11 +74,12 @@ export function useTeachers() {
 
   const deleteTeacherMutation = useMutation({
     mutationFn: async (teacherId: string) => {
-      return await databases.deleteDocument(
-        DATABASE_ID,
-        TEACHERS_COLLECTION_ID,
-        teacherId
-      );
+      const response = await fetch(`${API_URL}/${teacherId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete teacher');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });

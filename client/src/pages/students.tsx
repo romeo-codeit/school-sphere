@@ -35,11 +35,12 @@ import { useRole } from "@/hooks/useRole";
 import { AdminOnly } from "@/components/RoleGuard";
 import { useStudents } from "@/hooks/useStudents";
 import { useLocation } from "wouter";
+import { Student } from "~/shared/schema";
 
 export default function Students() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
   const { toast } = useToast();
@@ -47,7 +48,7 @@ export default function Students() {
   const { students, isLoading, deleteStudent } = useStudents();
   const [, setLocation] = useLocation();
 
-  const filteredStudents = students?.filter((student: any) =>
+  const filteredStudents = students?.filter((student: Student) =>
     `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
     student.class.toLowerCase().includes(searchQuery.toLowerCase())
@@ -58,7 +59,7 @@ export default function Students() {
     setIsFormOpen(true);
   };
 
-  const handleEditStudent = (student: any) => {
+  const handleEditStudent = (student: Student) => {
     setSelectedStudent(student);
     setIsFormOpen(true);
   };
@@ -160,7 +161,7 @@ export default function Students() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredStudents.map((student: any) => (
+                    {filteredStudents.map((student: Student) => (
                       <TableRow key={student.$id} className="hover:bg-muted/50">
                         <TableCell>
                           <div className="flex items-center space-x-3">

@@ -1,4 +1,4 @@
-import { Search, Bell, Menu } from "lucide-react";
+import { Search, Bell, Menu, RefreshCw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,15 +8,16 @@ interface TopNavProps {
   title: string;
   subtitle?: string;
   onToggleSidebar?: () => void;
+  isLoading?: boolean;
 }
 
-export function TopNav({ title, subtitle, onToggleSidebar }: TopNavProps) {
+export function TopNav({ title, subtitle, onToggleSidebar, isLoading }: TopNavProps) {
   const { user } = useAuth();
 
   return (
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           <Button 
             variant="ghost" 
             size="sm"
@@ -26,15 +27,16 @@ export function TopNav({ title, subtitle, onToggleSidebar }: TopNavProps) {
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <div>
+          <div className="flex items-center space-x-2">
             <h2 className="text-2xl font-bold text-foreground">{title}</h2>
-            {subtitle && (
-              <p className="text-muted-foreground">{subtitle}</p>
-            )}
+            {isLoading && <RefreshCw className="w-6 h-6 animate-spin text-primary" />}
           </div>
+          {subtitle && (
+            <p className="text-muted-foreground">{subtitle}</p>
+          )}
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-2 sm:space-x-4">
           {/* Search */}
           <div className="relative hidden md:block">
             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -67,17 +69,17 @@ export function TopNav({ title, subtitle, onToggleSidebar }: TopNavProps) {
           {/* User Profile */}
           <div className="flex items-center space-x-3">
             <img 
-              src={"https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=100&h=100"}
+              src={"https://placehold.co/100x100"}
               alt="User profile" 
               className="w-10 h-10 rounded-full object-cover"
               data-testid="img-user-avatar"
             />
             <div className="hidden md:block">
               <p className="font-medium text-foreground" data-testid="text-user-name">
-                {user?.name || "User"}
+                {user?.name || ""}
               </p>
               <p className="text-sm text-muted-foreground capitalize" data-testid="text-user-role">
-                {user?.prefs?.role || "User"}
+                {user?.prefs?.role || ""}
               </p>
             </div>
           </div>

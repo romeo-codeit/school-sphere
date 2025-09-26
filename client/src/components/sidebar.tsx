@@ -146,7 +146,7 @@ interface SidebarProps {
 export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps) {
   const [location, setLocation] = useLocation();
   const { role } = useRole();
-  const { logout } = useAuth();
+  const { logout, isAuthenticated } = useAuth();
   
   const navigationItems = getNavigationItems(role);
   const settingsItems = getSettingsItems(role);
@@ -159,12 +159,16 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
   };
 
   const handleLogout = async () => {
-    await logout();
-    setLocation('/');
+    try {
+      await logout();
+    } catch (error) {
+      console.error(error);
+    }
+    setLocation('/login');
   };
 
   return (
-    <aside className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full transition-all duration-300", {
+    <aside className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full relative transition-all duration-300", {
       "w-60": !isCollapsed,
       "w-20": isCollapsed,
     }, className)}>
@@ -185,7 +189,8 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
           {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
         </Button>
       </div>
-      
+
+      {/* Main navigation section (scrollable) */}
       <div className="flex-1 overflow-y-auto">
         <nav className="px-2 py-4">
           <div className="space-y-2">
@@ -214,7 +219,9 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
           </div>
         </nav>
       </div>
-      <div className="p-2 border-t border-border">
+
+      {/* Bottom section with settings and logout (fixed at bottom) */}
+      <div className="absolute bottom-0 w-full border-t border-border p-2">
         {settingsItems.map((item) => (
           <Link
             key={item.name}

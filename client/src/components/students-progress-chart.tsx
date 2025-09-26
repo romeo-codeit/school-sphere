@@ -25,7 +25,7 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
         <CardTitle>Students</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="w-full h-48">
+        <div className="w-full h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
               innerRadius="70%"

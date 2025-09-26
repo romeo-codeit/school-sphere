@@ -38,12 +38,12 @@ export function NoticeBoard({ notices }: NoticeBoardProps) {
           {notices.map((notice) => {
             const Icon = getIconForActivity(notice.activity);
             return (
-              <li key={notice.$id} className="flex items-center space-x-4 p-2 rounded-lg hover:bg-muted/50">
+              <li key={notice.$id} className="flex items-center space-x-2 sm:space-x-4 p-2 rounded-lg hover:bg-muted/50">
                 <div className="p-2 bg-muted rounded-lg">
                   <Icon className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1">
-                  <p className="font-semibold text-foreground">{notice.activity}</p>
+                  <p className="font-semibold text-foreground text-wrap">{notice.activity}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium text-muted-foreground">

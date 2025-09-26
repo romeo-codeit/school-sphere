@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '@/lib/appwrite';
-import { ID } from 'appwrite';
 
-const DATABASE_ID = 'db'; // As per assumption
-const COLLECTION_ID = 'events'; // As per assumption
+const API_URL = '/api/events';
 
 export function useEvents() {
   const queryClient = useQueryClient();
@@ -11,14 +8,28 @@ export function useEvents() {
   const { data: events, isLoading } = useQuery({
     queryKey: ['events'],
     queryFn: async () => {
-      const response = await databases.listDocuments(DATABASE_ID, COLLECTION_ID);
-      return response.documents;
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error('Failed to fetch events');
+      }
+      const data = await response.json();
+      return data.documents;
     },
   });
 
   const createEventMutation = useMutation({
-    mutationFn: (eventData: any) => {
-      return databases.createDocument(DATABASE_ID, COLLECTION_ID, ID.unique(), eventData);
+    mutationFn: async (eventData: any) => {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create event');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -26,8 +37,18 @@ export function useEvents() {
   });
 
   const updateEventMutation = useMutation({
-    mutationFn: ({ eventId, eventData }: { eventId: string, eventData: any }) => {
-      return databases.updateDocument(DATABASE_ID, COLLECTION_ID, eventId, eventData);
+    mutationFn: async ({ eventId, eventData }: { eventId: string, eventData: any }) => {
+      const response = await fetch(`${API_URL}/${eventId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(eventData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update event');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -35,8 +56,13 @@ export function useEvents() {
   });
 
   const deleteEventMutation = useMutation({
-    mutationFn: (eventId: string) => {
-      return databases.deleteDocument(DATABASE_ID, COLLECTION_ID, eventId);
+    mutationFn: async (eventId: string) => {
+      const response = await fetch(`${API_URL}/${eventId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete event');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['events'] });
@@ -57,7 +83,11 @@ export function useEvent(eventId: string) {
         queryKey: ['event', eventId],
         queryFn: async () => {
             if (!eventId) return null;
-            return await databases.getDocument(DATABASE_ID, COLLECTION_ID, eventId);
+            const response = await fetch(`${API_URL}/${eventId}`);
+            if (!response.ok) {
+              throw new Error('Failed to fetch event');
+            }
+            return await response.json();
         },
         enabled: !!eventId,
     });

@@ -141,8 +141,8 @@ export default function Dashboard() {
   ];
 
   if (students && students.length > 0) {
-    const maleStudents = students.filter((s: any) => s.gender.toLowerCase() === 'male').length;
-    const femaleStudents = students.filter((s: any) => s.gender.toLowerCase() === 'female').length;
+    const maleStudents = students.filter((s: any) => s.gender && s.gender.toLowerCase() === 'male').length;
+    const femaleStudents = students.filter((s: any) => s.gender && s.gender.toLowerCase() === 'female').length;
     const totalStudents = students.length;
 
     studentGenderData[0].value = (maleStudents / totalStudents) * 100;
@@ -156,9 +156,9 @@ export default function Dashboard() {
         subtitle={`Welcome back, ${user?.name || 'User'}`}
       />
       
-      <div className="p-6">
+      <div className="space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 p-4 md:p-6">
           <StatsCard
             title="Total Students"
             value={statsLoading ? "Loading..." : stats?.totalStudents || 0}
@@ -188,54 +188,56 @@ export default function Dashboard() {
           />
         </div>
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Students, Weekly Attendance, Event Calendar Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-6">
+          <Card>
+            <CardHeader>
+                <CardTitle>Weekly Attendance</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {attendanceLoading ? (
+                <div className="text-center py-8">Loading chart data...</div>
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData} barSize={10}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip
+                      cursor={{fill: 'transparent'}}
+                      contentStyle={{
+                        backgroundColor: 'var(--card)',
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius)'
+                      }}
+                    />
+                    <Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} />
+                    <Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+          <StudentsProgressChart data={studentGenderData} />
+          <EventCalendar />
+        </div>
+
+        {/* Main Content Grid (remaining widgets) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 md:p-6">
           <div className="lg:col-span-2 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                    <CardTitle>Weekly Attendance</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {attendanceLoading ? (
-                    <div className="text-center py-8">Loading chart data...</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={250}>
-                      <BarChart data={chartData} barSize={10}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                        <YAxis axisLine={false} tickLine={false} />
-                        <Tooltip
-                          cursor={{fill: 'transparent'}}
-                          contentStyle={{
-                            backgroundColor: 'var(--card)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 'var(--radius)'
-                          }}
-                        />
-                        <Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} />
-                        <Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-              <StudentsProgressChart data={studentGenderData} />
-            </div>
             <NoticeBoard notices={recentActivities || []} />
           </div>
 
-          {/* Right Sidebar Content */}
-          <div className="space-y-6">
-            <EventCalendar />
+          {/* Right Sidebar Content (remaining widgets) */}
+          <div className="space-y-6 lg:pr-0">
             <RecentActivityWidget activities={recentActivities || []} />
           </div>
         </div>
 
         {/* Additional Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 p-4 md:p-6">
           {/* Payment Status */}
-          <Card>
+          <Card className="h-full">
             <CardHeader>
               <CardTitle>Payment Status</CardTitle>
             </CardHeader>
@@ -277,7 +279,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Exam Module Preview */}
-          <Card className="mt-8">
+          <Card className="h-full">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle>Exam Module</CardTitle>

@@ -1,40 +1,51 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
+import { InsertStudent, Student } from './shared/schema';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const STUDENTS_COLLECTION_ID = 'students';
+const API_URL = '/api/students';
 
 export function useStudents() {
   const queryClient = useQueryClient();
 
-  const { data: students, isLoading, error } = useQuery({
+  const { data: students, isLoading, error } = useQuery<Student[]>({
     queryKey: ['students'],
     queryFn: async () => {
-      const response = await databases.listDocuments(DATABASE_ID, STUDENTS_COLLECTION_ID);
-      return response.documents;
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
+      const data = await response.json();
+      return data.documents;
     },
   });
 
   const useStudent = (studentId: string) => {
-    return useQuery({
+    return useQuery<Student>({
       queryKey: ['students', studentId],
       queryFn: async () => {
         if (!studentId) return null;
-        return await databases.getDocument(DATABASE_ID, STUDENTS_COLLECTION_ID, studentId);
+        const response = await fetch(`${API_URL}/${studentId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch student');
+        }
+        return await response.json();
       },
       enabled: !!studentId,
     });
   };
 
   const createStudentMutation = useMutation({
-    mutationFn: async (studentData: any) => {
-      return await databases.createDocument(
-        DATABASE_ID,
-        STUDENTS_COLLECTION_ID,
-        ID.unique(),
-        studentData
-      );
+    mutationFn: async (studentData: InsertStudent) => {
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create student');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -42,13 +53,18 @@ export function useStudents() {
   });
 
   const updateStudentMutation = useMutation({
-    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
-      return await databases.updateDocument(
-        DATABASE_ID,
-        STUDENTS_COLLECTION_ID,
-        studentId,
-        studentData
-      );
+    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: Partial<InsertStudent> }) => {
+      const response = await fetch(`${API_URL}/${studentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(studentData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update student');
+      }
+      return await response.json();
     },
     onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -58,11 +74,12 @@ export function useStudents() {
 
   const deleteStudentMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      return await databases.deleteDocument(
-        DATABASE_ID,
-        STUDENTS_COLLECTION_ID,
-        studentId
-      );
+      const response = await fetch(`${API_URL}/${studentId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete student');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });

@@ -31,12 +31,12 @@ export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) 
       <CardContent>
         <ul className="space-y-4">
           {activities.map((activity) => (
-            <li key={activity.$id} className="flex items-start space-x-4">
+            <li key={activity.$id} className="flex items-start space-x-2 sm:space-x-4">
               <div className="p-2 bg-muted rounded-full">
                 <Bell className="w-5 h-5 text-muted-foreground" />
               </div>
               <div className="flex-1">
-                <p className="font-semibold text-foreground text-sm">{activity.activity}</p>
+                <p className="font-semibold text-foreground text-sm text-wrap">{activity.activity}</p>
                 <p className="text-xs text-muted-foreground">
                   {formatTimestamp(activity.date)}
                 </p>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
+import { useSchoolData } from "@/hooks/useSchoolData";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -76,6 +78,20 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
   const { user } = useAuth();
+  const { theme, setTheme, primaryColor, setPrimaryColor } = useTheme();
+
+  const colorOptions = [
+    { name: "Blue", value: "hsl(221, 91%, 60%)", hex: "#3b82f6", className: "bg-blue-500" },
+    { name: "Green", value: "hsl(142, 71%, 45%)", hex: "#22c55e", className: "bg-green-500" },
+    { name: "Purple", value: "hsl(270, 70%, 50%)", hex: "#a855f7", className: "bg-purple-500" },
+    { name: "Orange", value: "hsl(30, 90%, 50%)", hex: "#f97316", className: "bg-orange-500" },
+    { name: "Red", value: "hsl(0, 84%, 60%)", hex: "#ef4444", className: "bg-red-500" },
+    { name: "Yellow", value: "hsl(48, 96%, 50%)", hex: "#eab308", className: "bg-yellow-500" },
+    { name: "Cyan", value: "hsl(185, 75%, 45%)", hex: "#06b6d4", className: "bg-cyan-500" },
+    { name: "Pink", value: "hsl(330, 80%, 60%)", hex: "#ec4899", className: "bg-pink-500" },
+  ];
+
+  const { schoolData, isLoading: isLoadingSchoolData } = useSchoolData();
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
@@ -91,16 +107,31 @@ export default function Settings() {
   const schoolForm = useForm<SchoolFormData>({
     resolver: zodResolver(schoolFormSchema),
     defaultValues: {
-      schoolName: "EduManage High School",
-      address: "123 Education Street, Academic City",
-      phone: "+234 800 123 4567",
-      email: "info@edumanage.edu.ng",
-      website: "https://www.edumanage.edu.ng",
-      motto: "Excellence in Education",
-      currentTerm: "First Term",
-      academicYear: "2024/2025",
+      schoolName: "",
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      motto: "",
+      currentTerm: "",
+      academicYear: "",
     },
   });
+
+  useEffect(() => {
+    if (schoolData) {
+      schoolForm.reset({
+        schoolName: schoolData.name || "",
+        address: schoolData.address || "",
+        phone: schoolData.phone || "",
+        email: schoolData.email || "",
+        website: schoolData.website || "",
+        motto: schoolData.motto || "",
+        currentTerm: schoolData.currentTerm || "",
+        academicYear: schoolData.academicYear || "",
+      });
+    }
+  }, [schoolData, schoolForm]);
 
   const notificationForm = useForm<NotificationFormData>({
     resolver: zodResolver(notificationFormSchema),
@@ -140,7 +171,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Settings" subtitle="Customize your school management system" />
+      <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} />
       
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -288,139 +319,145 @@ export default function Settings() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Form {...schoolForm}>
-                  <form onSubmit={schoolForm.handleSubmit(onSchoolSubmit)} className="space-y-6">
-                    <FormField
-                      control={schoolForm.control}
-                      name="schoolName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={schoolForm.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Address</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} rows={3} data-testid="textarea-school-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {isLoadingSchoolData ? (
+                  <div className="flex justify-center items-center h-40">
+                    <RefreshCw className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                ) : (
+                  <Form {...schoolForm}>
+                    <form onSubmit={schoolForm.handleSubmit(onSchoolSubmit)} className="space-y-6">
                       <FormField
                         control={schoolForm.control}
-                        name="phone"
+                        name="schoolName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
+                            <FormLabel>School Name</FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-school-phone" />
+                              <Input {...field} data-testid="input-school-name" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={schoolForm.control}
-                        name="email"
+                        name="address"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email Address</FormLabel>
+                            <FormLabel>School Address</FormLabel>
                             <FormControl>
-                              <Input type="email" {...field} data-testid="input-school-email" />
+                              <Textarea {...field} rows={3} data-testid="textarea-school-address" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <FormField
-                      control={schoolForm.control}
-                      name="website"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Website</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-website" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={schoolForm.control}
-                      name="motto"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Motto</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-motto" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        control={schoolForm.control}
-                        name="currentTerm"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Current Term</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={schoolForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
                               <FormControl>
-                                <SelectTrigger data-testid="select-current-term">
-                                  <SelectValue />
-                                </SelectTrigger>
+                                <Input {...field} data-testid="input-school-phone" />
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="First Term">First Term</SelectItem>
-                                <SelectItem value="Second Term">Second Term</SelectItem>
-                                <SelectItem value="Third Term">Third Term</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={schoolForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input type="email" {...field} data-testid="input-school-email" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
                       <FormField
                         control={schoolForm.control}
-                        name="academicYear"
+                        name="website"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Academic Year</FormLabel>
+                            <FormLabel>Website</FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-academic-year" />
+                              <Input {...field} data-testid="input-school-website" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <Button type="submit" data-testid="button-save-school">
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
-                    </Button>
-                  </form>
-                </Form>
+                      <FormField
+                        control={schoolForm.control}
+                        name="motto"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>School Motto</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-school-motto" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={schoolForm.control}
+                          name="currentTerm"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Current Term</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-current-term">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="First Term">First Term</SelectItem>
+                                  <SelectItem value="Second Term">Second Term</SelectItem>
+                                  <SelectItem value="Third Term">Third Term</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={schoolForm.control}
+                          name="academicYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Academic Year</FormLabel>
+                              <FormControl>
+                                <Input {...field} data-testid="input-academic-year" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button type="submit" data-testid="button-save-school">
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </Button>
+                    </form>
+                  </Form>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -594,7 +631,10 @@ export default function Settings() {
                 <div>
                   <h4 className="text-lg font-medium mb-4">Theme</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow border-2 border-primary">
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "light" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("light")}
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-full h-20 bg-background border rounded mb-3"></div>
                         <p className="font-medium">Light</p>
@@ -602,7 +642,10 @@ export default function Settings() {
                       </CardContent>
                     </Card>
                     
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "dark" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("dark")}
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-full h-20 bg-slate-900 border rounded mb-3"></div>
                         <p className="font-medium">Dark</p>
@@ -610,7 +653,10 @@ export default function Settings() {
                       </CardContent>
                     </Card>
                     
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "system" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("system")}
+                    >
                       <CardContent className="p-4 text-center">
                         <div className="w-full h-20 bg-gradient-to-r from-background to-slate-100 border rounded mb-3"></div>
                         <p className="font-medium">Auto</p>
@@ -623,18 +669,16 @@ export default function Settings() {
                 <div>
                   <h4 className="text-lg font-medium mb-4">Color Scheme</h4>
                   <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { name: "Blue", color: "bg-blue-500" },
-                      { name: "Green", color: "bg-green-500" },
-                      { name: "Purple", color: "bg-purple-500" },
-                      { name: "Orange", color: "bg-orange-500" },
-                    ].map((color) => (
+                    {colorOptions.map((color) => (
                       <div
                         key={color.name}
-                        className="cursor-pointer p-3 border rounded-lg hover:shadow-sm transition-shadow"
+                        className={`cursor-pointer p-3 border rounded-lg hover:shadow-sm transition-shadow ${primaryColor === color.value ? "border-2 border-primary" : ""}`}
+                        onClick={() => {
+                          setPrimaryColor(color.value);
+                        }}
                         data-testid={`color-${color.name.toLowerCase()}`}
                       >
-                        <div className={`w-full h-8 ${color.color} rounded mb-2`}></div>
+                        <div className={`w-full h-8 ${color.className} rounded mb-2`}></div>
                         <p className="text-sm font-medium text-center">{color.name}</p>
                       </div>
                     ))}

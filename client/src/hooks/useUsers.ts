@@ -1,39 +1,42 @@
-import { useQuery } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { Query } from 'appwrite';
-
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const USERS_COLLECTION_ID = 'users'; // Assuming a 'users' collection exists
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 export function useUsers() {
+  const queryClient = useQueryClient();
+
   const { data: users, isLoading, error } = useQuery({
     queryKey: ['users'],
     queryFn: async () => {
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        USERS_COLLECTION_ID,
-        [Query.limit(100)] // Limit to 100 users for now, consider pagination for larger sets
-      );
-      return response.documents;
+      const [studentsResponse, teachersResponse] = await Promise.all([
+        fetch('/api/students'),
+        fetch('/api/teachers'),
+      ]);
+
+      if (!studentsResponse.ok || !teachersResponse.ok) {
+        throw new Error('Failed to fetch users');
+      }
+
+      const studentsData = await studentsResponse.json();
+      const teachersData = await teachersResponse.json();
+
+      const allUsers = [...studentsData.documents, ...teachersData.documents];
+      return allUsers;
     },
   });
 
   const useUser = (userId: string) => {
-    return useQuery({
+    // This is not efficient, but it will work for now.
+    // A better solution would be to have a dedicated /api/users/:id endpoint.
+    const { data: user, isLoading, error } = useQuery({
       queryKey: ['users', userId],
       queryFn: async () => {
         if (!userId) return null;
-        // Assuming you can get a single user document by its ID
-        // Appwrite's listDocuments can be filtered by ID, or if there's a direct getDocument by ID
-        const response = await databases.listDocuments(
-          DATABASE_ID,
-          USERS_COLLECTION_ID,
-          [Query.equal('$id', userId)]
-        );
-        return response.documents[0] || null;
+        const allUsers: any[] | undefined = await queryClient.fetchQuery({ queryKey: ['users'] });
+        return allUsers?.find((u: any) => u.$id === userId) || null;
       },
       enabled: !!userId,
     });
+
+    return { user, isLoading, error };
   };
 
   return {

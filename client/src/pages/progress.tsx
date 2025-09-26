@@ -6,35 +6,23 @@ import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useExamAttempts } from "@/hooks/useExamAttempts";
+import { useExams } from "@/hooks/useExams";
 import { useState, useMemo } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line, BarChart, Bar } from 'recharts';
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { ChevronsUpDown, Check } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-
-interface Grade {
-  subject: string;
-  score: string;
-  totalMarks: string;
-}
-
-interface AttendanceRecord {
-  status: 'present' | 'absent' | 'late' | 'excused';
-}
-
-interface ExamAttempt {
-  id: string;
-  examId: string;
-  score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-}
+import { Grade, Attendance, ExamAttempt, Exam } from "~/shared/schema";
 
 export function GradesChart({ grades }: { grades: Grade[] }) {
   const data = useMemo(() => {
     return grades?.map((grade: Grade) => ({
       name: grade.subject,
-      score: parseFloat(grade.score),
-      totalMarks: parseFloat(grade.totalMarks),
+      score: parseFloat(grade.score as string),
+      totalMarks: parseFloat(grade.totalMarks as string),
     })).sort((a, b) => a.name.localeCompare(b.name)) || [];
   }, [grades]);
 
@@ -57,12 +45,12 @@ export function GradesChart({ grades }: { grades: Grade[] }) {
   );
 }
 
-export function AttendanceSummary({ attendance }: { attendance: AttendanceRecord[] }) {
+export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) {
     const summary = useMemo(() => {
         const counts = { present: 0, absent: 0, late: 0, excused: 0 };
-        attendance?.forEach((record: AttendanceRecord) => {
+        attendance?.forEach((record: Attendance) => {
             if (record.status in counts) {
-                counts[record.status]++;
+                counts[record.status as keyof typeof counts]++;
             }
         });
         return counts;
@@ -110,7 +98,7 @@ export function AttendanceSummary({ attendance }: { attendance: AttendanceRecord
     );
 }
 
-export function ExamAttemptsTable({ examAttempts }: { examAttempts: ExamAttempt[] }) {
+export function ExamAttemptsTable({ examAttempts, exams }: { examAttempts: ExamAttempt[], exams: Exam[] }) {
     if (!examAttempts || examAttempts.length === 0) {
         return <p>No exam attempts available.</p>;
     }
@@ -126,14 +114,17 @@ export function ExamAttemptsTable({ examAttempts }: { examAttempts: ExamAttempt[
                 </TableRow>
             </TableHeader>
             <TableBody>
-                {examAttempts.map((attempt: ExamAttempt) => (
-                    <TableRow key={attempt.id}>
-                        <TableCell>{attempt.examId}</TableCell> {/* Ideally, we would fetch exam title here */}
-                        <TableCell>{attempt.score}</TableCell>
-                        <TableCell>{attempt.totalQuestions}</TableCell>
-                        <TableCell>{attempt.correctAnswers}</TableCell>
-                    </TableRow>
-                ))}
+                {examAttempts.map((attempt: ExamAttempt) => {
+                    const exam = exams.find(e => e.id === attempt.examId);
+                    return (
+                        <TableRow key={attempt.id}>
+                            <TableCell>{exam ? exam.title : attempt.examId}</TableCell>
+                            <TableCell>{attempt.score}</TableCell>
+                            <TableCell>{attempt.totalQuestions}</TableCell>
+                            <TableCell>{attempt.correctAnswers}</TableCell>
+                        </TableRow>
+                    )
+                })}
             </TableBody>
         </Table>
     );
@@ -142,8 +133,9 @@ export function ExamAttemptsTable({ examAttempts }: { examAttempts: ExamAttempt[
 export default function Progress() {
   const { user } = useAuth();
   const { role } = useRole();
-  const { students } = useStudents();
+  const { students, error: studentsError } = useStudents();
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
 
   const studentIdToFetch = useMemo(() => {
     if (role === 'student') {
@@ -152,13 +144,17 @@ export default function Progress() {
     return selectedStudentId;
   }, [role, user, selectedStudentId]);
 
-  const { grades, isLoading: isLoadingGrades } = useGrades(studentIdToFetch || '');
-  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentIdToFetch || '');
-  const { examAttempts, isLoading: isLoadingExamAttempts } = useExamAttempts(studentIdToFetch || '');
+  const { grades, isLoading: isLoadingGrades, error: gradesError } = useGrades(studentIdToFetch || '');
+  const { attendance, isLoading: isLoadingAttendance, error: attendanceError } = useAttendance(studentIdToFetch || '');
+  const { examAttempts, isLoading: isLoadingExamAttempts, error: examAttemptsError } = useExamAttempts(studentIdToFetch || '');
+  const { exams, isLoading: isLoadingExams, error: examsError } = useExams();
 
   const handleStudentChange = (studentId: string) => {
     setSelectedStudentId(studentId);
+    setOpen(false);
   };
+
+  const error = studentsError || gradesError || attendanceError || examAttemptsError || examsError;
 
   return (
     <div className="space-y-6">
@@ -171,21 +167,49 @@ export default function Progress() {
               <CardTitle>Select Student</CardTitle>
             </CardHeader>
             <CardContent>
-              <Select onValueChange={handleStudentChange}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Select a student" />
-                </SelectTrigger>
-                <SelectContent>
-                  {students?.map(student => (
-                    <SelectItem key={student.$id} value={student.$id}>
-                      {student.firstName} {student.lastName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-[200px] justify-between"
+                  >
+                    {selectedStudentId
+                      ? students?.find(student => student.$id === selectedStudentId)?.firstName + ' ' + students?.find(student => student.$id === selectedStudentId)?.lastName
+                      : "Select student..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[200px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search student..." />
+                    <CommandEmpty>No student found.</CommandEmpty>
+                    <CommandGroup>
+                      {students?.map(student => (
+                        <CommandItem
+                          key={student.$id}
+                          value={student.$id}
+                          onSelect={() => handleStudentChange(student.$id)}
+                        >
+                          <Check
+                            className={cn(
+                              "mr-2 h-4 w-4",
+                              selectedStudentId === student.$id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                          {student.firstName} {student.lastName}
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </CardContent>
           </Card>
         )}
+
+        {error && <div className="text-red-500">Error: {error.message}</div>}
 
         {studentIdToFetch ? (
           <div className="space-y-6">
@@ -212,7 +236,7 @@ export default function Progress() {
                 <CardTitle>Exam Attempts</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingExamAttempts ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts || []} />}
+                {isLoadingExamAttempts || isLoadingExams ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts || []} exams={exams || []} />}
               </CardContent>
             </Card>
           </div>

@@ -20,36 +20,55 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       await account.createEmailPasswordSession(email, password);
-      queryClient.invalidateQueries({ queryKey: ['user'] });
     },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    }
   });
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await account.deleteSession('current');
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
+    },
+    onError: (error: any) => {
+      // If the error is because the user is not authenticated,
+      // we can ignore it and still invalidate the user query.
+      if (error.message.includes('missing scopes')) {
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+      }
     },
   });
 
   const registerMutation = useMutation({
     mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
-      await account.create(ID.unique(), email, password, name);
-      // Log in the user after registration
+      const newUser = await account.create(ID.unique(), email, password, name);
       await account.createEmailPasswordSession(email, password);
-      // After creating the user, we need to update their prefs to store the role.
       await account.updatePrefs({ role });
+      return newUser;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
   });
 
   const createUserByAdminMutation = useMutation({
     mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
-      // This function does NOT log in the new user, so it's safe for an admin to call.
-      await account.create(ID.unique(), email, password, name);
-      // Log in the user after registration
-      await account.createEmailPasswordSession(email, password);
-      // After creating the user, we need to update their prefs to store the role.
-      await account.updatePrefs({ role });
+      const response = await fetch('/api/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, name, role }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create user');
+      }
+
+      return response.json();
     },
     onSuccess: () => {
         // We don't need to invalidate user queries here, as the admin's session is unchanged.

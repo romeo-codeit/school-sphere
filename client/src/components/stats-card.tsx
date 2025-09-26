@@ -19,10 +19,10 @@ export function StatsCard({
       <CardContent className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-muted-foreground text-sm font-medium" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-title`}>
+            <p className="text-muted-foreground text-sm font-medium text-wrap" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-title`}>
               {title}
             </p>
-            <p className="text-3xl font-bold text-foreground" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-value`}>
+            <p className="text-3xl font-bold text-foreground text-wrap" data-testid={`text-${title.toLowerCase().replace(/\s+/g, '-')}-value`}>
               {value}
             </p>
           </div>

@@ -52,7 +52,7 @@ export const students = pgTable("students", {
   parentName: varchar("parent_name"),
   parentPhone: varchar("parent_phone"),
   parentEmail: varchar("parent_email"),
-  class: varchar("class").notNull(),
+  classId: varchar("class_id").references(() => classes.id),
   enrollmentDate: timestamp("enrollment_date").defaultNow(),
   status: varchar("status", { enum: ["active", "inactive", "suspended"] }).default("active"),
   createdAt: timestamp("created_at").defaultNow(),
@@ -127,6 +127,7 @@ export const payments = pgTable("payments", {
 export const attendance = pgTable("attendance", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   studentId: varchar("student_id").references(() => students.id),
+  classId: varchar("class_id").references(() => classes.id),
   date: timestamp("date").notNull(),
   status: varchar("status", { enum: ["present", "absent", "late", "excused"] }).notNull(),
   remarks: text("remarks"),
@@ -179,6 +180,19 @@ export const grades = pgTable("grades", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Classes table
+export const classes = pgTable("classes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: varchar("name").notNull(),
+  description: text("description"),
+});
+
+// Teachers to Classes table
+export const teachersToClasses = pgTable("teachers_to_classes", {
+  teacherId: varchar("teacher_id").references(() => teachers.id),
+  classId: varchar("class_id").references(() => classes.id),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   students: many(students),
@@ -189,10 +203,33 @@ export const usersRelations = relations(users, ({ many }) => ({
   exams: many(exams),
 }));
 
+export const classesRelations = relations(classes, ({ many }) => ({
+  students: many(students),
+  teachers: many(teachersToClasses),
+}));
+
+export const teachersToClassesRelations = relations(
+  teachersToClasses,
+  ({ one }) => ({
+    teacher: one(teachers, {
+      fields: [teachersToClasses.teacherId],
+      references: [teachers.id],
+    }),
+    class: one(classes, {
+      fields: [teachersToClasses.classId],
+      references: [classes.id],
+    }),
+  }),
+);
+
 export const studentsRelations = relations(students, ({ one, many }) => ({
   user: one(users, {
     fields: [students.userId],
     references: [users.id],
+  }),
+  class: one(classes, {
+    fields: [students.classId],
+    references: [classes.id],
   }),
   payments: many(payments),
   attendance: many(attendance),
@@ -205,6 +242,7 @@ export const teachersRelations = relations(teachers, ({ one, many }) => ({
     fields: [teachers.userId],
     references: [users.id],
   }),
+  classes: many(teachersToClasses),
   grades: many(grades),
 }));
 
@@ -238,6 +276,10 @@ export const attendanceRelations = relations(attendance, ({ one }) => ({
   student: one(students, {
     fields: [attendance.studentId],
     references: [students.id],
+  }),
+  class: one(classes, {
+    fields: [attendance.classId],
+    references: [classes.id],
   }),
   markedBy: one(users, {
     fields: [attendance.markedBy],

@@ -1,9 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases } from '../lib/appwrite';
-import { ID, Query } from 'appwrite';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const EXAMS_COLLECTION_ID = 'exams';
+const API_URL = '/api/exams';
 
 export function useExams() {
   const queryClient = useQueryClient();
@@ -11,8 +8,12 @@ export function useExams() {
   const { data: exams, isLoading, error } = useQuery({
     queryKey: ['exams'],
     queryFn: async () => {
-      const response = await databases.listDocuments(DATABASE_ID, EXAMS_COLLECTION_ID);
-      return response.documents;
+      const response = await fetch(API_URL);
+      if (!response.ok) {
+        throw new Error('Failed to fetch exams');
+      }
+      const data = await response.json();
+      return data.documents;
     },
   });
 
@@ -21,7 +22,11 @@ export function useExams() {
       queryKey: ['exams', examId],
       queryFn: async () => {
         if (!examId) return null;
-        return await databases.getDocument(DATABASE_ID, EXAMS_COLLECTION_ID, examId);
+        const response = await fetch(`${API_URL}/${examId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch exam');
+        }
+        return await response.json();
       },
       enabled: !!examId,
     });
@@ -29,12 +34,17 @@ export function useExams() {
 
   const createExamMutation = useMutation({
     mutationFn: async (examData: any) => {
-      return await databases.createDocument(
-        DATABASE_ID,
-        EXAMS_COLLECTION_ID,
-        ID.unique(),
-        examData
-      );
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(examData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to create exam');
+      }
+      return await response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exams'] });
@@ -43,12 +53,17 @@ export function useExams() {
 
   const updateExamMutation = useMutation({
     mutationFn: async ({ examId, examData }: { examId: string, examData: any }) => {
-      return await databases.updateDocument(
-        DATABASE_ID,
-        EXAMS_COLLECTION_ID,
-        examId,
-        examData
-      );
+      const response = await fetch(`${API_URL}/${examId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(examData),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to update exam');
+      }
+      return await response.json();
     },
     onSuccess: (_, { examId }) => {
       queryClient.invalidateQueries({ queryKey: ['exams'] });
@@ -58,11 +73,12 @@ export function useExams() {
 
   const deleteExamMutation = useMutation({
     mutationFn: async (examId: string) => {
-      return await databases.deleteDocument(
-        DATABASE_ID,
-        EXAMS_COLLECTION_ID,
-        examId
-      );
+      const response = await fetch(`${API_URL}/${examId}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Failed to delete exam');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['exams'] });
