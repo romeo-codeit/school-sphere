@@ -75,6 +75,22 @@ export function useAuth() {
     },
   });
 
+  const updateNameMutation = useMutation({
+    mutationFn: async (name: string) => {
+      return await account.updateName(name);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+    }
+  });
+
+  const updatePasswordMutation = useMutation({
+    mutationFn: async ({ oldPassword, newPassword }: { oldPassword: string, newPassword: string }) => {
+      return await account.updatePassword(newPassword, oldPassword);
+    }
+    // No invalidation needed as session is unaffected
+  });
+
   const userRole = user?.prefs?.role || null;
 
   return {
@@ -86,5 +102,7 @@ export function useAuth() {
     logout: logoutMutation.mutateAsync,
     register: registerMutation.mutateAsync,
     createUserByAdmin: createUserByAdminMutation.mutateAsync,
+    updateName: updateNameMutation.mutateAsync,
+    updatePassword: updatePasswordMutation.mutateAsync,
   };
 }
