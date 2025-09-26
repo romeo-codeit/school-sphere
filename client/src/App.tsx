@@ -25,6 +25,8 @@ import VideoConferencing from "@/pages/video-conferencing";
 import Communications from "@/pages/communications";
 import Attendance from "@/pages/attendance";
 import TakeAttendance from "@/pages/take-attendance";
+import HistoricalAttendance from "@/pages/historical-attendance";
+import AttendanceReports from "@/pages/attendance-reports";
 import Progress from "@/pages/progress";
 import CreateUserPage from "@/pages/create-user";
 import { RoleGuard } from "@/components/RoleGuard";
@@ -99,9 +101,11 @@ function Router() {
           <Route path="/attendance" component={Attendance} />
           <RoleGuard allowedRoles={["teacher"]}>
             <Route path="/take-attendance" component={TakeAttendance} />
+            <Route path="/historical-attendance" component={HistoricalAttendance} />
           </RoleGuard>
           <RoleGuard allowedRoles={["admin"]}>
             <Route path="/create-user" component={CreateUserPage} />
+            <Route path="/attendance-reports" component={AttendanceReports} />
           </RoleGuard>
           <Route component={NotFound} />
         </Switch>

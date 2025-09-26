@@ -44,6 +44,22 @@ const getNavigationItems = (role: string | null) => {
       badge: undefined
     },
     {
+      name: "Attendance Reports",
+      href: "/attendance-reports",
+      icon: TrendingUp,
+      roles: ["admin"],
+      exact: false,
+      badge: undefined
+    },
+    {
+      name: "Historical Attendance",
+      href: "/historical-attendance",
+      icon: ClipboardList,
+      roles: ["teacher"],
+      exact: false,
+      badge: undefined
+    },
+    {
       name: "Take Attendance",
       href: "/take-attendance",
       icon: UserCheck,

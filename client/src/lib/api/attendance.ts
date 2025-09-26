@@ -41,3 +41,39 @@ export async function saveAttendance(classId: string, date: string, studentAtten
         });
     }
 }
+
+export async function getAttendanceByClass(classId: string) {
+    const response = await databases.listDocuments(DB.id, "attendance", [
+        Query.equal("classId", classId),
+        Query.limit(100) // Fetch up to 100 records for now
+    ]);
+    return response.documents;
+}
+
+export async function getStudentByUserId(userId: string) {
+    const response = await databases.listDocuments(DB.id, "students", [
+        Query.equal("userId", userId)
+    ]);
+    return response.documents[0];
+}
+
+export async function getAllAttendanceRecords(limit = 100, offset = 0) {
+    const response = await databases.listDocuments(DB.id, "attendance", [
+        Query.limit(limit),
+        Query.offset(offset),
+        Query.orderDesc("$createdAt"),
+    ]);
+    return response;
+}
+
+export async function getAllClasses() {
+    const response = await databases.listDocuments(DB.id, "classes");
+    return response.documents;
+}
+
+export async function getStudentByParentEmail(email: string) {
+    const response = await databases.listDocuments(DB.id, "students", [
+        Query.equal("parentEmail", email)
+    ]);
+    return response.documents[0];
+}
