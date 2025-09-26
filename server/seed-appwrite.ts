@@ -43,6 +43,17 @@ const collections = [
     ]
   },
   {
+    id: 'conversations',
+    name: 'Conversations',
+    attributes: [
+        { id: 'members', type: 'string', size: 255, required: true, array: true },
+        { id: 'lastMessage', type: 'string', size: 1024, required: false },
+        { id: 'lastActivity', type: 'datetime', required: true },
+        { id: 'isGroup', type: 'boolean', required: true, default: false },
+        { id: 'name', type: 'string', size: 255, required: false }, // For group chats
+    ]
+  },
+  {
     id: 'teachers',
     name: 'Teachers',
     attributes: [
@@ -256,7 +267,7 @@ async function seedCollections() {
   console.log('Seeding collections...');
 
   // Delete collections that are being actively developed to ensure a clean schema
-  const collectionsToReset = ['attendance', 'videoMeetings'];
+  const collectionsToReset = ['attendance', 'videoMeetings', 'conversations', 'chatMessages'];
   for (const collectionId of collectionsToReset) {
       try {
           await databases.deleteCollection(APPWRITE_DATABASE_ID!, collectionId);
