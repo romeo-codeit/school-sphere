@@ -37,7 +37,7 @@ const collections = [
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'parentPhone', type: 'string', size: 255, required: false },
       { id: 'parentEmail', type: 'string', size: 255, required: false },
-      { id: 'class', type: 'string', size: 255, required: true },
+      { id: 'classId', type: 'string', size: 255, required: false },
       { id: 'enrollmentDate', type: 'string', size: 255, required: false },
       { id: 'status', type: 'string', size: 50, required: false },
     ]
@@ -56,6 +56,7 @@ const collections = [
         { id: 'qualification', type: 'string', size: 255, required: false },
         { id: 'experience', type: 'integer', required: false },
         { id: 'status', type: 'string', size: 50, required: false },
+        { id: 'classIds', type: 'string', size: 255, required: false, array: true },
     ]
   },
   {
@@ -107,13 +108,9 @@ const collections = [
     id: 'attendance',
     name: 'Attendance',
     attributes: [
-        { id: 'studentId', type: 'string', size: 255, required: true },
         { id: 'classId', type: 'string', size: 255, required: true },
         { id: 'date', type: 'string', size: 255, required: true },
-        { id: 'status', type: 'string', size: 50, required: true },
-        { id: 'remarks', type: 'string', size: 1024, required: false },
-        { id: 'term', type: 'string', size: 255, required: false },
-        { id: 'academicYear', type: 'string', size: 255, required: false },
+        { id: 'studentAttendances', type: 'string', size: 10000, required: true }, // JSON string
     ]
   },
   {
@@ -375,16 +372,34 @@ async function seedDemoData() {
     const teacherUserId = teacherUserList.users[0].$id;
     const adminUserId = adminUserList.users[0].$id;
 
+    // Seed classes
+    const classesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes');
+    if (classesCollection.total === 0) {
+        console.log('Seeding classes...');
+        const classData = [
+            { name: 'SS1 Science', teacherId: teacherUserId },
+            { name: 'SS2 Arts', teacherId: teacherUserId },
+        ];
+        for (const c of classData) {
+            await databases.createDocument(APPWRITE_DATABASE_ID, 'classes', ID.unique(), c);
+            await delay(100);
+        }
+        console.log('Classes seeded.');
+    }
+    const seededClasses = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes');
+    const class1Id = seededClasses.documents[0].$id;
+    const class2Id = seededClasses.documents[1].$id;
+
     // Seed students
     const studentsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students');
     if (studentsCollection.total === 0) {
         console.log('Seeding students...');
         const studentData = [
-            { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', class: 'JSS 1A', status: 'active' },
-            { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', class: 'JSS 1B', status: 'active' },
-            { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', class: 'JSS 2A', status: 'active' },
-            { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', class: 'JSS 2B', status: 'active' },
-            { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', class: 'JSS 3A', status: 'active' },
+            { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active' },
+            { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active' },
+            { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active' },
+            { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active' },
+            { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active' },
         ];
         for (const student of studentData) {
             await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), student);
@@ -398,9 +413,9 @@ async function seedDemoData() {
     if (teachersCollection.total === 0) {
         console.log('Seeding teachers...');
         const teacherData = [
-            { userId: teacherUserId, employeeId: 'T001', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', subjects: ['Mathematics', 'Physics'], status: 'active' },
-            { userId: ID.unique(), employeeId: 'T002', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', subjects: ['English', 'History'], status: 'active' },
-            { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active' },
+            { userId: teacherUserId, employeeId: 'T001', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', subjects: ['Mathematics', 'Physics'], status: 'active', classIds: [class1Id, class2Id] },
+            { userId: ID.unique(), employeeId: 'T002', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', subjects: ['English', 'History'], status: 'active', classIds: [] },
+            { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active', classIds: [] },
         ];
         for (const teacher of teacherData) {
             await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), teacher);
@@ -468,16 +483,23 @@ async function seedDemoData() {
 
     // Seed attendance
     const attendanceCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'attendance');
-    if (attendanceCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
+    if (attendanceCollection.total === 0 && seededClasses.total > 0) {
         console.log('Seeding attendance...');
-        const teacherId = seededTeachers.documents[0].$id;
-        for (const student of seededStudents.documents) {
-            for (let i = 0; i < 5; i++) {
-                const attendanceData = {
+        for (const aClass of seededClasses.documents) {
+            const classStudents = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [
+                Query.equal('classId', aClass.$id)
+            ]);
+
+            if (classStudents.total > 0) {
+                const studentAttendances = classStudents.documents.map(student => ({
                     studentId: student.$id,
-                    date: new Date(new Date().setDate(new Date().getDate() - i)).toISOString(),
-                    status: ['present', 'absent', 'late'][Math.floor(Math.random() * 3)],
-                    markedBy: teacherId
+                    status: 'present'
+                }));
+
+                const attendanceData = {
+                    classId: aClass.$id,
+                    date: new Date().toISOString(),
+                    studentAttendances: JSON.stringify(studentAttendances),
                 };
                 await databases.createDocument(APPWRITE_DATABASE_ID, 'attendance', ID.unique(), attendanceData);
                 await delay(100);

@@ -24,6 +24,7 @@ import Settings from "@/pages/settings";
 import VideoConferencing from "@/pages/video-conferencing";
 import Communications from "@/pages/communications";
 import Attendance from "@/pages/attendance";
+import TakeAttendance from "@/pages/take-attendance";
 import Progress from "@/pages/progress";
 import CreateUserPage from "@/pages/create-user";
 import { RoleGuard } from "@/components/RoleGuard";
@@ -96,6 +97,9 @@ function Router() {
           <Route path="/video-conferencing" component={VideoConferencing} />
           <Route path="/communications" component={Communications} />
           <Route path="/attendance" component={Attendance} />
+          <RoleGuard allowedRoles={["teacher"]}>
+            <Route path="/take-attendance" component={TakeAttendance} />
+          </RoleGuard>
           <RoleGuard allowedRoles={["admin"]}>
             <Route path="/create-user" component={CreateUserPage} />
           </RoleGuard>
@@ -109,6 +113,7 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeInitializer />
       <TooltipProvider>
         <Toaster />
         <Router />

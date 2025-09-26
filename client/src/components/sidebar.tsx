@@ -43,6 +43,14 @@ const getNavigationItems = (role: string | null) => {
       exact: false,
       badge: undefined
     },
+    {
+      name: "Take Attendance",
+      href: "/take-attendance",
+      icon: UserCheck,
+      roles: ["teacher"],
+      exact: false,
+      badge: undefined
+    },
     { 
       name: "Teachers", 
       href: "/teachers", 
