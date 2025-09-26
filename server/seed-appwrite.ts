@@ -167,6 +167,8 @@ const collections = [
         { id: 'allowedRoles', type: 'string', size: 50, required: false, array: true },
         { id: 'classId', type: 'string', size: 255, required: false },
         { id: 'teacherId', type: 'string', size: 255, required: false },
+        { id: 'isActive', type: 'boolean', required: false, default: true },
+        { id: 'participantCount', type: 'integer', required: false, default: 0 },
     ]
   },
   {
@@ -252,6 +254,19 @@ async function createDatabaseIfNotExists() {
 
 async function seedCollections() {
   console.log('Seeding collections...');
+
+  // Delete collections that are being actively developed to ensure a clean schema
+  const collectionsToReset = ['attendance', 'videoMeetings'];
+  for (const collectionId of collectionsToReset) {
+      try {
+          await databases.deleteCollection(APPWRITE_DATABASE_ID!, collectionId);
+          console.log(`Collection '${collectionId}' deleted for a fresh seed.`);
+      } catch (e: any) {
+          if (e.code !== 404) { // It's okay if the collection doesn't exist
+              console.error(`Could not delete collection ${collectionId}: ${e.message}`);
+          }
+      }
+  }
 
   for (const collection of collections) {
     try {
@@ -578,6 +593,8 @@ async function seedDemoData() {
             allowedRoles: ['student'],
             classId: 'JSS 1A',
             teacherId: teacherId,
+            isActive: true,
+            participantCount: 0,
         };
         await databases.createDocument(APPWRITE_DATABASE_ID, 'videoMeetings', ID.unique(), meetingData);
         console.log('Video meetings seeded.');
