@@ -8,9 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { toast } from '@/components/ui/use-toast';
-
-// Admin/Teacher view component is extracted to keep the main component clean
 import { AttendanceManagementView } from '@/components/attendance-management-view';
+import TakeAttendance from '@/pages/take-attendance';
 
 const StudentAttendanceView: React.FC = () => {
     const { user } = useAuth();
@@ -26,7 +25,7 @@ const StudentAttendanceView: React.FC = () => {
                 let student;
                 if (role === 'student') {
                     student = await getStudentByUserId(user.$id);
-                } else if (role === 'parent') {
+                } else if (role === 'parent' && user.email) {
                     student = await getStudentByParentEmail(user.email);
                 }
 
@@ -40,11 +39,9 @@ const StudentAttendanceView: React.FC = () => {
                             date: record.date,
                             status: studentStatus ? studentStatus.status : 'N/A',
                         };
-                    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()); // Sort by most recent date
+                    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
                     setStudentHistory(history);
-                } else {
-                    toast({ title: "Info", description: "No student record or class assignment found." });
                 }
             } catch (error) {
                 toast({ title: "Error", description: "Failed to fetch attendance history.", variant: "destructive" });
@@ -61,42 +58,29 @@ const StudentAttendanceView: React.FC = () => {
             <TopNav title="My Attendance" subtitle="View your personal attendance history" />
             <div className="p-6">
                 <Card>
-                    <CardHeader>
-                        <CardTitle>Attendance History</CardTitle>
-                    </CardHeader>
+                    <CardHeader><CardTitle>Attendance History</CardTitle></CardHeader>
                     <CardContent>
-                        {isLoading ? (
-                            <p>Loading your attendance history...</p>
-                        ) : studentHistory.length === 0 ? (
-                            <p>No attendance records found.</p>
-                        ) : (
-                            <div className="rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Date</TableHead>
-                                            <TableHead className="text-right">Status</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {studentHistory.map((record, index) => (
-                                            <TableRow key={index}>
-                                                <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Badge className={cn({
-                                                        "bg-green-500 hover:bg-green-600": record.status === 'present',
-                                                        "bg-red-500 hover:bg-red-600": record.status === 'absent',
-                                                        "bg-yellow-500 hover:bg-yellow-600": record.status === 'late',
-                                                    })}>
-                                                        {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
-                                                    </Badge>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        )}
+                        {isLoading ? <p>Loading your attendance history...</p> :
+                         studentHistory.length === 0 ? <p>No attendance records found.</p> :
+                         <div className="rounded-md border"><Table>
+                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
+                            <TableBody>
+                                {studentHistory.map((record, index) => (
+                                    <TableRow key={index}>
+                                        <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Badge className={cn({
+                                                "bg-green-500 hover:bg-green-600": record.status === 'present',
+                                                "bg-red-500 hover:bg-red-600": record.status === 'absent',
+                                                "bg-yellow-500 hover:bg-yellow-600": record.status === 'late',
+                                            })}>
+                                                {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                         </Table></div>}
                     </CardContent>
                 </Card>
             </div>
@@ -104,20 +88,22 @@ const StudentAttendanceView: React.FC = () => {
     );
 };
 
-
-// Main Attendance Page Component
 export default function Attendance() {
     const { role } = useRole();
 
-    // Render different views based on the user's role
-    if (role === 'student' || role === 'parent') {
-        return <StudentAttendanceView />;
+    if (!role) {
+        return <div>Loading...</div>;
     }
 
-    // For admin and teacher, render the management view
-    // Note: The original content of this page is now moved to `AttendanceManagementView`
-    // This is to avoid cluttering this file and to separate concerns.
-    // Since the file doesn't exist, I'll have to create it.
-    // For now, I'll just return a placeholder.
-    return <AttendanceManagementView />;
+    switch (role) {
+        case 'student':
+        case 'parent':
+            return <StudentAttendanceView />;
+        case 'teacher':
+            return <TakeAttendance />;
+        case 'admin':
+            return <AttendanceManagementView />;
+        default:
+            return <div>You do not have permission to view this page.</div>;
+    }
 }

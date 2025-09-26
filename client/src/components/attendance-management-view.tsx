@@ -1,6 +1,5 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { TopNav } from "@/components/top-nav";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -12,134 +11,142 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Search, Plus, MoreHorizontal, Edit, Trash2 } from "lucide-react";
-import { useAttendance } from "@/hooks/useAttendance";
-import { useToast } from "@/components/ui/use-toast";
-import { AttendanceForm } from "@/components/attendance-form";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
 import { useStudents } from "@/hooks/useStudents";
-import { useAuth } from "@/hooks/useAuth";
-import { useUsers } from "@/hooks/useUsers";
+import { useQuery } from "@tanstack/react-query";
+import { getAllAttendanceRecords, getAllClasses } from "@/lib/api/attendance";
+import { format } from 'date-fns';
 
 export function AttendanceManagementView() {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedDate, setSelectedDate] = useState("");
-  const [selectedStatus, setSelectedStatus] = useState("all");
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<any | null>(null);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [recordToDelete, setRecordToDelete] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10; // Define how many items per page
+  const itemsPerPage = 15;
 
-  const { toast } = useToast();
-  const { attendance, isLoading, deleteAttendance } = useAttendance();
-  const { students } = useStudents();
-  const { user } = useAuth();
-  const { users } = useUsers();
+  const { data: attendanceRecords, isLoading: isLoadingAttendance } = useQuery({
+    queryKey: ['allAttendance'],
+    queryFn: () => getAllAttendanceRecords(500) // Fetch a large number for admin view
+  });
 
-  // This is a placeholder since the original useAttendance hook is not fully compatible
-  const filteredAndPaginatedAttendance = attendance?.filter((record: any) => {
-    const student = students?.find((s: any) => s.$id === record.studentId);
-    const studentName = student ? `${student.firstName} ${student.lastName}` : "";
+  const { data: classes, isLoading: isLoadingClasses } = useQuery({
+    queryKey: ['allClasses'],
+    queryFn: getAllClasses,
+  });
 
-    const matchesSearch = (
-      (record.studentId || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-      studentName.toLowerCase().includes(searchQuery.toLowerCase())
+  const { students, isLoading: isLoadingStudents } = useStudents();
+
+  const flattenedAttendance = useMemo(() => {
+    if (!attendanceRecords?.documents || !students || !classes) return [];
+
+    return attendanceRecords.documents.flatMap(record => {
+      const classInfo = classes.find(c => c.$id === record.classId);
+      const studentAttendances = JSON.parse(record.studentAttendances);
+
+      return studentAttendances.map((att: any) => {
+        const studentInfo = students.find(s => s.$id === att.studentId);
+        return {
+          id: `${record.$id}-${att.studentId}`,
+          date: record.date,
+          status: att.status,
+          studentName: studentInfo ? `${studentInfo.firstName} ${studentInfo.lastName}` : 'Unknown Student',
+          className: classInfo ? classInfo.name : 'Unknown Class',
+        };
+      });
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [attendanceRecords, students, classes]);
+
+  const filteredAttendance = useMemo(() => {
+    return flattenedAttendance.filter(record =>
+      record.studentName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      record.className.toLowerCase().includes(searchQuery.toLowerCase())
     );
+  }, [flattenedAttendance, searchQuery]);
 
-    const matchesDate = selectedDate ? new Date(record.date).toISOString().split('T')[0] === selectedDate : true;
-    const matchesStatus = selectedStatus === "all" || record.status === selectedStatus;
+  const totalPages = Math.ceil(filteredAttendance.length / itemsPerPage);
+  const paginatedAttendance = filteredAttendance.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
 
-    return matchesSearch && matchesDate && matchesStatus;
-  }) || [];
+  const isLoading = isLoadingAttendance || isLoadingClasses || isLoadingStudents;
 
-  const totalPages = Math.ceil(filteredAndPaginatedAttendance.length / itemsPerPage);
-  const startIndex = (currentPage - 1) * itemsPerPage;
-  const endIndex = startIndex + itemsPerPage;
-  const currentAttendancePage = filteredAndPaginatedAttendance.slice(startIndex, endIndex);
-
-  const handleAddRecord = () => {
-    setSelectedRecord(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEditRecord = (record: any) => {
-    setSelectedRecord(record);
-    setIsFormOpen(true);
-  };
-
-  const openDeleteDialog = (id: string) => {
-    setRecordToDelete(id);
-    setIsDeleteDialogOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (recordToDelete) {
-      try {
-        await deleteAttendance(recordToDelete);
-        toast({
-          title: "Success",
-          description: "Attendance record deleted successfully",
-        });
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete record",
-          variant: "destructive",
-        });
-      }
-      setRecordToDelete(null);
-      setIsDeleteDialogOpen(false);
-    }
-  };
-
-  const getStudentName = (studentId: string) => {
-    const student = students?.find((s: any) => s.$id === studentId);
-    return student ? `${student.firstName} ${student.lastName}` : studentId;
-  };
-
-  const getMarkedByName = (markedBy: string) => {
-    const markedByUser = users?.find((u: any) => u.$id === markedBy);
-    if (markedByUser) {
-      return markedByUser.name || markedByUser.email || markedBy;
-    }
-    return markedBy;
-  };
   return (
     <div className="space-y-6">
-      <TopNav title="Attendance" subtitle="View and manage student attendance records" />
-
+      <TopNav title="Attendance Log" subtitle="A comprehensive log of all attendance records" />
       <div className="p-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Attendance Records</CardTitle>
-              <Button onClick={handleAddRecord}>
-                <Plus className="w-4 h-4 mr-2" />
-                Add Record
-              </Button>
-            </div>
+            <CardTitle>All Records</CardTitle>
           </CardHeader>
           <CardContent>
-             <div className="text-center py-8 text-muted-foreground">
-                This view is temporarily disabled. Please use "Take Attendance" or "Historical Attendance" pages.
+            <div className="flex items-center justify-between mb-6">
+              <div className="relative flex-1 max-w-sm">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by student or class..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
               </div>
+            </div>
+            {isLoading ? (
+              <div className="text-center py-8">Loading all attendance records...</div>
+            ) : paginatedAttendance.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No records found.
+              </div>
+            ) : (
+              <>
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Class</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedAttendance.map((record) => (
+                        <TableRow key={record.id}>
+                          <TableCell>{record.studentName}</TableCell>
+                          <TableCell>{record.className}</TableCell>
+                          <TableCell>{format(new Date(record.date), 'PPP')}</TableCell>
+                          <TableCell>
+                            <Badge variant={record.status === 'present' ? 'default' : record.status === 'absent' ? 'destructive' : 'secondary'}>
+                              {record.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex items-center justify-end space-x-2 py-4">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                        disabled={currentPage === 1}
+                    >
+                        Previous
+                    </Button>
+                    <span className="text-sm">
+                        Page {currentPage} of {totalPages}
+                    </span>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                    >
+                        Next
+                    </Button>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
