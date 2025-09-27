@@ -610,6 +610,25 @@ async function seedDemoData() {
         console.log('Grades seeded.');
     }
 
+  // Seed subjects
+  const subjectsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'subjects');
+  if (subjectsCollection.total === 0) {
+    console.log('Seeding subjects...');
+    const subjectData = [
+      { name: 'Mathematics', description: 'Mathematics for all classes' },
+      { name: 'English', description: 'English Language' },
+      { name: 'Biology', description: 'Biology for science students' },
+      { name: 'Chemistry', description: 'Chemistry for science students' },
+      { name: 'Physics', description: 'Physics for science students' },
+      { name: 'History', description: 'History for arts students' },
+    ];
+    for (const subject of subjectData) {
+      await databases.createDocument(APPWRITE_DATABASE_ID, 'subjects', ID.unique(), subject);
+      await delay(100);
+    }
+    console.log('Subjects seeded.');
+  }
+
     // Seed video meetings
     const videoMeetingsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'videoMeetings');
     if (videoMeetingsCollection.total === 0 && seededTeachers.total > 0) {

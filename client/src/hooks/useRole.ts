@@ -79,16 +79,15 @@ const permissions: Record<UserRole, RolePermissions> = {
 export function useRole() {
   const { role } = useAuth();
 
+
   const hasPermission = (resource: keyof RolePermissions, action: string): boolean => {
     if (!role) return false;
-    
+    if (role === 'admin') return true; // Admin has all permissions
     const userRole = role as UserRole;
     const rolePermissions = permissions[userRole];
-    
     if (!rolePermissions || !rolePermissions[resource]) {
       return false;
     }
-    
     return rolePermissions[resource].includes(action);
   };
 

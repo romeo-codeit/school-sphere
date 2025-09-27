@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 const AttendanceReports: React.FC = () => {
+    console.log('Attendance Reports page mounted');
     const { toast } = useToast();
     const [records, setRecords] = useState<any[]>([]);
     const [classes, setClasses] = useState<any[]>([]);
@@ -89,8 +90,10 @@ const AttendanceReports: React.FC = () => {
         return <div className="p-6">Loading reports...</div>;
     }
 
-    return (
-        <div className="space-y-6">
+    try {
+        return (
+            <div className="space-y-6">
+                <div style={{color: 'green', fontWeight: 'bold', padding: 24}}>Attendance Reports page is mounted (admin only).</div>
             <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" showGoBackButton={true} />
             <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
@@ -173,7 +176,11 @@ const AttendanceReports: React.FC = () => {
                 </Card>
             </div>
         </div>
-    );
+        );
+    } catch (err) {
+        console.error('Attendance Reports page error:', err);
+        return <div style={{color: 'red', padding: 24}}>A fatal error occurred in Attendance Reports page. Check the console for details.</div>;
+    }
 };
 
 export default AttendanceReports;

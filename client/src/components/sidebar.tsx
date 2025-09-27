@@ -51,22 +51,6 @@ const getNavigationItems = (role: string | null) => {
       exact: false,
       badge: undefined
     },
-    {
-      name: "Historical Attendance",
-      href: "/historical-attendance",
-      icon: ClipboardList,
-      roles: ["teacher"],
-      exact: false,
-      badge: undefined
-    },
-    {
-      name: "Take Attendance",
-      href: "/take-attendance",
-      icon: UserCheck,
-      roles: ["teacher"],
-      exact: false,
-      badge: undefined
-    },
     { 
       name: "Teachers", 
       href: "/teachers", 
@@ -104,15 +88,7 @@ const getNavigationItems = (role: string | null) => {
       roles: ["admin", "teacher", "student", "parent"],
       exact: false,
       badge: undefined
-    },
-    { 
-      name: "Attendance", 
-      href: "/attendance", 
-      icon: ClipboardList,
-      roles: ["admin", "teacher", "student", "parent"],
-      exact: false,
-      badge: undefined
-    },
+    }
   ];
 
   const paymentItems = [
@@ -155,7 +131,8 @@ const getNavigationItems = (role: string | null) => {
 
   const allItems = [...baseItems, ...adminItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems];
   
-  return allItems.filter(item => role && item.roles.includes(role));
+  // Only show items the user can access (admin sees all)
+  return allItems.filter(item => role && Array.isArray(item.roles) && (role === 'admin' || item.roles.includes(role)));
 };
 
 const getSettingsItems = (role: string | null) => {
@@ -207,22 +184,8 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
       <div className="p-4 flex items-center justify-between">
         <div className={cn("flex items-center space-x-3", { "hidden": isCollapsed })}>
           <Logo />
-          <div>
-            <h1 className="text-xl font-bold text-foreground">EduManage</h1>
-            <p className="text-sm text-muted-foreground">School Portal</p>
-          </div>
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="rounded-full hover:bg-muted"
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </Button>
       </div>
-
-      {/* Main navigation section (scrollable) */}
       <div className="flex-1 overflow-y-auto">
         <nav className="px-2 py-4">
           <div className="space-y-2">
@@ -251,7 +214,6 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
           </div>
         </nav>
       </div>
-
       {/* Bottom section with settings and logout (fixed at bottom) */}
       <div className="absolute bottom-0 w-full border-t border-border p-2">
         {settingsItems.map((item) => (
@@ -271,7 +233,6 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
             <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
           </Link>
         ))}
-
         <Button
           variant="ghost"
           className={cn("w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground", {

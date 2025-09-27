@@ -37,6 +37,7 @@ import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
 
 export default function Students() {
+  console.log('Students page mounted');
   const [searchQuery, setSearchQuery] = useState("");
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<any | null>(null);
@@ -99,7 +100,8 @@ export default function Students() {
     }
   };
 
-  return (
+  try {
+    return (
     <div className="space-y-6">
       <TopNav title="Students" subtitle="Manage student records and information" showGoBackButton={true} />
       
@@ -183,4 +185,8 @@ export default function Students() {
       </AlertDialog>
     </div>
   );
+  } catch (err) {
+    console.error('Students page error:', err);
+    return <div style={{color: 'red', padding: 24}}>A fatal error occurred in Students page. Check the console for details.</div>;
+  }
 }

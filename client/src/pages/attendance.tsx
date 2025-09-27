@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
-import { AttendanceManagementView } from '@/components/attendance-management-view';
 import { TeacherAttendanceView } from '@/components/TeacherAttendanceView';
 
 const StudentAttendanceView: React.FC = () => {
@@ -103,7 +102,7 @@ export default function Attendance() {
         case 'teacher':
             return <TeacherAttendanceView />;
         case 'admin':
-            return <AttendanceManagementView />;
+            return <div>Admins should use Attendance Reports for analytics.</div>;
         default:
             return <div>You do not have permission to view this page.</div>;
     }

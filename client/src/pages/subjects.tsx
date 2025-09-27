@@ -101,6 +101,7 @@ function SubjectForm({ subject, onFinished }: { subject?: any; onFinished: () =>
 }
 
 export default function SubjectsPage() {
+  console.log('Subjects page mounted');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<any | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -143,7 +144,9 @@ export default function SubjectsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
+  <div style={{color: 'green', fontWeight: 'bold', padding: 24}}>Subjects page is mounted (admin only).</div>
+      <div className="space-y-6">
       <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
       <div className="p-6">
         <Card>
@@ -196,5 +199,6 @@ export default function SubjectsPage() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </>
   );
 }

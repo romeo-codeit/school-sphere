@@ -37,6 +37,7 @@ import { ThemeInitializer } from "@/hooks/useTheme";
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
+  console.log('Router running. isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
