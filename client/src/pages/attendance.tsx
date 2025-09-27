@@ -9,13 +9,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
 import { AttendanceManagementView } from '@/components/attendance-management-view';
-import TakeAttendance from '@/pages/take-attendance';
+import { TeacherAttendanceView } from '@/components/TeacherAttendanceView';
 
 const StudentAttendanceView: React.FC = () => {
     const { user } = useAuth();
     const { role } = useRole();
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { toast } = useToast();
 
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -51,11 +52,11 @@ const StudentAttendanceView: React.FC = () => {
         };
 
         fetchStudentData();
-    }, [user, role]);
+    }, [user, role, toast]);
 
     return (
         <div className="space-y-6">
-            <TopNav title="My Attendance" subtitle="View your personal attendance history" />
+            <TopNav title="My Attendance" subtitle="View your personal attendance history" showGoBackButton={true} />
             <div className="p-6">
                 <Card>
                     <CardHeader><CardTitle>Attendance History</CardTitle></CardHeader>
@@ -100,7 +101,7 @@ export default function Attendance() {
         case 'parent':
             return <StudentAttendanceView />;
         case 'teacher':
-            return <TakeAttendance />;
+            return <TeacherAttendanceView />;
         case 'admin':
             return <AttendanceManagementView />;
         default:

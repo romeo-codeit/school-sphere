@@ -284,7 +284,7 @@ export default function Communications() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Communications" subtitle="Engage in forum discussions and private chats" />
+      <TopNav title="Communications" subtitle="Engage in forum discussions and private chats" showGoBackButton={true} />
       <div className="p-6">
         <Tabs defaultValue="chat">
           <TabsList><TabsTrigger value="forum"><MessageSquare className="w-4 h-4 mr-2" />Forum</TabsTrigger><TabsTrigger value="chat"><Send className="w-4 h-4 mr-2" />Chat</TabsTrigger></TabsList>

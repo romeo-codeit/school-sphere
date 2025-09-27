@@ -105,7 +105,7 @@ export default function Teachers() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Teachers" subtitle="Manage teacher records and information" />
+      <TopNav title="Teachers" subtitle="Manage teacher records and information" showGoBackButton={true} />
       <div className="p-6">
         <Card>
           <CardHeader>

@@ -91,7 +91,7 @@ const AttendanceReports: React.FC = () => {
 
     return (
         <div className="space-y-6">
-            <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" />
+            <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" showGoBackButton={true} />
             <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader>

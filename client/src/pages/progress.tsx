@@ -158,7 +158,7 @@ export default function Progress() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Progress" subtitle="Track student progress and performance" />
+      <TopNav title="Progress" subtitle="Track student progress and performance" showGoBackButton={true} />
 
       <div className="p-6 space-y-6">
         {(role === 'admin' || role === 'teacher') && (

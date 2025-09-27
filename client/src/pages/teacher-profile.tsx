@@ -33,7 +33,7 @@ export default function TeacherProfile() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Teacher Profile" subtitle={`Details for ${teacher.firstName} ${teacher.lastName}`} />
+      <TopNav title="Teacher Profile" subtitle={`Details for ${teacher.firstName} ${teacher.lastName}`} showGoBackButton={true} />
 
       <div className="p-6 space-y-6">
         <Card className="overflow-hidden">

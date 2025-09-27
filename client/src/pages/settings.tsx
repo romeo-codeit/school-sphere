@@ -171,7 +171,7 @@ export default function Settings() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} />
+      <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} showGoBackButton={true} />
       
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">

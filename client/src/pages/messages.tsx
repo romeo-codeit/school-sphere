@@ -106,7 +106,7 @@ export default function Messages() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Messages" subtitle="Communication hub for teachers, students, and parents" />
+      <TopNav title="Messages" subtitle="Communication hub for teachers, students, and parents" showGoBackButton={true} />
       
       <div className="p-6">
         {/* Stats Cards */}

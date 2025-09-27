@@ -30,24 +30,11 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
 import { useLocation } from "wouter";
-
-// A simple debounce hook to prevent API calls on every keystroke
-function useDebounce(value: string, delay: number) {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [value, delay]);
-    return debouncedValue;
-}
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function Students() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,7 +101,7 @@ export default function Students() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Students" subtitle="Manage student records and information" />
+      <TopNav title="Students" subtitle="Manage student records and information" showGoBackButton={true} />
       
       <div className="p-6">
         <Card>

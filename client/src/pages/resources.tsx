@@ -184,7 +184,7 @@ export default function Resources() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Resources" subtitle="Educational materials and study resources" />
+      <TopNav title="Resources" subtitle="Educational materials and study resources" showGoBackButton={true} />
       <div className="p-6">
         <Card>
           <CardHeader>

@@ -166,7 +166,7 @@ export default function VideoConferencing() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Video Conferencing" subtitle="Join or create video meetings" />
+      <TopNav title="Video Conferencing" subtitle="Join or create video meetings" showGoBackButton={true} />
       <div className="p-6">
         <Card>
           <CardHeader>

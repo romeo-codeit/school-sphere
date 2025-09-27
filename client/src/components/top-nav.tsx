@@ -13,6 +13,7 @@ import { Command, CommandEmpty, CommandGroup, CommandItem, CommandList } from "@
 import { useNotifications } from "@/hooks/useNotifications";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import { GoBackButton } from "@/components/ui/go-back-button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface TopNavProps {
@@ -20,6 +21,7 @@ interface TopNavProps {
   subtitle?: string;
   onToggleSidebar?: () => void;
   isLoading?: boolean;
+  showGoBackButton?: boolean;
 }
 
 function NotificationsDropdown() {
@@ -85,7 +87,7 @@ function UserNav() {
 }
 
 
-export function TopNav({ title, subtitle, onToggleSidebar, isLoading }: TopNavProps) {
+export function TopNav({ title, subtitle, onToggleSidebar, isLoading, showGoBackButton = false }: TopNavProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
   const { results, isLoading: isSearching } = useGlobalSearch(debouncedSearchQuery);
@@ -103,6 +105,7 @@ export function TopNav({ title, subtitle, onToggleSidebar, isLoading }: TopNavPr
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 sm:space-x-4">
           <Button variant="ghost" size="icon" className="lg:hidden" onClick={onToggleSidebar}><Menu className="h-5 w-5" /></Button>
+          {showGoBackButton && <GoBackButton />}
           <div className="flex items-center space-x-2"><h2 className="text-2xl font-bold text-foreground">{title}</h2>{isLoading && <RefreshCw className="w-6 h-6 animate-spin text-primary" />}</div>
           {subtitle && (<p className="text-muted-foreground hidden md:block">{subtitle}</p>)}
         </div>

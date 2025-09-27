@@ -99,7 +99,7 @@ export default function ExamTaking() {
 
   return (
     <div className="space-y-6">
-      <TopNav title={exam.title} subtitle={exam.subject} />
+      <TopNav title={exam.title} subtitle={exam.subject} showGoBackButton={true} />
       {timeLeft !== null && (
         <div className="p-6 text-lg font-medium">
           Time Left: {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}

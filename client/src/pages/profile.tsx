@@ -57,7 +57,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="My Profile" subtitle="View and update your personal information" />
+      <TopNav title="My Profile" subtitle="View and update your personal information" showGoBackButton={true} />
       <div className="p-6 grid gap-6 md:grid-cols-2">
         <Card>
           <CardHeader>

@@ -94,6 +94,7 @@ export function useRole() {
 
   const canAccess = (allowedRoles: UserRole[]): boolean => {
     if (!role) return false;
+    if (role === 'admin') return true; // Admin can access everything
     return allowedRoles.includes(role as UserRole);
   };
 

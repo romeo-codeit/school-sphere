@@ -86,7 +86,7 @@ export default function StudentProfile() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Student Profile" subtitle={`Details for ${student.firstName} ${student.lastName}`} />
+      <TopNav title="Student Profile" subtitle={`Details for ${student.firstName} ${student.lastName}`} showGoBackButton={true} />
 
       <div className="p-6 space-y-6">
         <Card className="overflow-hidden">

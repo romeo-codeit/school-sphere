@@ -144,7 +144,7 @@ export default function SubjectsPage() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Subjects" subtitle="Manage academic subjects" />
+      <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
       <div className="p-6">
         <Card>
           <CardHeader>

@@ -88,7 +88,7 @@ export default function Exams() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Exams" subtitle="Manage examination questions and practice tests" />
+      <TopNav title="Exams" subtitle="Manage examination questions and practice tests" showGoBackButton={true} />
       
       <div className="p-6">
         {/* Stats Cards */}

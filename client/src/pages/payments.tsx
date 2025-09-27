@@ -125,7 +125,7 @@ export default function Payments() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Payments" subtitle="Track and manage student fee payments" />
+      <TopNav title="Payments" subtitle="Track and manage student fee payments" showGoBackButton={true} />
       
       <div className="p-6">
         {/* Stats Cards */}
