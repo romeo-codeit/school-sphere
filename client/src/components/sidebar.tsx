@@ -75,6 +75,14 @@ const getNavigationItems = (role: string | null) => {
       exact: false,
       badge: undefined
     },
+    {
+      name: "Subjects",
+      href: "/subjects",
+      icon: BookOpen,
+      roles: ["admin"],
+      exact: false,
+      badge: undefined
+    },
   ];
 
   const examItems = [

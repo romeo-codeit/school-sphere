@@ -30,6 +30,7 @@ import AttendanceReports from "@/pages/attendance-reports";
 import Progress from "@/pages/progress";
 import CreateUserPage from "@/pages/create-user";
 import ProfilePage from "@/pages/profile";
+import SubjectsPage from "@/pages/subjects";
 import { RoleGuard } from "@/components/RoleGuard";
 import { useState } from "react";
 import { ThemeInitializer } from "@/hooks/useTheme";
@@ -107,6 +108,7 @@ function Router() {
           <RoleGuard allowedRoles={["admin"]}>
             <Route path="/create-user" component={CreateUserPage} />
             <Route path="/attendance-reports" component={AttendanceReports} />
+            <Route path="/subjects" component={SubjectsPage} />
           </RoleGuard>
           <Route path="/profile" component={ProfilePage} />
           <Route component={NotFound} />

@@ -15,7 +15,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { BookOpen, Search, Plus, Upload, Download, Eye, FileText, Video, Music, Image, Link as LinkIcon, Grid, List, MoreHorizontal, Edit, Trash2 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";

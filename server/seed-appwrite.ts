@@ -252,6 +252,14 @@ const collections = [
       { id: 'classId', type: 'string', size: 255, required: true },
     ]
   },
+  {
+    id: 'subjects',
+    name: 'Subjects',
+    attributes: [
+      { id: 'name', type: 'string', size: 255, required: true },
+      { id: 'description', type: 'string', size: 1024, required: false },
+    ]
+  },
 ];
 
 async function createDatabaseIfNotExists() {
@@ -277,7 +285,7 @@ async function seedCollections() {
   console.log('Seeding collections...');
 
   // Delete collections that are being actively developed to ensure a clean schema
-  const collectionsToReset = ['attendance', 'videoMeetings', 'conversations', 'chatMessages', 'notifications'];
+  const collectionsToReset = ['attendance', 'videoMeetings', 'conversations', 'chatMessages', 'notifications', 'subjects'];
   for (const collectionId of collectionsToReset) {
       try {
           await databases.deleteCollection(APPWRITE_DATABASE_ID!, collectionId);

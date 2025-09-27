@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
-import { DB } from '@/lib/db';
 import { Query } from 'appwrite';
+
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 interface StudentFilters {
     page?: number;
@@ -25,16 +26,14 @@ export function useStudents(filters: StudentFilters = {}) {
           Query.orderDesc('$createdAt'),
       ];
       if (search) {
-          // Appwrite search needs a search index on the attributes.
-          // Assuming 'name' and 'studentId' are indexed.
           queries.push(Query.search('search', search));
       }
       if (classId) {
           queries.push(Query.equal('classId', classId));
       }
 
-      const response = await databases.listDocuments(DB.id, 'students', queries);
-      return response; // Returning the whole response to get total count for pagination
+      const response = await databases.listDocuments(DATABASE_ID, 'students', queries);
+      return response;
     },
   });
 
@@ -43,7 +42,7 @@ export function useStudents(filters: StudentFilters = {}) {
       queryKey: ['students', studentId],
       queryFn: async () => {
         if (!studentId) return null;
-        return await databases.getDocument(DB.id, 'students', studentId);
+        return await databases.getDocument(DATABASE_ID, 'students', studentId);
       },
       enabled: !!studentId,
     });
@@ -51,7 +50,7 @@ export function useStudents(filters: StudentFilters = {}) {
 
   const createStudentMutation = useMutation({
     mutationFn: async (studentData: any) => {
-      return await databases.createDocument(DB.id, 'students', ID.unique(), studentData);
+      return await databases.createDocument(DATABASE_ID, 'students', ID.unique(), studentData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -60,7 +59,7 @@ export function useStudents(filters: StudentFilters = {}) {
 
   const updateStudentMutation = useMutation({
     mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
-      return await databases.updateDocument(DB.id, 'students', studentId, studentData);
+      return await databases.updateDocument(DATABASE_ID, 'students', studentId, studentData);
     },
     onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -70,7 +69,7 @@ export function useStudents(filters: StudentFilters = {}) {
 
   const deleteStudentMutation = useMutation({
     mutationFn: async (studentId: string) => {
-      return await databases.deleteDocument(DB.id, 'students', studentId);
+      return await databases.deleteDocument(DATABASE_ID, 'students', studentId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });

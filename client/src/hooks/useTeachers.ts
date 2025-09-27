@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
-import { DB } from '@/lib/db';
 import { Query } from 'appwrite';
+
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 interface TeacherFilters {
     page?: number;
@@ -24,12 +25,11 @@ export function useTeachers(filters: TeacherFilters = {}) {
           Query.orderDesc('$createdAt'),
       ];
       if (search) {
-          // Assuming 'name' and 'employeeId' are indexed for search
           queries.push(Query.search('search', search));
       }
 
-      const response = await databases.listDocuments(DB.id, 'teachers', queries);
-      return response; // Return the whole response for total count
+      const response = await databases.listDocuments(DATABASE_ID, 'teachers', queries);
+      return response;
     },
   });
 
@@ -38,7 +38,7 @@ export function useTeachers(filters: TeacherFilters = {}) {
       queryKey: ['teachers', teacherId],
       queryFn: async () => {
         if (!teacherId) return null;
-        return await databases.getDocument(DB.id, 'teachers', teacherId);
+        return await databases.getDocument(DATABASE_ID, 'teachers', teacherId);
       },
       enabled: !!teacherId,
     });
@@ -46,7 +46,7 @@ export function useTeachers(filters: TeacherFilters = {}) {
 
   const createTeacherMutation = useMutation({
     mutationFn: async (teacherData: any) => {
-      return await databases.createDocument(DB.id, 'teachers', ID.unique(), teacherData);
+      return await databases.createDocument(DATABASE_ID, 'teachers', ID.unique(), teacherData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -55,7 +55,7 @@ export function useTeachers(filters: TeacherFilters = {}) {
 
   const updateTeacherMutation = useMutation({
     mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
-      return await databases.updateDocument(DB.id, 'teachers', teacherId, teacherData);
+      return await databases.updateDocument(DATABASE_ID, 'teachers', teacherId, teacherData);
     },
     onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -65,7 +65,7 @@ export function useTeachers(filters: TeacherFilters = {}) {
 
   const deleteTeacherMutation = useMutation({
     mutationFn: async (teacherId: string) => {
-      return await databases.deleteDocument(DB.id, 'teachers', teacherId);
+      return await databases.deleteDocument(DATABASE_ID, 'teachers', teacherId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
