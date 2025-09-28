@@ -11,7 +11,7 @@
 [dev:client] > vite
 [dev:client]
 [dev:client]
-[dev:client]   VITE v5.4.20  ready in 320 ms
+[dev:client]   VITE v5.4.20  ready in 704 ms
 [dev:client]
 [dev:client]   ➜  Local:   http://localhost:5173/
 [dev:client]   ➜  Network: use --host to expose
