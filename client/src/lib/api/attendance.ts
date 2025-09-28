@@ -1,80 +1,75 @@
-import { databases } from "../appwrite";
+import { databases, ID } from "../appwrite";
 import { Query } from "appwrite";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
+const ATTENDANCE_RECORDS_COLLECTION_ID = 'attendanceRecords';
+const TEACHERS_COLLECTION_ID = 'teachers';
+const CLASSES_COLLECTION_ID = 'classes';
 
 export async function getTeacherClasses(teacherId: string) {
-    const teacher = await databases.getDocument(DATABASE_ID, "teachers", teacherId);
+    const teacher = await databases.getDocument(DATABASE_ID, TEACHERS_COLLECTION_ID, teacherId);
     if (!teacher.classIds || teacher.classIds.length === 0) {
         return [];
     }
     const classQueries = teacher.classIds.map((id: string) => Query.equal("$id", id));
-    const classes = await databases.listDocuments(DATABASE_ID, "classes", classQueries);
+    const classes = await databases.listDocuments(DATABASE_ID, CLASSES_COLLECTION_ID, classQueries);
     return classes.documents;
 }
 
-export async function getStudentsByClass(classId: string) {
-    const students = await databases.listDocuments(DATABASE_ID, "students", [
-        Query.equal("classId", classId)
-    ]);
-    return students.documents;
-}
-
-export async function getAttendance(classId: string, date: string) {
-    const attendance = await databases.listDocuments(DATABASE_ID, "attendance", [
+export async function getAttendanceRecordsForDate(classId: string, date: string) {
+    const response = await databases.listDocuments(DATABASE_ID, ATTENDANCE_RECORDS_COLLECTION_ID, [
         Query.equal("classId", classId),
-        Query.equal("date", date)
-    ]);
-    return attendance.documents[0];
-}
-
-export async function saveAttendance(classId: string, date: string, studentAttendances: any) {
-    const attendance = await getAttendance(classId, date);
-    if (attendance) {
-        return await databases.updateDocument(DATABASE_ID, "attendance", attendance.$id, {
-            studentAttendances: JSON.stringify(studentAttendances)
-        });
-    } else {
-        return await databases.createDocument(DATABASE_ID, "attendance", "unique()", {
-            classId,
-            date,
-            studentAttendances: JSON.stringify(studentAttendances)
-        });
-    }
-}
-
-export async function getAttendanceByClass(classId: string) {
-    const response = await databases.listDocuments(DATABASE_ID, "attendance", [
-        Query.equal("classId", classId),
-        Query.limit(100) // Fetch up to 100 records for now
+        Query.equal("date", date),
+        Query.limit(100)
     ]);
     return response.documents;
 }
 
-export async function getStudentByUserId(userId: string) {
-    const response = await databases.listDocuments(DATABASE_ID, "students", [
-        Query.equal("userId", userId)
+export async function saveAttendanceRecords(classId: string, date: string, studentStatuses: Array<{ studentId: string, status: string }>) {
+    const existingRecords = await getAttendanceRecordsForDate(classId, date);
+    const existingRecordMap = new Map(existingRecords.map(r => [r.studentId, r.$id]));
+
+    const promises = studentStatuses.map(studentStatus => {
+        const recordId = existingRecordMap.get(studentStatus.studentId);
+        const data = {
+            classId,
+            date,
+            studentId: studentStatus.studentId,
+            status: studentStatus.status
+        };
+
+        if (recordId) {
+            // Update existing record
+            return databases.updateDocument(DATABASE_ID, ATTENDANCE_RECORDS_COLLECTION_ID, recordId, data);
+        } else {
+            // Create new record
+            return databases.createDocument(DATABASE_ID, ATTENDANCE_RECORDS_COLLECTION_ID, ID.unique(), data);
+        }
+    });
+
+    return Promise.all(promises);
+}
+
+
+export async function getAttendanceByStudent(studentId: string) {
+    const response = await databases.listDocuments(DATABASE_ID, ATTENDANCE_RECORDS_COLLECTION_ID, [
+        Query.equal("studentId", studentId),
+        Query.orderDesc("date"),
+        Query.limit(100)
     ]);
-    return response.documents[0];
+    return response.documents;
 }
 
 export async function getAllAttendanceRecords(limit = 100, offset = 0) {
-    const response = await databases.listDocuments(DATABASE_ID, "attendance", [
+    const response = await databases.listDocuments(DATABASE_ID, ATTENDANCE_RECORDS_COLLECTION_ID, [
         Query.limit(limit),
         Query.offset(offset),
-        Query.orderDesc("$createdAt"),
+        Query.orderDesc("date"),
     ]);
     return response;
 }
 
 export async function getAllClasses() {
-    const response = await databases.listDocuments(DATABASE_ID, "classes");
+    const response = await databases.listDocuments(DATABASE_ID, CLASSES_COLLECTION_ID);
     return response.documents;
-}
-
-export async function getStudentByParentEmail(email: string) {
-    const response = await databases.listDocuments(DATABASE_ID, "students", [
-        Query.equal("parentEmail", email)
-    ]);
-    return response.documents[0];
 }

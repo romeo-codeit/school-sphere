@@ -33,6 +33,7 @@ import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-reac
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
+import { useClasses } from "@/hooks/useClasses";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
 
@@ -47,15 +48,28 @@ export default function Students() {
   const { toast } = useToast();
   const { hasPermission } = useRole();
   const [, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const classIdFromUrl = searchParams.get('classId');
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
 
-  const { students, total, isLoading, deleteStudent } = useStudents({
+  const { students, total, isLoading: studentsLoading, deleteStudent } = useStudents({
       page: currentPage,
       limit: 10,
       search: debouncedSearchQuery,
+      classId: classIdFromUrl,
   });
+  const { classes, isLoading: classesLoading } = useClasses();
 
+  const classMap = classes?.reduce((acc: any, currentClass: any) => {
+    acc[currentClass.$id] = currentClass.name;
+    return acc;
+  }, {});
+
+  const isLoading = studentsLoading || classesLoading;
   const totalPages = total ? Math.ceil(total / 10) : 1;
+
+  const pageTitle = classIdFromUrl && classMap && classMap[classIdFromUrl] ? `Students in ${classMap[classIdFromUrl]}` : "Students";
+  const pageSubtitle = classIdFromUrl ? "Viewing students for a specific class" : "Manage student records and information";
 
   const handleAddStudent = () => {
     setSelectedStudent(null);
@@ -103,7 +117,7 @@ export default function Students() {
   try {
     return (
     <div className="space-y-6">
-      <TopNav title="Students" subtitle="Manage student records and information" showGoBackButton={true} />
+      <TopNav title={pageTitle} subtitle={pageSubtitle} showGoBackButton={true} />
       
       <div className="p-6">
         <Card>
@@ -147,7 +161,7 @@ export default function Students() {
                             <div className="text-sm text-muted-foreground">{student.email}</div>
                           </TableCell>
                           <TableCell>{student.studentId}</TableCell>
-                          <TableCell>{student.classId}</TableCell>
+                          <TableCell>{classMap && classMap[student.classId] ? classMap[student.classId] : 'N/A'}</TableCell>
                           <TableCell><Badge variant={getStatusVariant(student.status)}>{student.status}</Badge></TableCell>
                           <TableCell className="text-right">
                             <DropdownMenu>

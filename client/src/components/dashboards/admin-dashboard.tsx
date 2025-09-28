@@ -67,20 +67,12 @@ export function AdminDashboard() {
       attendance.forEach((record: any) => {
         const date = new Date(record.date);
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-
-        try {
-          const studentStatuses = JSON.parse(record.studentAttendances || '[]');
-          studentStatuses.forEach((student: any) => {
-            if (weeklyAttendance[dayOfWeek]) {
-              if (student.status === 'present') {
-                weeklyAttendance[dayOfWeek].present++;
-              } else if (student.status === 'absent') {
-                weeklyAttendance[dayOfWeek].absent++;
-              }
-            }
-          });
-        } catch (e) {
-          console.error("Failed to parse studentAttendances in dashboard chart", e);
+        if (weeklyAttendance[dayOfWeek]) {
+          if (record.status === 'present') {
+            weeklyAttendance[dayOfWeek].present++;
+          } else if (record.status === 'absent') {
+            weeklyAttendance[dayOfWeek].absent++;
+          }
         }
       });
 

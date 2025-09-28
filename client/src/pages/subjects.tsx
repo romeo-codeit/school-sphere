@@ -109,11 +109,6 @@ export default function SubjectsPage() {
   const { subjects, isLoading, error, deleteSubject } = useSubjects();
   const { toast } = useToast();
 
-  const handleAdd = () => {
-    setSelectedSubject(null);
-    setIsFormOpen(true);
-  };
-
   const handleEdit = (subject: any) => {
     setSelectedSubject(subject);
     setIsFormOpen(true);
@@ -138,9 +133,11 @@ export default function SubjectsPage() {
     }
   };
 
-  const handleFormFinished = () => {
-      setIsFormOpen(false);
+  const handleDialogChange = (open: boolean) => {
+    setIsFormOpen(open);
+    if (!open) {
       setSelectedSubject(null);
+    }
   }
 
   const renderContent = () => {
@@ -157,9 +154,11 @@ export default function SubjectsPage() {
         <div className="text-center">
           <h3 className="text-xl font-semibold">No Subjects Found</h3>
           <p className="text-muted-foreground">Get started by adding a new subject.</p>
-          <Button onClick={handleAdd} className="mt-4">
-            <UserPlus className="w-4 h-4 mr-2" /> Add Subject
-          </Button>
+          <DialogTrigger asChild>
+            <Button className="mt-4" onClick={() => setSelectedSubject(null)}>
+              <UserPlus className="w-4 h-4 mr-2" /> Add Subject
+            </Button>
+          </DialogTrigger>
         </div>
       );
     }
@@ -183,7 +182,7 @@ export default function SubjectsPage() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => handleEdit(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => handleEdit(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleDelete(subject.$id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -197,37 +196,37 @@ export default function SubjectsPage() {
   };
 
   return (
-  <>
-  <div className="space-y-6">
-      <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Subject Management</CardTitle>
-              <Button onClick={handleAdd}><UserPlus className="w-4 h-4 mr-2" /> Add Subject</Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {renderContent()}
-          </CardContent>
-        </Card>
-      </div>
+    <Dialog open={isFormOpen} onOpenChange={handleDialogChange}>
+      <div className="space-y-6">
+        <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
+        <div className="p-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Subject Management</CardTitle>
+                <DialogTrigger asChild>
+                  <Button onClick={() => setSelectedSubject(null)}><UserPlus className="w-4 h-4 mr-2" /> Add Subject</Button>
+                </DialogTrigger>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {renderContent()}
+            </CardContent>
+          </Card>
+        </div>
 
-      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent>
             <DialogHeader><DialogTitle>{selectedSubject ? "Edit Subject" : "Add New Subject"}</DialogTitle></DialogHeader>
-            <SubjectForm subject={selectedSubject} onFinished={handleFormFinished} />
+            <SubjectForm subject={selectedSubject} onFinished={() => setIsFormOpen(false)} />
         </DialogContent>
-      </Dialog>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
-          <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction></AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-  </div>
-  </>
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </Dialog>
   );
 }

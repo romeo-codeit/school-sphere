@@ -60,6 +60,7 @@ const collections = [
       { id: 'email', type: 'string', size: 255, required: false },
       { id: 'phone', type: 'string', size: 255, required: false },
       { id: 'dateOfBirth', type: 'string', size: 255, required: false },
+      { id: 'gender', type: 'string', size: 50, required: false },
       { id: 'address', type: 'string', size: 1024, required: false },
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'parentPhone', type: 'string', size: 255, required: false },
@@ -465,11 +466,11 @@ async function seedDemoData() {
     if (studentsCollection.total === 0) {
         console.log('Seeding students...');
         const studentData = [
-            { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active' },
-            { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active' },
-            { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active' },
-            { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active' },
-            { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active' },
+            { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active', gender: 'male' },
+            { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active', gender: 'female' },
+            { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active', gender: 'male' },
+            { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active', gender: 'female' },
+            { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active', gender: 'male' },
         ];
         for (const student of studentData) {
             await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), student);

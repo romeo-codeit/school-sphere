@@ -19,7 +19,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useResources } from "@/hooks/useResources";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
-import { useStudents } from "@/hooks/useStudents";
+import { useClasses } from "@/hooks/useClasses";
+import { getStudentByUserId, getStudentByParentEmail } from "@/lib/api/students";
 import { cn } from "@/lib/utils";
 
 const resourceFormSchema = z.object({
@@ -47,15 +48,27 @@ export default function Resources() {
   const { toast } = useToast();
   const { user } = useAuth();
   const { role, hasPermission } = useRole();
-  const { students } = useStudents();
+  const { classes } = useClasses();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [studentProfile, setStudentProfile] = useState<any | null>(null);
 
-  const studentProfile = useMemo(() => {
-    if (!user || !students) return null;
-    if (role === 'student') return students.find(s => s.userId === user.$id);
-    if (role === 'parent') return students.find(s => s.parentEmail === user.email);
-    return null;
-  }, [user, students, role]);
+  useEffect(() => {
+    const fetchStudentProfile = async () => {
+      if (!user) return;
+      try {
+        if (role === 'student') {
+          const student = await getStudentByUserId(user.$id);
+          setStudentProfile(student);
+        } else if (role === 'parent' && user.email) {
+          const student = await getStudentByParentEmail(user.email);
+          setStudentProfile(student);
+        }
+      } catch (e) {
+        console.error("Failed to fetch student profile for resources", e);
+      }
+    };
+    fetchStudentProfile();
+  }, [user, role]);
 
   const resourceFilters = useMemo(() => {
       if (role === 'admin' || role === 'teacher') return {};
@@ -272,7 +285,21 @@ export default function Resources() {
                 <FormField control={form.control} name="subject" render={({ field }) => (<FormItem><FormLabel>Subject</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <FormField control={form.control} name="class" render={({ field }) => (<FormItem><FormLabel>Class (Optional)</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={form.control} name="class" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Class (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger><SelectValue placeholder="Assign to a class" /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="">None</SelectItem>
+                        {classes?.map((c: any) => (
+                          <SelectItem key={c.$id} value={c.name}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
                 <FormField control={form.control} name="isPublic" render={({ field }) => (<FormItem><FormLabel>Visibility</FormLabel><Select onValueChange={(val) => field.onChange(val === 'true')} defaultValue={String(field.value)}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="true">Public</SelectItem><SelectItem value="false">Private</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
               </div>
               <FormItem>

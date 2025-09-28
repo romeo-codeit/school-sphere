@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/hooks/useRole';
-import { getAttendanceByClass, getStudentByUserId, getStudentByParentEmail } from '@/lib/api/attendance';
+import { getAttendanceByStudent } from '@/lib/api/attendance';
+import { getStudentByUserId, getStudentByParentEmail } from '@/lib/api/students';
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -31,18 +32,8 @@ const StudentAttendanceView: React.FC = () => {
                     student = await getStudentByParentEmail(user.email);
                 }
 
-                if (student && student.classId) {
-                    const classAttendanceRecords = await getAttendanceByClass(student.classId);
-
-                    const history = classAttendanceRecords.map(record => {
-                        const studentAttendances = JSON.parse(record.studentAttendances);
-                        const studentStatus = studentAttendances.find((att: any) => att.studentId === student.$id);
-                        return {
-                            date: record.date,
-                            status: studentStatus ? studentStatus.status : 'N/A',
-                        };
-                    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
+                if (student) {
+                    const history = await getAttendanceByStudent(student.$id);
                     setStudentHistory(history);
                 }
             } catch (error) {

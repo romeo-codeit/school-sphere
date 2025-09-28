@@ -34,19 +34,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useLocation } from "wouter";
-
-function useDebounce(value: string, delay: number) {
-    const [debouncedValue, setDebouncedValue] = useState(value);
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [value, delay]);
-    return debouncedValue;
-}
+import { useDebounce } from "@/hooks/useDebounce";
 
 export default function Teachers() {
   const [searchQuery, setSearchQuery] = useState("");

@@ -40,26 +40,26 @@ export default function TakeAttendance() {
       return;
     }
 
-    const studentAttendances = Object.keys(attendance).map(studentId => ({
-      studentId,
-      status: attendance[studentId],
-    }));
-
-    if (studentAttendances.length === 0) {
+    if (Object.keys(attendance).length === 0) {
       toast({ title: "Error", description: "No attendance data to submit.", variant: "destructive" });
       return;
     }
 
     try {
-      await createAttendance({
-        classId: selectedClassId,
-        date: new Date().toISOString(),
-        studentAttendances: JSON.stringify(studentAttendances),
-      });
+      const attendancePromises = Object.keys(attendance).map(studentId =>
+        createAttendance({
+          classId: selectedClassId,
+          date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
+          studentId: studentId,
+          status: attendance[studentId] || 'present', // Default to 'present' if no status is set
+        })
+      );
+
+      await Promise.all(attendancePromises);
+
       toast({ title: "Success", description: "Attendance submitted successfully." });
       setAttendance({});
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error: any)      toast({ title: "Error", description: `Failed to submit attendance: ${error.message}`, variant: "destructive" });
     }
   };
 

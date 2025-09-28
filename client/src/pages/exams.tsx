@@ -23,6 +23,7 @@ import {
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
 import { useExams } from "@/hooks/useExams";
 import { useLocation } from "wouter";
+import { UploadExamForm } from "@/components/upload-exam-form";
 
 function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: boolean, onOpenChange: (open: boolean) => void }) {
   if (!exam) return null;
@@ -62,6 +63,7 @@ export default function Exams() {
   const [, setLocation] = useLocation();
   const [selectedExamForPreview, setSelectedExamForPreview] = useState<any | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [isUploadFormOpen, setIsUploadFormOpen] = useState(false);
 
   const filteredExams = exams?.filter((exam: any) => {
     const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -150,7 +152,7 @@ export default function Exams() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle>Examination Management</CardTitle>
-              <Button data-testid="button-upload-exam">
+              <Button onClick={() => setIsUploadFormOpen(true)} data-testid="button-upload-exam">
                 <Upload className="w-4 h-4 mr-2" />
                 Upload Questions
               </Button>
@@ -288,6 +290,17 @@ export default function Exams() {
         open={isPreviewDialogOpen}
         onOpenChange={setIsPreviewDialogOpen}
       />
+      <Dialog open={isUploadFormOpen} onOpenChange={setIsUploadFormOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>Upload New Exam</DialogTitle>
+            <DialogDescription>
+              Fill in the details below to create a new exam.
+            </DialogDescription>
+          </DialogHeader>
+          <UploadExamForm onFinished={() => setIsUploadFormOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

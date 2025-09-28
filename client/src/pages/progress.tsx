@@ -5,9 +5,11 @@ import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { useAttendance } from "@/hooks/useAttendance";
+import { getStudentByUserId } from "@/lib/api/students";
 import { useExamAttempts } from "@/hooks/useExamAttempts";
 import { useExams } from "@/hooks/useExams";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { getStudentByParentEmail } from "@/lib/api/students";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,8 @@ export function GradesChart({ grades }: { grades: Grade[] }) {
   const data = useMemo(() => {
     return grades?.map((grade: Grade) => ({
       name: grade.subject,
-      score: parseFloat(grade.score as string),
-      totalMarks: parseFloat(grade.totalMarks as string),
+      score: grade.score,
+      totalMarks: grade.totalMarks,
     })).sort((a, b) => a.name.localeCompare(b.name)) || [];
   }, [grades]);
 
@@ -47,11 +49,10 @@ export function GradesChart({ grades }: { grades: Grade[] }) {
 
 export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) {
     const summary = useMemo(() => {
-        const counts = { present: 0, absent: 0, late: 0, excused: 0 };
+        const counts = { present: 0, absent: 0 };
         attendance?.forEach((record: Attendance) => {
-            if (record.status in counts) {
-                counts[record.status as keyof typeof counts]++;
-            }
+            if (record.status === 'present') counts.present++;
+            if (record.status === 'absent') counts.absent++;
         });
         return counts;
     }, [attendance]);
@@ -61,7 +62,7 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
     }
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
             <Card>
                 <CardHeader>
                     <CardTitle>Present</CardTitle>
@@ -76,22 +77,6 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
                 </CardHeader>
                 <CardContent>
                     <p className="text-3xl font-bold">{summary.absent}</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Late</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-bold">{summary.late}</p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader>
-                    <CardTitle>Excused</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-bold">{summary.excused}</p>
                 </CardContent>
             </Card>
         </div>
@@ -133,16 +118,35 @@ export function ExamAttemptsTable({ examAttempts, exams }: { examAttempts: ExamA
 export default function Progress() {
   const { user } = useAuth();
   const { role } = useRole();
-  const { students, error: studentsError } = useStudents();
+  const { students, error: studentsError } = useStudents({ enabled: role === 'admin' || role === 'teacher' });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [studentIdForRole, setStudentIdForRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
+  useEffect(() => {
+    const fetchStudentForRole = async () => {
+      if (!user) return;
+      try {
+        if (role === 'student') {
+          const student = await getStudentByUserId(user.$id);
+          if (student) setStudentIdForRole(student.$id);
+        } else if (role === 'parent' && user.email) {
+          const student = await getStudentByParentEmail(user.email);
+          if (student) setStudentIdForRole(student.$id);
+        }
+      } catch(e) {
+        console.error("Failed to fetch student for role", e);
+      }
+    };
+    fetchStudentForRole();
+  }, [user, role]);
+
   const studentIdToFetch = useMemo(() => {
-    if (role === 'student') {
-      return user?.$id;
+    if (role === 'student' || role === 'parent') {
+      return studentIdForRole;
     }
     return selectedStudentId;
-  }, [role, user, selectedStudentId]);
+  }, [role, studentIdForRole, selectedStudentId]);
 
   const { grades, isLoading: isLoadingGrades, error: gradesError } = useGrades(studentIdToFetch || '');
   const { attendance, isLoading: isLoadingAttendance, error: attendanceError } = useAttendance(studentIdToFetch || '');

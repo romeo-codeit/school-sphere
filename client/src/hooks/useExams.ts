@@ -13,7 +13,15 @@ export function useExams() {
         throw new Error('Failed to fetch exams');
       }
       const data = await response.json();
-      return data.documents;
+      // Ensure questions are parsed from JSON string
+      return data.documents.map((exam: any) => {
+        try {
+          return { ...exam, questions: JSON.parse(exam.questions) };
+        } catch (e) {
+          console.error(`Failed to parse questions for exam ${exam.$id}:`, e);
+          return { ...exam, questions: [] }; // Default to empty array on error
+        }
+      });
     },
   });
 
@@ -26,7 +34,14 @@ export function useExams() {
         if (!response.ok) {
           throw new Error('Failed to fetch exam');
         }
-        return await response.json();
+        const exam = await response.json();
+        // Ensure questions are parsed from JSON string
+        try {
+          return { ...exam, questions: JSON.parse(exam.questions) };
+        } catch (e) {
+          console.error(`Failed to parse questions for exam ${exam.$id}:`, e);
+          return { ...exam, questions: [] };
+        }
       },
       enabled: !!examId,
     });

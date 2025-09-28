@@ -1,12 +1,7 @@
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
@@ -25,32 +20,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 import { useExams } from "@/hooks/useExams";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 const examFormSchema = z.object({
-  title: z.string().min(1, "Title is required"),
+  title: z.string().min(1, "Title is required."),
   type: z.enum(["jamb", "waec", "neco", "internal"]),
-  subject: z.string().min(1, "Subject is required"),
-  duration: z.string().optional(),
-  totalMarks: z.string().optional(),
-  passingMarks: z.string().optional(),
-  questions: z.string(),
+  subject: z.string().min(1, "Subject is required."),
+  duration: z.coerce.number().int().positive("Duration must be a positive number."),
+  totalMarks: z.coerce.number().int().positive("Total marks must be a positive number."),
+  passingMarks: z.coerce.number().int().positive("Passing marks must be a positive number."),
+  isActive: z.boolean().default(true),
+  questions: z.string().refine((val) => {
+    try {
+      const parsed = JSON.parse(val);
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch (e) {
+      return false;
+    }
+  }, {
+    message: "Questions must be a valid JSON array and cannot be empty.",
+  }),
 });
 
 type ExamFormData = z.infer<typeof examFormSchema>;
 
-interface UploadExamFormProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}
-
-export function UploadExamForm({ open, onOpenChange }: UploadExamFormProps) {
-  const { toast } = useToast();
+export function UploadExamForm({ onFinished }: { onFinished: () => void }) {
   const { createExam } = useExams();
   const { user } = useAuth();
+  const { toast } = useToast();
 
   const form = useForm<ExamFormData>({
     resolver: zodResolver(examFormSchema),
@@ -58,192 +58,75 @@ export function UploadExamForm({ open, onOpenChange }: UploadExamFormProps) {
       title: "",
       type: "internal",
       subject: "",
-      duration: "",
-      totalMarks: "",
-      passingMarks: "",
+      duration: 60,
+      totalMarks: 100,
+      passingMarks: 40,
+      isActive: true,
       questions: "[]",
     },
   });
 
   const onSubmit = async (data: ExamFormData) => {
-    if (!user) {
-      toast({ title: "Error", description: "User not authenticated", variant: "destructive" });
-      return;
-    }
     try {
-      let questions;
-      try {
-        questions = JSON.parse(data.questions);
-      } catch (e) {
-        toast({
-          title: "Error",
-          description: "Invalid JSON format for questions",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      const numericData = {
-        ...data,
-        questions,
-        duration: data.duration ? parseInt(data.duration, 10) : undefined,
-        totalMarks: data.totalMarks ? parseInt(data.totalMarks, 10) : undefined,
-        passingMarks: data.passingMarks ? parseInt(data.passingMarks, 10) : undefined,
-      };
-
       await createExam({
-        ...numericData,
-        createdBy: user.$id,
-        isActive: true,
+        ...data,
+        createdBy: user?.$id,
       });
-      toast({
-        title: "Success",
-        description: "Exam uploaded successfully",
-      });
-      onOpenChange(false);
-      form.reset();
+      toast({ title: "Success", description: "Exam created successfully." });
+      onFinished();
     } catch (error: any) {
       toast({
-        title: "Error",
-        description: error.message || "Failed to upload exam",
+        title: "Error creating exam",
+        description: error.message,
         variant: "destructive",
       });
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Upload New Exam Questions</DialogTitle>
-        </DialogHeader>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="title"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Exam Title</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Exam Type</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select exam type" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="jamb">JAMB</SelectItem>
-                        <SelectItem value="waec">WAEC</SelectItem>
-                        <SelectItem value="neco">NECO</SelectItem>
-                        <SelectItem value="internal">Internal</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              
-              <FormField
-                control={form.control}
-                name="subject"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Subject</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="duration"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration (minutes)</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="totalMarks"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Total Marks</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="passingMarks"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Passing Marks</FormLabel>
-                    <FormControl>
-                      <Input type="number" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="questions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Questions (JSON Array)</FormLabel>
-                  <FormControl>
-                    <Textarea {...field} rows={10} placeholder={`[{"question":"What is...?","options":["A","B"],"correctAnswer":"A"}]`} />
-                  </FormControl>
-                  <FormDescription>
-                    Enter exam questions as a JSON array. Each object should have 'question' (string), 'options' (array of strings), and 'correctAnswer' (string).
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                Upload Exam
-              </Button>
-            </div>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+        <FormField control={form.control} name="title" render={({ field }) => (
+          <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )}/>
+        <FormField control={form.control} name="type" render={({ field }) => (
+          <FormItem><FormLabel>Exam Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select an exam type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="jamb">JAMB</SelectItem><SelectItem value="waec">WAEC</SelectItem><SelectItem value="neco">NECO</SelectItem><SelectItem value="internal">Internal</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+        )}/>
+        <FormField control={form.control} name="subject" render={({ field }) => (
+          <FormItem><FormLabel>Subject</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+        )}/>
+        <div className="grid grid-cols-3 gap-4">
+          <FormField control={form.control} name="duration" render={({ field }) => (
+            <FormItem><FormLabel>Duration (mins)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+          )}/>
+          <FormField control={form.control} name="totalMarks" render={({ field }) => (
+            <FormItem><FormLabel>Total Marks</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+          )}/>
+          <FormField control={form.control} name="passingMarks" render={({ field }) => (
+            <FormItem><FormLabel>Passing Marks</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+          )}/>
+        </div>
+        <FormField control={form.control} name="questions" render={({ field }) => (
+          <FormItem>
+            <FormLabel>Questions (JSON format)</FormLabel>
+            <FormControl><Textarea {...field} rows={8} placeholder='[{"question": "What is 2+2?", "options": ["3", "4", "5"], "answer": "4"}]' /></FormControl>
+            <FormDescription>Enter questions as a JSON array.</FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}/>
+        <FormField control={form.control} name="isActive" render={({ field }) => (
+            <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                <div className="space-y-0.5">
+                    <FormLabel>Activate Exam</FormLabel>
+                    <FormDescription>
+                        Make this exam available for students to take.
+                    </FormDescription>
+                </div>
+                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+            </FormItem>
+        )}/>
+        <Button type="submit">Create Exam</Button>
+      </form>
+    </Form>
   );
 }

@@ -9,16 +9,18 @@ interface StudentFilters {
     limit?: number;
     search?: string;
     classId?: string;
+    enabled?: boolean;
 }
 
 export function useStudents(filters: StudentFilters = {}) {
   const queryClient = useQueryClient();
-  const { page = 1, limit = 10, search = '', classId } = filters;
+  const { page = 1, limit = 10, search = '', classId, enabled = true } = filters;
 
   const queryKey = ['students', { page, limit, search, classId }];
 
   const { data, isLoading, error } = useQuery({
     queryKey,
+    enabled,
     queryFn: async () => {
       const queries = [
           Query.limit(limit),
