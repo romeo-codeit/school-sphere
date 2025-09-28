@@ -197,7 +197,8 @@ export default function SubjectsPage() {
   };
 
   return (
-    <div className="space-y-6">
+  <>
+  <div className="space-y-6">
       <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
       <div className="p-6">
         <Card>
@@ -226,7 +227,7 @@ export default function SubjectsPage() {
           <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Delete</AlertDialogAction></AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-    </>
+  </div>
+  </>
   );
 }

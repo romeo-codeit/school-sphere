@@ -41,6 +41,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { useSchoolData } from "@/hooks/useSchoolData";
+import { useUserProfile, useUserSettings } from "@/hooks/useUserSettings";
+import { account } from '@/lib/appwrite';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -77,8 +79,11 @@ type NotificationFormData = z.infer<typeof notificationFormSchema>;
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, refetch: refetchUser } = useAuth();
   const { theme, setTheme, primaryColor, setPrimaryColor } = useTheme();
+  const userId = user?.$id;
+  const { profile, isLoading: isLoadingProfile, upsertUserProfile } = useUserProfile(userId);
+  const { settings, isLoading: isLoadingSettings, upsertUserSettings } = useUserSettings(userId);
 
   const colorOptions = [
     { name: "Blue", value: "hsl(221, 91%, 60%)", hex: "#3b82f6", className: "bg-blue-500" },
@@ -96,11 +101,11 @@ export default function Settings() {
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: user?.prefs?.firstName || "",
-      lastName: user?.prefs?.lastName || "",
-      email: user?.email || "",
-      phone: "",
-      address: "",
+      firstName: profile?.firstName || user?.prefs?.firstName || "",
+      lastName: profile?.lastName || user?.prefs?.lastName || "",
+      email: user?.email || profile?.email || "",
+      phone: profile?.phone || "",
+      address: profile?.address || "",
     },
   });
 
@@ -119,6 +124,18 @@ export default function Settings() {
   });
 
   useEffect(() => {
+    if (profile) {
+      profileForm.reset({
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        email: user?.email || profile.email || "",
+        phone: profile.phone || "",
+        address: profile.address || "",
+      });
+    }
+  }, [profile]);
+
+  useEffect(() => {
     if (schoolData) {
       schoolForm.reset({
         schoolName: schoolData.name || "",
@@ -131,39 +148,143 @@ export default function Settings() {
         academicYear: schoolData.academicYear || "",
       });
     }
-  }, [schoolData, schoolForm]);
+  }, [schoolData]);
 
   const notificationForm = useForm<NotificationFormData>({
     resolver: zodResolver(notificationFormSchema),
     defaultValues: {
-      emailNotifications: true,
-      smsNotifications: false,
-      pushNotifications: true,
-      paymentReminders: true,
-      examNotifications: true,
-      announcementNotifications: true,
+      emailNotifications: settings?.notificationPreferences?.emailNotifications ?? true,
+      smsNotifications: settings?.notificationPreferences?.smsNotifications ?? false,
+      pushNotifications: settings?.notificationPreferences?.pushNotifications ?? true,
+      paymentReminders: settings?.notificationPreferences?.paymentReminders ?? true,
+      examNotifications: settings?.notificationPreferences?.examNotifications ?? true,
+      announcementNotifications: settings?.notificationPreferences?.announcementNotifications ?? true,
     },
   });
 
-  const onProfileSubmit = (data: ProfileFormData) => {
-    toast({
-      title: "Success",
-      description: "Profile updated successfully",
-    });
+  useEffect(() => {
+    if (settings?.notificationPreferences) {
+      notificationForm.reset({
+        emailNotifications: settings.notificationPreferences.emailNotifications ?? true,
+        smsNotifications: settings.notificationPreferences.smsNotifications ?? false,
+        pushNotifications: settings.notificationPreferences.pushNotifications ?? true,
+        paymentReminders: settings.notificationPreferences.paymentReminders ?? true,
+        examNotifications: settings.notificationPreferences.examNotifications ?? true,
+        announcementNotifications: settings.notificationPreferences.announcementNotifications ?? true,
+      });
+    }
+  }, [settings]);
+
+  const onProfileSubmit = async (data: ProfileFormData) => {
+    try {
+      await upsertUserProfile(data);
+      toast({ title: "Success", description: "Profile updated successfully" });
+      refetchUser?.();
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
+    }
   };
 
-  const onSchoolSubmit = (data: SchoolFormData) => {
-    toast({
-      title: "Success",
-      description: "School settings updated successfully",
-    });
+  const onSchoolSubmit = async (data: SchoolFormData) => {
+    try {
+      // Implement school update logic here (call backend API)
+      await fetch('/api/school', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      toast({ title: "Success", description: "School settings updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update school settings", variant: "destructive" });
+    }
   };
 
-  const onNotificationSubmit = (data: NotificationFormData) => {
-    toast({
-      title: "Success",
-      description: "Notification preferences updated successfully",
-    });
+  const onNotificationSubmit = async (data: NotificationFormData) => {
+    try {
+      await upsertUserSettings({ notificationPreferences: data });
+      toast({ title: "Success", description: "Notification preferences updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update notification preferences", variant: "destructive" });
+    }
+  };
+
+  // Appearance
+  useEffect(() => {
+    if (settings?.theme) setTheme(settings.theme);
+    if (settings?.primaryColor) setPrimaryColor(settings.primaryColor);
+  }, [settings]);
+
+  const onAppearanceSave = async () => {
+    try {
+      await upsertUserSettings({ theme, primaryColor });
+      toast({ title: "Success", description: "Appearance updated" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update appearance", variant: "destructive" });
+    }
+  };
+
+  // Security actions
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const handleEnable2FA = async () => {
+    setSecurityLoading(true);
+    try {
+      // Appwrite 2FA: send verification email or start 2FA setup
+      await account.createMfaChallenge();
+      toast({ title: "2FA Challenge Sent", description: "Check your email or authenticator app." });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to start 2FA setup", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+  const handleManageSessions = async () => {
+    setSecurityLoading(true);
+    try {
+      // Optionally, navigate to a sessions management page or show a modal
+      const sessions = await account.listSessions();
+      toast({ title: "Active Sessions", description: `${sessions.sessions.length} active sessions.` });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to fetch sessions", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+  const handleChangePassword = async () => {
+    // Show a modal or prompt for old/new password, then:
+    // await account.updatePassword(newPassword, oldPassword);
+    toast({ title: "Change Password", description: "Password change UI not implemented in this demo." });
+  };
+  const handleExportData = async () => {
+    setSecurityLoading(true);
+    try {
+      // Download user data (profile, settings, etc.)
+      const blob = new Blob([
+        JSON.stringify({ profile, settings }, null, 2)
+      ], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'user_data.json';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Exported", description: "Your data has been downloaded." });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to export data", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+  const handleDeleteAccount = async () => {
+    setSecurityLoading(true);
+    try {
+      await account.delete();
+      toast({ title: "Account Deleted", description: "Your account has been deleted." });
+      // Optionally, redirect to login page
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
   };
 
   return (
@@ -682,7 +803,7 @@ export default function Settings() {
                   </div>
                 </div>
 
-                <Button data-testid="button-save-appearance">
+                <Button data-testid="button-save-appearance" onClick={onAppearanceSave} type="button">
                   <Save className="w-4 h-4 mr-2" />
                   Apply Changes
                 </Button>
@@ -708,7 +829,7 @@ export default function Settings() {
                         Add an extra layer of security to your account
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-enable-2fa">
+                    <Button variant="outline" data-testid="button-enable-2fa" onClick={handleEnable2FA} disabled={securityLoading}>
                       Enable
                     </Button>
                   </div>
@@ -720,7 +841,7 @@ export default function Settings() {
                         Manage your active login sessions
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-manage-sessions">
+                    <Button variant="outline" data-testid="button-manage-sessions" onClick={handleManageSessions} disabled={securityLoading}>
                       Manage
                     </Button>
                   </div>
@@ -732,7 +853,7 @@ export default function Settings() {
                         Change your account password
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-change-password">
+                    <Button variant="outline" data-testid="button-change-password" onClick={handleChangePassword} disabled={securityLoading}>
                       Change
                     </Button>
                   </div>
@@ -744,7 +865,7 @@ export default function Settings() {
                         Download a copy of your data
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-export-data">
+                    <Button variant="outline" data-testid="button-export-data" onClick={handleExportData} disabled={securityLoading}>
                       <Download className="w-4 h-4 mr-2" />
                       Export
                     </Button>
@@ -757,7 +878,7 @@ export default function Settings() {
                         Permanently delete your account and all data
                       </p>
                     </div>
-                    <Button variant="destructive" data-testid="button-delete-account">
+                    <Button variant="destructive" data-testid="button-delete-account" onClick={handleDeleteAccount} disabled={securityLoading}>
                       Delete
                     </Button>
                   </div>

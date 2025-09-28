@@ -107,24 +107,28 @@ export default function ExamTaking() {
       )}
 
       <div className="p-6 space-y-6">
-        {exam.questions.map((q: Question, index: number) => (
-          <Card key={index}>
-            <CardHeader>
-              <CardTitle>Question {index + 1}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="mb-4">{q.question}</p>
-              <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
-                {q.options.map((option: string, i: number) => (
-                  <div key={i} className="flex items-center space-x-2">
-                    <RadioGroupItem value={option} id={`q${index}o${i}`} />
-                    <Label htmlFor={`q${index}o${i}`}>{option}</Label>
-                  </div>
-                ))}
-              </RadioGroup>
-            </CardContent>
-          </Card>
-        ))}
+        {Array.isArray(exam.questions) ? (
+          exam.questions.map((q: Question, index: number) => (
+            <Card key={index}>
+              <CardHeader>
+                <CardTitle>Question {index + 1}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4">{q.question}</p>
+                <RadioGroup onValueChange={(value) => handleAnswerChange(index, value)}>
+                  {q.options.map((option: string, i: number) => (
+                    <div key={i} className="flex items-center space-x-2">
+                      <RadioGroupItem value={option} id={`q${index}o${i}`} />
+                      <Label htmlFor={`q${index}o${i}`}>{option}</Label>
+                    </div>
+                  ))}
+                </RadioGroup>
+              </CardContent>
+            </Card>
+          ))
+        ) : (
+          <div>No questions found for this exam.</div>
+        )}
 
         <Button onClick={handleSubmit} className="w-full">
           Submit Exam

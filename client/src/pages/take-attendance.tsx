@@ -65,7 +65,7 @@ export default function TakeAttendance() {
 
   return (
     <div className="space-y-6">
-      <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
+  <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
       <div className="p-6">
         <Card>
           <CardHeader>

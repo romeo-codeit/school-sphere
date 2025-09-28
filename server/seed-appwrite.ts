@@ -23,6 +23,33 @@ const databases = new Databases(client);
 
 const collections = [
   {
+    id: 'userSettings',
+    name: 'User Settings',
+    attributes: [
+      { id: 'userId', type: 'string', size: 255, required: true },
+      { id: 'notificationPreferences', type: 'string', size: 2048, required: false }, // JSON string
+      { id: 'theme', type: 'string', size: 255, required: false },
+      { id: 'primaryColor', type: 'string', size: 255, required: false },
+      { id: 'twoFactorEnabled', type: 'boolean', required: false, default: false },
+      { id: 'sessions', type: 'string', size: 4096, required: false }, // JSON string for session info
+    ]
+  },
+  {
+    id: 'userProfiles',
+    name: 'User Profiles',
+    attributes: [
+      { id: 'userId', type: 'string', size: 255, required: true },
+      { id: 'profilePhotoUrl', type: 'string', size: 1024, required: false },
+      { id: 'dateOfBirth', type: 'string', size: 255, required: false },
+      { id: 'gender', type: 'string', size: 50, required: false },
+      { id: 'address', type: 'string', size: 1024, required: false },
+      { id: 'parentName', type: 'string', size: 255, required: false },
+      { id: 'role', type: 'string', size: 50, required: false },
+      { id: 'bio', type: 'string', size: 1024, required: false },
+      { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for any extra fields
+    ]
+  },
+  {
     id: 'students',
     name: 'Students',
     attributes: [
@@ -131,7 +158,17 @@ const collections = [
     attributes: [
         { id: 'classId', type: 'string', size: 255, required: true },
         { id: 'date', type: 'string', size: 255, required: true },
-        { id: 'studentAttendances', type: 'string', size: 10000, required: true }, // JSON string
+        // Deprecated: studentAttendances (do not add or update this attribute)
+    ]
+  },
+  {
+    id: 'attendanceRecords',
+    name: 'Attendance Records',
+    attributes: [
+      { id: 'classId', type: 'string', size: 255, required: true },
+      { id: 'date', type: 'string', size: 255, required: true },
+      { id: 'studentId', type: 'string', size: 255, required: true },
+      { id: 'status', type: 'string', size: 50, required: true },
     ]
   },
   {
@@ -284,18 +321,7 @@ async function createDatabaseIfNotExists() {
 async function seedCollections() {
   console.log('Seeding collections...');
 
-  // Delete collections that are being actively developed to ensure a clean schema
-  const collectionsToReset = ['attendance', 'videoMeetings', 'conversations', 'chatMessages', 'notifications', 'subjects'];
-  for (const collectionId of collectionsToReset) {
-      try {
-          await databases.deleteCollection(APPWRITE_DATABASE_ID!, collectionId);
-          console.log(`Collection '${collectionId}' deleted for a fresh seed.`);
-      } catch (e: any) {
-          if (e.code !== 404) { // It's okay if the collection doesn't exist
-              console.error(`Could not delete collection ${collectionId}: ${e.message}`);
-          }
-      }
-  }
+
 
   for (const collection of collections) {
     try {
@@ -525,32 +551,29 @@ async function seedDemoData() {
         console.log('Payments seeded.');
     }
 
-    // Seed attendance
-    const attendanceCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'attendance');
-    if (attendanceCollection.total === 0 && seededClasses.total > 0) {
-        console.log('Seeding attendance...');
-        for (const aClass of seededClasses.documents) {
-            const classStudents = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [
-                Query.equal('classId', aClass.$id)
-            ]);
-
-            if (classStudents.total > 0) {
-                const studentAttendances = classStudents.documents.map(student => ({
-                    studentId: student.$id,
-                    status: 'present'
-                }));
-
-                const attendanceData = {
-                    classId: aClass.$id,
-                    date: new Date().toISOString(),
-                    studentAttendances: JSON.stringify(studentAttendances),
-                };
-                await databases.createDocument(APPWRITE_DATABASE_ID, 'attendance', ID.unique(), attendanceData);
-                await delay(100);
-            }
+  // Seed attendance records (normalized)
+  const attendanceRecordsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'attendanceRecords');
+  if (attendanceRecordsCollection.total === 0 && seededClasses.total > 0) {
+    console.log('Seeding attendance records...');
+    for (const aClass of seededClasses.documents) {
+      const classStudents = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [
+        Query.equal('classId', aClass.$id)
+      ]);
+      if (classStudents.total > 0) {
+        for (const student of classStudents.documents) {
+          const attendanceRecord = {
+            classId: aClass.$id,
+            date: new Date().toISOString(),
+            studentId: student.$id,
+            status: 'present',
+          };
+          await databases.createDocument(APPWRITE_DATABASE_ID, 'attendanceRecords', ID.unique(), attendanceRecord);
+          await delay(20);
         }
-        console.log('Attendance seeded.');
+      }
     }
+    console.log('Attendance records seeded.');
+  }
 
     // Seed messages
     const messagesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'messages');
