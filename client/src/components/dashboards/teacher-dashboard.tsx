@@ -1,12 +1,14 @@
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, BookOpen } from "lucide-react";
+import { Users, BookOpen, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { databases } from "@/lib/appwrite";
 import { Query } from "appwrite";
+import { TeacherDashboardSkeleton } from "@/components/skeletons/teacher-dashboard-skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -14,7 +16,7 @@ function TeacherDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
 
-  const { data: teacherDetails, isLoading: isLoadingTeacher } = useQuery({
+  const { data: teacherDetails, isLoading: isLoadingTeacher, error: teacherError } = useQuery({
     queryKey: ['teacherDetails', user?.$id],
     queryFn: async () => {
       if (!user?.$id) return null;
@@ -29,7 +31,7 @@ function TeacherDashboard() {
 
   const classIds = teacherDetails?.classIds || [];
 
-  const { data: assignedClasses, isLoading: isLoadingClasses } = useQuery({
+  const { data: assignedClasses, isLoading: isLoadingClasses, error: classesError } = useQuery({
     queryKey: ['teacherClasses', classIds],
     queryFn: async () => {
         if (classIds.length === 0) return [];
@@ -41,7 +43,7 @@ function TeacherDashboard() {
     enabled: !!teacherDetails && classIds.length > 0,
   });
 
-  const { data: studentsInClasses, isLoading: isLoadingStudents } = useQuery({
+  const { data: studentsInClasses, isLoading: isLoadingStudents, error: studentsError } = useQuery({
     queryKey: ['studentsInTeacherClasses', classIds],
     queryFn: async () => {
       if (classIds.length === 0) return [];
@@ -54,7 +56,26 @@ function TeacherDashboard() {
   });
 
   const totalStudentsInClasses = studentsInClasses?.length || 0;
-  const isLoading = isLoadingTeacher || isLoadingClasses || isLoadingStudents;
+  const isLoading = isLoadingTeacher || (classIds.length > 0 && (isLoadingClasses || isLoadingStudents));
+  const isError = teacherError || classesError || studentsError;
+
+  if (isLoading) {
+    return <TeacherDashboardSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <TriangleAlert className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>
+            There was a problem loading your dashboard data. Please try again later.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -66,7 +87,7 @@ function TeacherDashboard() {
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? '...' : assignedClasses?.length || 0}</div>
+            <div className="text-2xl font-bold">{assignedClasses?.length || 0}</div>
             <p className="text-xs text-muted-foreground">You are assigned to these classes.</p>
           </CardContent>
         </Card>
@@ -76,7 +97,7 @@ function TeacherDashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{isLoading ? '...' : totalStudentsInClasses}</div>
+            <div className="text-2xl font-bold">{totalStudentsInClasses}</div>
             <p className="text-xs text-muted-foreground">Across all your classes.</p>
           </CardContent>
         </Card>
@@ -95,13 +116,14 @@ function TeacherDashboard() {
         <Card>
           <CardHeader><CardTitle>My Classes</CardTitle></CardHeader>
           <CardContent>
-            {isLoading ? <p>Loading...</p> : (
-                assignedClasses?.map((c: any) => (
-                    <div key={c.$id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
-                        <p className="font-semibold">{c.name}</p>
-                        <Button variant="ghost" size="sm" onClick={() => setLocation(`/students?classId=${c.$id}`)}>View Students</Button>
-                    </div>
-                ))
+            {assignedClasses?.map((c: any) => (
+                <div key={c.$id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
+                    <p className="font-semibold">{c.name}</p>
+                    <Button variant="ghost" size="sm" onClick={() => setLocation(`/students?classId=${c.$id}`)}>View Students</Button>
+                </div>
+            ))}
+            {assignedClasses?.length === 0 && (
+                <p className="text-sm text-muted-foreground">You are not assigned to any classes.</p>
             )}
           </CardContent>
         </Card>

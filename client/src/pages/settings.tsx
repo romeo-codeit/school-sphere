@@ -150,7 +150,6 @@ export default function Settings() {
       title: "Success",
       description: "Profile updated successfully",
     });
-    console.log("Profile data:", data);
   };
 
   const onSchoolSubmit = (data: SchoolFormData) => {
@@ -158,7 +157,6 @@ export default function Settings() {
       title: "Success",
       description: "School settings updated successfully",
     });
-    console.log("School data:", data);
   };
 
   const onNotificationSubmit = (data: NotificationFormData) => {
@@ -166,7 +164,6 @@ export default function Settings() {
       title: "Success",
       description: "Notification preferences updated successfully",
     });
-    console.log("Notification data:", data);
   };
 
   return (

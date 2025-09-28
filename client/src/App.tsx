@@ -6,49 +6,73 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "@/components/sidebar";
-import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
-import LoginPage from "@/pages/login";
-import SignUpPage from "@/pages/signup";
-import Dashboard from "@/pages/dashboard";
-import Students from "@/pages/students";
-import StudentProfile from "@/pages/student-profile";
-import Teachers from "@/pages/teachers";
-import TeacherProfile from "@/pages/teacher-profile";
-import Exams from "@/pages/exams";
-import ExamTaking from "@/pages/exam-taking";
-import Payments from "@/pages/payments";
-import Messages from "@/pages/messages";
-import Resources from "@/pages/resources";
-import Settings from "@/pages/settings";
-import VideoConferencing from "@/pages/video-conferencing";
-import Communications from "@/pages/communications";
-import Attendance from "@/pages/attendance";
-import TakeAttendance from "@/pages/take-attendance";
-import HistoricalAttendance from "@/pages/historical-attendance";
-import AttendanceReports from "@/pages/attendance-reports";
-import Progress from "@/pages/progress";
-import CreateUserPage from "@/pages/create-user";
-import ProfilePage from "@/pages/profile";
-import SubjectsPage from "@/pages/subjects";
 import { RoleGuard } from "@/components/RoleGuard";
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { ThemeInitializer } from "@/hooks/useTheme";
+import { Skeleton } from "@/components/ui/skeleton";
+
+// Lazy load all the pages for better performance
+const NotFound = lazy(() => import("@/pages/not-found"));
+const Landing = lazy(() => import("@/pages/landing"));
+const LoginPage = lazy(() => import("@/pages/login"));
+const SignUpPage = lazy(() => import("@/pages/signup"));
+const Dashboard = lazy(() => import("@/pages/dashboard"));
+const Students = lazy(() => import("@/pages/students"));
+const StudentProfile = lazy(() => import("@/pages/student-profile"));
+const Teachers = lazy(() => import("@/pages/teachers"));
+const TeacherProfile = lazy(() => import("@/pages/teacher-profile"));
+const Exams = lazy(() => import("@/pages/exams"));
+const ExamTaking = lazy(() => import("@/pages/exam-taking"));
+const Payments = lazy(() => import("@/pages/payments"));
+const Messages = lazy(() => import("@/pages/messages"));
+const Resources = lazy(() => import("@/pages/resources"));
+const Settings = lazy(() => import("@/pages/settings"));
+const VideoConferencing = lazy(() => import("@/pages/video-conferencing"));
+const Communications = lazy(() => import("@/pages/communications"));
+const Attendance = lazy(() => import("@/pages/attendance"));
+const TakeAttendance = lazy(() => import("@/pages/take-attendance"));
+const HistoricalAttendance = lazy(() => import("@/pages/historical-attendance"));
+const AttendanceReports = lazy(() => import("@/pages/attendance-reports"));
+const Progress = lazy(() => import("@/pages/progress"));
+const CreateUserPage = lazy(() => import("@/pages/create-user"));
+const ProfilePage = lazy(() => import("@/pages/profile"));
+const SubjectsPage = lazy(() => import("@/pages/subjects"));
+
+function PageSkeleton() {
+  return (
+    <div className="p-6 space-y-4">
+      <Skeleton className="h-8 w-1/4" />
+      <Skeleton className="h-4 w-1/2" />
+      <div className="border rounded-md p-4">
+        <Skeleton className="h-96 w-full" />
+      </div>
+    </div>
+  );
+}
 
 function Router() {
   const { isAuthenticated, isLoading } = useAuth();
-  console.log('Router running. isAuthenticated:', isAuthenticated, 'isLoading:', isLoading);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
-  if (isLoading || !isAuthenticated) {
+  if (isLoading) {
     return (
-      <Switch>
-        <Route path="/" component={Landing} />
-        <Route path="/login" component={LoginPage} />
-        <Route path="/signup" component={SignUpPage} />
-        <Route component={NotFound} />
-      </Switch>
+      <div className="flex items-center justify-center h-screen">
+        <p>Loading application...</p>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+        <Switch>
+          <Route path="/"><Landing /></Route>
+          <Route path="/login"><LoginPage /></Route>
+          <Route path="/signup"><SignUpPage /></Route>
+          <Route><NotFound /></Route>
+        </Switch>
+      </Suspense>
     );
   }
 
@@ -86,50 +110,42 @@ function Router() {
             <Menu className="h-6 w-6" />
           </button>
         </div>
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/students" component={Students} />
-          <Route path="/students/:id" component={StudentProfile} />
-          <Route path="/teachers" component={Teachers} />
-          <Route path="/teachers/:id" component={TeacherProfile} />
-          <Route path="/exams" component={Exams} />
-          <Route path="/exams/:id/take" component={ExamTaking} />
-          <Route path="/progress" component={Progress} />
-          <Route path="/payments" component={Payments} />
-          <Route path="/messages" component={Messages} />
-          <Route path="/resources" component={Resources} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/video-conferencing" component={VideoConferencing} />
-          <Route path="/communications" component={Communications} />
-          <Route path="/attendance" component={Attendance} />
-          <Route path="/take-attendance">
-            <RoleGuard allowedRoles={['teacher', 'admin']}>
-              <TakeAttendance />
-            </RoleGuard>
-          </Route>
-          <Route path="/historical-attendance">
-            <RoleGuard allowedRoles={['teacher', 'admin']}>
-              <HistoricalAttendance />
-            </RoleGuard>
-          </Route>
-          <Route path="/create-user">
-            <RoleGuard allowedRoles={['admin']}>
-              <CreateUserPage />
-            </RoleGuard>
-          </Route>
-          <Route path="/attendance-reports">
-            <RoleGuard allowedRoles={['admin']}>
-              <AttendanceReports />
-            </RoleGuard>
-          </Route>
-          <Route path="/subjects">
-            <RoleGuard allowedRoles={['admin']}>
-              <SubjectsPage />
-            </RoleGuard>
-          </Route>
-          <Route path="/profile" component={ProfilePage} />
-          <Route component={NotFound} />
-        </Switch>
+        <Suspense fallback={<PageSkeleton />}>
+          <Switch>
+            <Route path="/"><Dashboard /></Route>
+            <Route path="/students"><RoleGuard allowedRoles={['admin', 'teacher']}><Students /></RoleGuard></Route>
+            <Route path="/students/:id">{params => <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}><StudentProfile id={params.id} /></RoleGuard>}</Route>
+            <Route path="/teachers"><RoleGuard allowedRoles={['admin']}><Teachers /></RoleGuard></Route>
+            <Route path="/teachers/:id">{params => <RoleGuard allowedRoles={['admin', 'teacher']}><TeacherProfile id={params.id} /></RoleGuard>}</Route>
+            <Route path="/exams"><Exams /></Route>
+            <Route path="/exams/:id/take">{params => <RoleGuard allowedRoles={['student']}><ExamTaking id={params.id} /></RoleGuard>}</Route>
+            <Route path="/progress"><Progress /></Route>
+            <Route path="/payments"><RoleGuard allowedRoles={['admin', 'student', 'parent']}><Payments /></RoleGuard></Route>
+            <Route path="/messages"><Messages /></Route>
+            <Route path="/resources"><Resources /></Route>
+            <Route path="/settings"><Settings /></Route>
+            <Route path="/video-conferencing"><VideoConferencing /></Route>
+            <Route path="/communications"><Communications /></Route>
+            <Route path="/attendance"><Attendance /></Route>
+            <Route path="/take-attendance">
+              <RoleGuard allowedRoles={['teacher', 'admin']}><TakeAttendance /></RoleGuard>
+            </Route>
+            <Route path="/historical-attendance">
+              <RoleGuard allowedRoles={['teacher', 'admin']}><HistoricalAttendance /></RoleGuard>
+            </Route>
+            <Route path="/create-user">
+              <RoleGuard allowedRoles={['admin']}><CreateUserPage /></RoleGuard>
+            </Route>
+            <Route path="/attendance-reports">
+              <RoleGuard allowedRoles={['admin']}><AttendanceReports /></RoleGuard>
+            </Route>
+            <Route path="/subjects">
+              <RoleGuard allowedRoles={['admin']}><SubjectsPage /></RoleGuard>
+            </Route>
+            <Route path="/profile"><ProfilePage /></Route>
+            <Route><NotFound /></Route>
+          </Switch>
+        </Suspense>
       </main>
     </div>
   );

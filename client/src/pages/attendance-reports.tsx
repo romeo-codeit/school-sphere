@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 const AttendanceReports: React.FC = () => {
-    console.log('Attendance Reports page mounted');
     const { toast } = useToast();
     const [records, setRecords] = useState<any[]>([]);
     const [classes, setClasses] = useState<any[]>([]);
@@ -93,7 +92,6 @@ const AttendanceReports: React.FC = () => {
     try {
         return (
             <div className="space-y-6">
-                <div style={{color: 'green', fontWeight: 'bold', padding: 24}}>Attendance Reports page is mounted (admin only).</div>
             <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" showGoBackButton={true} />
             <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <Card>

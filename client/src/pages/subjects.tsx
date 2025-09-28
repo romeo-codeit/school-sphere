@@ -47,6 +47,7 @@ import { UserPlus, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useForm } from "react-hook-form";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -101,12 +102,11 @@ function SubjectForm({ subject, onFinished }: { subject?: any; onFinished: () =>
 }
 
 export default function SubjectsPage() {
-  console.log('Subjects page mounted');
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedSubject, setSelectedSubject] = useState<any | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [subjectToDelete, setSubjectToDelete] = useState<string | null>(null);
-  const { subjects, isLoading, deleteSubject } = useSubjects();
+  const { subjects, isLoading, error, deleteSubject } = useSubjects();
   const { toast } = useToast();
 
   const handleAdd = () => {
@@ -143,10 +143,61 @@ export default function SubjectsPage() {
       setSelectedSubject(null);
   }
 
+  const renderContent = () => {
+    if (isLoading) {
+      return <TableSkeleton columns={3} />;
+    }
+
+    if (error) {
+      return <div className="text-center text-red-500">Error loading subjects. Please try again.</div>;
+    }
+
+    if (!subjects || subjects.length === 0) {
+      return (
+        <div className="text-center">
+          <h3 className="text-xl font-semibold">No Subjects Found</h3>
+          <p className="text-muted-foreground">Get started by adding a new subject.</p>
+          <Button onClick={handleAdd} className="mt-4">
+            <UserPlus className="w-4 h-4 mr-2" /> Add Subject
+          </Button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {subjects.map((subject) => (
+              <TableRow key={subject.$id}>
+                <TableCell className="font-medium">{subject.name}</TableCell>
+                <TableCell>{subject.description}</TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(subject.$id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  };
+
   return (
-    <>
-  <div style={{color: 'green', fontWeight: 'bold', padding: 24}}>Subjects page is mounted (admin only).</div>
-      <div className="space-y-6">
+    <div className="space-y-6">
       <TopNav title="Subjects" subtitle="Manage academic subjects" showGoBackButton={true} />
       <div className="p-6">
         <Card>
@@ -157,30 +208,7 @@ export default function SubjectsPage() {
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? <p>Loading subjects...</p> :
-             <div className="rounded-md border">
-                <Table>
-                    <TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Actions</TableHead></TableRow></TableHeader>
-                    <TableBody>
-                        {subjects?.map((subject) => (
-                            <TableRow key={subject.$id}>
-                                <TableCell className="font-medium">{subject.name}</TableCell>
-                                <TableCell>{subject.description}</TableCell>
-                                <TableCell className="text-right">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => handleEdit(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => handleDelete(subject.$id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-             </div>
-            }
+            {renderContent()}
           </CardContent>
         </Card>
       </div>

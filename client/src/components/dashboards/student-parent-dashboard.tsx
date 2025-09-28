@@ -1,13 +1,15 @@
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, CreditCard, Calendar } from "lucide-react";
+import { BookOpen, TrendingUp, CreditCard, Calendar, TriangleAlert } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { databases } from "@/lib/appwrite";
 import { Query } from "appwrite";
+import { StudentParentDashboardSkeleton } from "@/components/skeletons/student-parent-dashboard-skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -16,7 +18,7 @@ function StudentParentDashboard() {
   const { role } = useRole();
   const [, setLocation] = useLocation();
 
-  const { data: student, isLoading: isLoadingStudent } = useQuery({
+  const { data: student, isLoading: isLoadingStudent, error: studentError } = useQuery({
     queryKey: ['studentProfileForDashboard', user?.$id, role],
     queryFn: async () => {
       if (!user) return null;
@@ -36,7 +38,7 @@ function StudentParentDashboard() {
     enabled: !!user && !!role,
   });
 
-  const { data: studentClass, isLoading: isLoadingClass } = useQuery({
+  const { data: studentClass, isLoading: isLoadingClass, error: classError } = useQuery({
     queryKey: ['studentClass', student?.$id],
     queryFn: async () => {
         if (!student?.classId) return null;
@@ -45,11 +47,10 @@ function StudentParentDashboard() {
     enabled: !!student,
   });
 
-  const { data: teacher, isLoading: isLoadingTeacher } = useQuery({
+  const { data: teacher, isLoading: isLoadingTeacher, error: teacherError } = useQuery({
     queryKey: ['classTeacher', studentClass?.teacherId],
     queryFn: async () => {
         if (!studentClass?.teacherId) return null;
-        // A class might have multiple teachers, but we'll fetch the first one listed as the primary.
         const teacherId = Array.isArray(studentClass.teacherId) ? studentClass.teacherId[0] : studentClass.teacherId;
         if (!teacherId) return null;
 
@@ -59,6 +60,25 @@ function StudentParentDashboard() {
   });
 
   const isLoading = isLoadingStudent || (!!student && isLoadingClass) || (!!studentClass && isLoadingTeacher);
+  const isError = studentError || classError || teacherError;
+
+  if (isLoading) {
+    return <StudentParentDashboardSkeleton />;
+  }
+
+  if (isError) {
+    return (
+        <div className="p-6">
+            <Alert variant="destructive">
+                <TriangleAlert className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>
+                    There was a problem loading your dashboard. Please try again later.
+                </AlertDescription>
+            </Alert>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -67,7 +87,7 @@ function StudentParentDashboard() {
           <Card>
               <CardHeader><CardTitle>My Profile</CardTitle></CardHeader>
               <CardContent>
-                  {isLoading ? <p>Loading...</p> : student ? (
+                  {student ? (
                       <div className="space-y-2">
                           <p><strong>Name:</strong> {student.firstName} {student.lastName}</p>
                           <p><strong>Class:</strong> {studentClass?.name || 'Not Assigned'}</p>

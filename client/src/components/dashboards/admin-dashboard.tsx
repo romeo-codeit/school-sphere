@@ -34,16 +34,23 @@ const RoundedBar = (props: any) => {
   return <path d={getPath(x, y, width, height)} stroke="none" fill={fill} />;
 };
 
+import { AdminDashboardSkeleton } from "@/components/skeletons/admin-dashboard-skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { TriangleAlert } from "lucide-react";
+
 export function AdminDashboard() {
   const { user } = useAuth();
-  const { stats, isLoading: statsLoading } = useDashboard();
-  const { students, isLoading: studentsLoading } = useStudents({ limit: 1000 }); // Fetch all students for stats
-  const { payments, isLoading: paymentsLoading } = usePayments();
-  const { exams, isLoading: examsLoading } = useExams();
-  const { attendance, isLoading: attendanceLoading } = useAttendance();
-  const { activities: recentActivities, isLoading: activitiesLoading } = useActivities();
+  const { stats, isLoading: statsLoading, error: statsError } = useDashboard();
+  const { students, isLoading: studentsLoading, error: studentsError } = useStudents({ limit: 1000 }); // Fetch all students for stats
+  const { payments, isLoading: paymentsLoading, error: paymentsError } = usePayments();
+  const { exams, isLoading: examsLoading, error: examsError } = useExams();
+  const { attendance, isLoading: attendanceLoading, error: attendanceError } = useAttendance();
+  const { activities: recentActivities, isLoading: activitiesLoading, error: activitiesError } = useActivities();
   const [, setLocation] = useLocation();
   const [chartData, setChartData] = useState<any[]>([]);
+
+  const isLoading = statsLoading || studentsLoading || paymentsLoading || examsLoading || attendanceLoading || activitiesLoading;
+  const isError = statsError || studentsError || paymentsError || examsError || attendanceError || activitiesError;
 
   useEffect(() => {
     if (attendance) {
@@ -105,15 +112,33 @@ export function AdminDashboard() {
     studentGenderData[1].value = femaleStudents;
   }
 
+  if (isLoading) {
+    return <AdminDashboardSkeleton />;
+  }
+
+  if (isError) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive">
+          <TriangleAlert className="h-4 w-4" />
+          <AlertTitle>Error Loading Dashboard</AlertTitle>
+          <AlertDescription>
+            There was a problem fetching the required data. Please try refreshing the page.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <TopNav title="Admin Dashboard" subtitle={`Welcome back, ${user?.name || 'Admin'}`} />
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 p-4 md:p-6">
-          <StatsCard title="Total Students" value={statsLoading ? "..." : stats?.totalStudents || 0} icon={Users} />
-          <StatsCard title="Active Teachers" value={statsLoading ? "..." : stats?.activeTeachers || 0} icon={UserCheck} />
-          <StatsCard title="Pending Payments" value={statsLoading ? "..." : stats?.pendingPayments || "₦0"} icon={CreditCard} />
-          <StatsCard title="Avg. Attendance" value={statsLoading ? "..." : stats?.averageAttendance || "0%"} icon={BarChart3} />
+          <StatsCard title="Total Students" value={stats?.totalStudents || 0} icon={Users} />
+          <StatsCard title="Active Teachers" value={stats?.activeTeachers || 0} icon={UserCheck} />
+          <StatsCard title="Pending Payments" value={stats?.pendingPayments || 0} icon={CreditCard} />
+          <StatsCard title="Avg. Attendance" value={`${(stats?.averageAttendance || 0).toFixed(1)}%`} icon={BarChart3} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-6">
           <Card>
