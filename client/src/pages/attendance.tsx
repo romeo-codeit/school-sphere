@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { useRole } from '@/hooks/useRole';
 import { getAttendanceByClass, getStudentByUserId, getStudentByParentEmail } from '@/lib/api/attendance';
@@ -6,9 +7,10 @@ import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
-import { TeacherAttendanceView } from '@/components/TeacherAttendanceView';
+import { ArrowRight } from 'lucide-react';
 
 const StudentAttendanceView: React.FC = () => {
     const { user } = useAuth();
@@ -88,6 +90,59 @@ const StudentAttendanceView: React.FC = () => {
     );
 };
 
+const AttendanceHubView: React.FC = () => {
+  const { role } = useRole();
+
+  const navLinks = [
+    {
+      title: "Take Attendance",
+      description: "Mark attendance for a class session.",
+      href: "/take-attendance",
+      roles: ["admin", "teacher"],
+    },
+    {
+      title: "Historical Attendance",
+      description: "View and manage past attendance records.",
+      href: "/historical-attendance",
+      roles: ["admin", "teacher"],
+    },
+    {
+      title: "Attendance Reports",
+      description: "Generate and view attendance analytics.",
+      href: "/attendance-reports",
+      roles: ["admin"],
+    },
+  ];
+
+  const availableLinks = navLinks.filter(link => role && link.roles.includes(role));
+
+  return (
+    <div className="space-y-6">
+      <TopNav title="Attendance Management" subtitle="Manage all attendance-related tasks" />
+      <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {availableLinks.map((link) => (
+          <Link href={link.href} key={link.href}>
+            <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer flex flex-col">
+              <CardHeader>
+                <CardTitle>{link.title}</CardTitle>
+              </CardHeader>
+              <CardContent className="flex-grow">
+                <p className="text-muted-foreground">{link.description}</p>
+              </CardContent>
+              <div className="p-6 pt-0">
+                  <Button variant="link" className="p-0">
+                    Go to Page <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+              </div>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+
 export default function Attendance() {
     const { role } = useRole();
 
@@ -100,9 +155,8 @@ export default function Attendance() {
         case 'parent':
             return <StudentAttendanceView />;
         case 'teacher':
-            return <TeacherAttendanceView />;
         case 'admin':
-            return <div>Admins should use Attendance Reports for analytics.</div>;
+            return <AttendanceHubView />;
         default:
             return <div>You do not have permission to view this page.</div>;
     }

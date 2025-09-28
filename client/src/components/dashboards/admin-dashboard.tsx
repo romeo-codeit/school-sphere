@@ -37,7 +37,7 @@ const RoundedBar = (props: any) => {
 export function AdminDashboard() {
   const { user } = useAuth();
   const { stats, isLoading: statsLoading } = useDashboard();
-  const { students, isLoading: studentsLoading } = useStudents();
+  const { students, isLoading: studentsLoading } = useStudents({ limit: 1000 }); // Fetch all students for stats
   const { payments, isLoading: paymentsLoading } = usePayments();
   const { exams, isLoading: examsLoading } = useExams();
   const { attendance, isLoading: attendanceLoading } = useAttendance();
@@ -47,24 +47,41 @@ export function AdminDashboard() {
 
   useEffect(() => {
     if (attendance) {
-      const dailyAttendance: { [key: string]: { present: number; absent: number } } = {};
+      const weeklyAttendance: { [key: string]: { present: number; absent: number } } = {
+        'Sun': { present: 0, absent: 0 },
+        'Mon': { present: 0, absent: 0 },
+        'Tue': { present: 0, absent: 0 },
+        'Wed': { present: 0, absent: 0 },
+        'Thu': { present: 0, absent: 0 },
+        'Fri': { present: 0, absent: 0 },
+        'Sat': { present: 0, absent: 0 },
+      };
+
       attendance.forEach((record: any) => {
         const date = new Date(record.date);
         const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'short' });
-        if (!dailyAttendance[dayOfWeek]) {
-          dailyAttendance[dayOfWeek] = { present: 0, absent: 0 };
-        }
-        if (record.status === 'present') {
-          dailyAttendance[dayOfWeek].present++;
-        } else if (record.status === 'absent') {
-          dailyAttendance[dayOfWeek].absent++;
+
+        try {
+          const studentStatuses = JSON.parse(record.studentAttendances || '[]');
+          studentStatuses.forEach((student: any) => {
+            if (weeklyAttendance[dayOfWeek]) {
+              if (student.status === 'present') {
+                weeklyAttendance[dayOfWeek].present++;
+              } else if (student.status === 'absent') {
+                weeklyAttendance[dayOfWeek].absent++;
+              }
+            }
+          });
+        } catch (e) {
+          console.error("Failed to parse studentAttendances in dashboard chart", e);
         }
       });
+
       const daysOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       const formattedChartData = daysOrder.map(day => ({
         name: day,
-        present: dailyAttendance[day]?.present || 0,
-        absent: dailyAttendance[day]?.absent || 0,
+        present: weeklyAttendance[day]?.present || 0,
+        absent: weeklyAttendance[day]?.absent || 0,
       }));
       setChartData(formattedChartData);
     }
@@ -84,8 +101,8 @@ export function AdminDashboard() {
   if (students && students.length > 0) {
     const maleStudents = students.filter((s: any) => s.gender && s.gender.toLowerCase() === 'male').length;
     const femaleStudents = students.filter((s: any) => s.gender && s.gender.toLowerCase() === 'female').length;
-    studentGenderData[0].value = (maleStudents / students.length) * 100;
-    studentGenderData[1].value = (femaleStudents / students.length) * 100;
+    studentGenderData[0].value = maleStudents;
+    studentGenderData[1].value = femaleStudents;
   }
 
   return (

@@ -7,8 +7,9 @@ import { useRole } from "@/hooks/useRole";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { databases } from "@/lib/appwrite";
-import { DB } from "@/lib/db";
 import { Query } from "appwrite";
+
+const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 function StudentParentDashboard() {
   const { user } = useAuth();
@@ -16,9 +17,10 @@ function StudentParentDashboard() {
   const [, setLocation] = useLocation();
 
   const { data: student, isLoading: isLoadingStudent } = useQuery({
-    queryKey: ['studentProfile', user?.$id],
+    queryKey: ['studentProfileForDashboard', user?.$id, role],
     queryFn: async () => {
       if (!user) return null;
+
       let query;
       if (role === 'student') {
         query = Query.equal('userId', user.$id);
@@ -27,17 +29,18 @@ function StudentParentDashboard() {
       } else {
         return null;
       }
-      const response = await databases.listDocuments(DB.id, 'students', [query]);
+
+      const response = await databases.listDocuments(DATABASE_ID, 'students', [query, Query.limit(1)]);
       return response.documents[0];
     },
-    enabled: !!user,
+    enabled: !!user && !!role,
   });
 
   const { data: studentClass, isLoading: isLoadingClass } = useQuery({
-    queryKey: ['studentClass', student?.classId],
+    queryKey: ['studentClass', student?.$id],
     queryFn: async () => {
         if (!student?.classId) return null;
-        return await databases.getDocument(DB.id, 'classes', student.classId);
+        return await databases.getDocument(DATABASE_ID, 'classes', student.classId);
     },
     enabled: !!student,
   });
@@ -46,13 +49,16 @@ function StudentParentDashboard() {
     queryKey: ['classTeacher', studentClass?.teacherId],
     queryFn: async () => {
         if (!studentClass?.teacherId) return null;
-        const response = await databases.listDocuments(DB.id, 'teachers', [
-            Query.equal('$id', studentClass.teacherId)
-        ]);
-        return response.documents[0];
+        // A class might have multiple teachers, but we'll fetch the first one listed as the primary.
+        const teacherId = Array.isArray(studentClass.teacherId) ? studentClass.teacherId[0] : studentClass.teacherId;
+        if (!teacherId) return null;
+
+        return await databases.getDocument(DATABASE_ID, 'teachers', teacherId);
     },
     enabled: !!studentClass
   });
+
+  const isLoading = isLoadingStudent || (!!student && isLoadingClass) || (!!studentClass && isLoadingTeacher);
 
   return (
     <div className="space-y-6">
@@ -61,13 +67,13 @@ function StudentParentDashboard() {
           <Card>
               <CardHeader><CardTitle>My Profile</CardTitle></CardHeader>
               <CardContent>
-                  {isLoadingStudent ? <p>Loading...</p> : student ? (
-                      <div>
+                  {isLoading ? <p>Loading...</p> : student ? (
+                      <div className="space-y-2">
                           <p><strong>Name:</strong> {student.firstName} {student.lastName}</p>
-                          <p><strong>Class:</strong> {isLoadingClass ? '...' : studentClass?.name || 'Not Assigned'}</p>
-                          <p><strong>Class Teacher:</strong> {isLoadingTeacher ? '...' : teacher?.name || 'Not Assigned'}</p>
+                          <p><strong>Class:</strong> {studentClass?.name || 'Not Assigned'}</p>
+                          <p><strong>Class Teacher:</strong> {teacher?.name || 'Not Assigned'}</p>
                       </div>
-                  ) : <p>No student profile found.</p>}
+                  ) : <p>No student profile found. Please contact an administrator.</p>}
               </CardContent>
           </Card>
           <Card>

@@ -43,14 +43,6 @@ const getNavigationItems = (role: string | null) => {
       exact: false,
       badge: undefined
     },
-    {
-      name: "Attendance Reports",
-      href: "/attendance-reports",
-      icon: TrendingUp,
-      roles: ["admin"],
-      exact: false,
-      badge: undefined
-    },
     { 
       name: "Teachers", 
       href: "/teachers", 
@@ -67,6 +59,17 @@ const getNavigationItems = (role: string | null) => {
       exact: false,
       badge: undefined
     },
+  ];
+
+  const attendanceItems = [
+    {
+      name: "Attendance",
+      href: "/attendance",
+      icon: ClipboardList,
+      roles: ["admin", "teacher"],
+      exact: false,
+      badge: undefined
+    }
   ];
 
   const examItems = [
@@ -129,10 +132,10 @@ const getNavigationItems = (role: string | null) => {
     },
   ];
 
-  const allItems = [...baseItems, ...adminItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems];
+  const allItems = [...baseItems, ...adminItems, ...attendanceItems, ...examItems, ...progressItems, ...paymentItems, ...communicationItems];
   
-  // Only show items the user can access (admin sees all)
-  return allItems.filter(item => role && Array.isArray(item.roles) && (role === 'admin' || item.roles.includes(role)));
+  // Only show items the user can access
+  return allItems.filter(item => role && Array.isArray(item.roles) && item.roles.includes(role));
 };
 
 const getSettingsItems = (role: string | null) => {

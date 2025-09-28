@@ -102,15 +102,31 @@ function Router() {
           <Route path="/video-conferencing" component={VideoConferencing} />
           <Route path="/communications" component={Communications} />
           <Route path="/attendance" component={Attendance} />
-          <RoleGuard allowedRoles={["teacher"]}>
-            <Route path="/take-attendance" component={TakeAttendance} />
-            <Route path="/historical-attendance" component={HistoricalAttendance} />
-          </RoleGuard>
-          <RoleGuard allowedRoles={["admin"]}>
-            <Route path="/create-user" component={CreateUserPage} />
-            <Route path="/attendance-reports" component={AttendanceReports} />
-            <Route path="/subjects" component={SubjectsPage} />
-          </RoleGuard>
+          <Route path="/take-attendance">
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <TakeAttendance />
+            </RoleGuard>
+          </Route>
+          <Route path="/historical-attendance">
+            <RoleGuard allowedRoles={['teacher', 'admin']}>
+              <HistoricalAttendance />
+            </RoleGuard>
+          </Route>
+          <Route path="/create-user">
+            <RoleGuard allowedRoles={['admin']}>
+              <CreateUserPage />
+            </RoleGuard>
+          </Route>
+          <Route path="/attendance-reports">
+            <RoleGuard allowedRoles={['admin']}>
+              <AttendanceReports />
+            </RoleGuard>
+          </Route>
+          <Route path="/subjects">
+            <RoleGuard allowedRoles={['admin']}>
+              <SubjectsPage />
+            </RoleGuard>
+          </Route>
           <Route path="/profile" component={ProfilePage} />
           <Route component={NotFound} />
         </Switch>
