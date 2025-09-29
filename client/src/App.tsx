@@ -37,6 +37,9 @@ const Progress = lazy(() => import("@/pages/progress"));
 const CreateUserPage = lazy(() => import("@/pages/create-user"));
 const ProfilePage = lazy(() => import("@/pages/profile"));
 const SubjectsPage = lazy(() => import("@/pages/subjects"));
+const NoticesPage = lazy(() => import("@/pages/notices"));
+const ActivitiesPage = lazy(() => import("@/pages/activities"));
+const NotificationsPage = lazy(() => import("@/pages/notifications"));
 
 function PageSkeleton() {
   return (
@@ -127,6 +130,9 @@ function Router() {
             <Route path="/video-conferencing"><VideoConferencing /></Route>
             <Route path="/communications"><Communications /></Route>
             <Route path="/attendance"><Attendance /></Route>
+            <Route path="/notices"><NoticesPage /></Route>
+            <Route path="/activities"><ActivitiesPage /></Route>
+            <Route path="/notifications"><NotificationsPage /></Route>
             <Route path="/take-attendance">
               <RoleGuard allowedRoles={['teacher', 'admin']}><TakeAttendance /></RoleGuard>
             </Route>

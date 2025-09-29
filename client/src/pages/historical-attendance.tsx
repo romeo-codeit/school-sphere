@@ -42,7 +42,7 @@ export default function HistoricalAttendance() {
           <CardHeader>
             <CardTitle>Select Class</CardTitle>
             <select
-              className="border rounded p-2 mt-2"
+              className="border rounded p-2 mt-2 dark:bg-gray-800 dark:text-white dark:border-gray-600"
               value={selectedClassId || ''}
               onChange={e => {
                 setSelectedClassId(e.target.value);

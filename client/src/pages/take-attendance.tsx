@@ -59,8 +59,10 @@ export default function TakeAttendance() {
 
       toast({ title: "Success", description: "Attendance submitted successfully." });
       setAttendance({});
-    } catch (error: any)      toast({ title: "Error", description: `Failed to submit attendance: ${error.message}`, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Error", description: `Failed to submit attendance: ${error.message}`, variant: "destructive" });
     }
+
   };
 
   return (

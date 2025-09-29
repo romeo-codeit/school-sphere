@@ -81,30 +81,31 @@ function StudentParentDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 px-2 py-4 sm:px-4 md:px-8 lg:px-16 w-full">
       <TopNav title="Student Dashboard" subtitle={`Welcome, ${user?.name}`} />
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-              <CardHeader><CardTitle>My Profile</CardTitle></CardHeader>
-              <CardContent>
-                  {student ? (
-                      <div className="space-y-2">
-                          <p><strong>Name:</strong> {student.firstName} {student.lastName}</p>
-                          <p><strong>Class:</strong> {studentClass?.name || 'Not Assigned'}</p>
-                          <p><strong>Class Teacher:</strong> {teacher?.name || 'Not Assigned'}</p>
-                      </div>
-                  ) : <p>No student profile found. Please contact an administrator.</p>}
-              </CardContent>
-          </Card>
-          <Card>
-              <CardHeader><CardTitle>Quick Links</CardTitle></CardHeader>
-              <CardContent className="grid grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={() => setLocation('/progress')}><TrendingUp className="mr-2 h-4 w-4" /> View Grades</Button>
-                  <Button variant="outline" onClick={() => setLocation('/attendance')}><Calendar className="mr-2 h-4 w-4" /> View Attendance</Button>
-                  <Button variant="outline" onClick={() => setLocation('/resources')}><BookOpen className="mr-2 h-4 w-4" /> Browse Resources</Button>
-                  <Button variant="outline" onClick={() => setLocation('/payments')}><CreditCard className="mr-2 h-4 w-4" /> View Payments</Button>
-              </CardContent>
-          </Card>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader><CardTitle>My Profile</CardTitle></CardHeader>
+          <CardContent>
+            {student ? (
+              <div className="space-y-2">
+                <p><strong>Name:</strong> {student.firstName} {student.lastName}</p>
+                <p><strong>Class:</strong> {studentClass?.name || 'Not Assigned'}</p>
+                <p><strong>Class Teacher:</strong> {teacher?.name || 'Not Assigned'}</p>
+              </div>
+            ) : <p>No student profile found. Please contact an administrator.</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Quick Links</CardTitle></CardHeader>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/progress')}><TrendingUp className="mr-2 h-4 w-4" /> View Grades</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/attendance')}><Calendar className="mr-2 h-4 w-4" /> View Attendance</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/resources')}><BookOpen className="mr-2 h-4 w-4" /> Browse Resources</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/payments')}><CreditCard className="mr-2 h-4 w-4" /> View Payments</Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

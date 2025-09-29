@@ -126,37 +126,84 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <TopNav title="Admin Dashboard" subtitle={`Welcome back, ${user?.name || 'Admin'}`} />
       <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 p-4 md:p-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 px-4 sm:px-6 lg:px-8">
           <StatsCard title="Total Students" value={stats?.totalStudents || 0} icon={Users} />
           <StatsCard title="Active Teachers" value={stats?.activeTeachers || 0} icon={UserCheck} />
           <StatsCard title="Pending Payments" value={stats?.pendingPayments || 0} icon={CreditCard} />
           <StatsCard title="Avg. Attendance" value={`${(stats?.averageAttendance || 0).toFixed(1)}%`} icon={BarChart3} />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-4 md:p-6">
+
+        {/* Charts and Widgets */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
           <Card>
-            <CardHeader><CardTitle>Weekly Attendance</CardTitle></CardHeader>
-            <CardContent>{attendanceLoading ? <p>Loading...</p> : <ResponsiveContainer width="100%" height={300}><BarChart data={chartData} barSize={10}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)'}} /><Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} /><Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} /></BarChart></ResponsiveContainer>}</CardContent>
+            <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Weekly Attendance</CardTitle></CardHeader>
+            <CardContent>{attendanceLoading ? <p className="text-sm sm:text-base">Loading...</p> : <ResponsiveContainer width="100%" height={300}><BarChart data={chartData} barSize={10}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)'}} /><Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} /><Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} /></BarChart></ResponsiveContainer>}</CardContent>
           </Card>
-          <StudentsProgressChart data={studentGenderData} />
-          <EventCalendar />
+          <div className="w-full"><StudentsProgressChart data={studentGenderData} /></div>
+          <div className="w-full"><EventCalendar /></div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 md:p-6">
+
+        {/* Notices and Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
           <div className="lg:col-span-2 space-y-6"><NoticeBoard notices={recentActivities || []} /></div>
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 p-4 md:p-6">
+
+        {/* Payment and Exam Module */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
           <Card className="h-full">
-            <CardHeader><CardTitle>Payment Status</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Payment Status</CardTitle></CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-secondary/10 rounded-lg"><div className="flex items-center space-x-3"><div className="w-3 h-3 bg-secondary rounded-full"></div><span className="font-medium text-foreground">Paid Students</span></div><span className="font-bold text-foreground">{totalPaidStudents}</span></div>
-              <div className="flex items-center justify-between p-4 bg-accent/10 rounded-lg"><div className="flex items-center space-x-3"><div className="w-3 h-3 bg-accent rounded-full"></div><span className="font-medium text-foreground">Pending Payments</span></div><span className="font-bold text-foreground">{totalPendingPayments}</span></div>
-              <div className="flex items-center justify-between p-4 bg-destructive/10 rounded-lg"><div className="flex items-center space-x-3"><div className="w-3 h-3 bg-destructive rounded-full"></div><span className="font-medium text-foreground">Overdue</span></div><span className="font-bold text-foreground">{totalOverduePayments}</span></div>
-              <div className="pt-4 border-t border-border"><Button className="w-full bg-primary hover:bg-primary/90" onClick={() => setLocation('/payments')}>View Payment Details</Button></div>
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-secondary/10 rounded-lg">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
+                  <div className="w-3 h-3 bg-secondary rounded-full"></div>
+                  <span className="font-medium text-foreground text-sm sm:text-base">Paid Students</span>
+                </div>
+                <span className="font-bold text-foreground text-lg">{totalPaidStudents}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-accent/10 rounded-lg">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
+                  <div className="w-3 h-3 bg-accent rounded-full"></div>
+                  <span className="font-medium text-foreground text-sm sm:text-base">Pending Payments</span>
+                </div>
+                <span className="font-bold text-foreground text-lg">{totalPendingPayments}</span>
+              </div>
+              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-destructive/10 rounded-lg">
+                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
+                  <div className="w-3 h-3 bg-destructive rounded-full"></div>
+                  <span className="font-medium text-foreground text-sm sm:text-base">Overdue</span>
+                </div>
+                <span className="font-bold text-foreground text-lg">{totalOverduePayments}</span>
+              </div>
+              <div className="pt-4 border-t border-border"><Button className="w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={() => setLocation('/payments')}>View Payment Details</Button></div>
             </CardContent>
           </Card>
           <Card className="h-full">
-            <CardHeader><div className="flex items-center justify-between"><CardTitle>Exam Module</CardTitle><Button variant="outline" size="sm" onClick={() => setLocation('/exams')}>Manage Exams</Button></div></CardHeader>
-            <CardContent><div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="text-center p-6 border border-border rounded-lg"><div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="text-primary text-2xl" /></div><h4 className="font-semibold">JAMB Questions</h4><p className="text-2xl font-bold">{jambQuestions}</p></div><div className="text-center p-6 border rounded-lg"><div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="text-secondary text-2xl" /></div><h4 className="font-semibold">WAEC Questions</h4><p className="text-2xl font-bold">{waecQuestions}</p></div><div className="text-center p-6 border rounded-lg"><div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4"><FileText className="text-accent text-2xl" /></div><h4 className="font-semibold">NECO Questions</h4><p className="text-2xl font-bold">{necoQuestions}</p></div></div></CardContent>
+            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-base sm:text-lg lg:text-xl">Exam Module</CardTitle><Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setLocation('/exams')}>Manage Exams</Button></div></CardHeader>
+            <CardContent><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+              <div className="text-center p-6 border border-border rounded-lg">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-primary text-2xl" />
+                </div>
+                <h4 className="font-semibold text-base sm:text-lg">JAMB Questions</h4>
+                <p className="text-2xl font-bold">{jambQuestions}</p>
+              </div>
+              <div className="text-center p-6 border rounded-lg">
+                <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-secondary text-2xl" />
+                </div>
+                <h4 className="font-semibold text-base sm:text-lg">WAEC Questions</h4>
+                <p className="text-2xl font-bold">{waecQuestions}</p>
+              </div>
+              <div className="text-center p-6 border rounded-lg">
+                <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="text-accent text-2xl" />
+                </div>
+                <h4 className="font-semibold text-base sm:text-lg">NECO Questions</h4>
+                <p className="text-2xl font-bold">{necoQuestions}</p>
+              </div>
+            </div></CardContent>
           </Card>
         </div>
       </div>

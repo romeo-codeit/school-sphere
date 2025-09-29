@@ -78,11 +78,13 @@ function TeacherDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 px-2 py-4 sm:px-4 md:px-8 lg:px-16 w-full">
       <TopNav title="Teacher Dashboard" subtitle={`Welcome back, ${user?.name || 'Teacher'}`} />
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Assigned Classes</CardTitle>
             <BookOpen className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -92,7 +94,7 @@ function TeacherDashboard() {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Students</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
@@ -103,28 +105,31 @@ function TeacherDashboard() {
         </Card>
       </div>
 
-      <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Actions & Classes Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card>
           <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-            <Button onClick={() => setLocation('/take-attendance')}>Take Attendance</Button>
-            <Button variant="outline" onClick={() => setLocation('/resources')}>Upload Resource</Button>
-            <Button variant="outline" onClick={() => setLocation('/communications')}>Send Message</Button>
-            <Button variant="outline" onClick={() => setLocation('/video-conferencing')}>Start a Meeting</Button>
+          <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
+            <Button className="w-full" onClick={() => setLocation('/take-attendance')}>Take Attendance</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/resources')}>Upload Resource</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/communications')}>Send Message</Button>
+            <Button className="w-full" variant="outline" onClick={() => setLocation('/video-conferencing')}>Start a Meeting</Button>
           </CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>My Classes</CardTitle></CardHeader>
           <CardContent>
-            {assignedClasses?.map((c: any) => (
-                <div key={c.$id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
-                    <p className="font-semibold">{c.name}</p>
-                    <Button variant="ghost" size="sm" onClick={() => setLocation(`/students?classId=${c.$id}`)}>View Students</Button>
+            <div className="flex flex-col gap-2">
+              {assignedClasses?.map((c: any) => (
+                <div key={c.$id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 hover:bg-muted/50 rounded-md">
+                  <p className="font-semibold mb-2 sm:mb-0">{c.name}</p>
+                  <Button className="w-full sm:w-auto" variant="ghost" size="sm" onClick={() => setLocation(`/students?classId=${c.$id}`)}>View Students</Button>
                 </div>
-            ))}
-            {assignedClasses?.length === 0 && (
+              ))}
+              {assignedClasses?.length === 0 && (
                 <p className="text-sm text-muted-foreground">You are not assigned to any classes.</p>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon, FileText } from "lucide-react";
 import { format } from 'date-fns';
@@ -25,12 +26,13 @@ const getIconForActivity = (activity: string): LucideIcon => {
 }
 
 export function NoticeBoard({ notices }: NoticeBoardProps) {
+  const [, setLocation] = useLocation();
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle>Notice Board</CardTitle>
-          <Button variant="ghost" size="sm">View All</Button>
+          <Button variant="ghost" size="sm" onClick={() => setLocation('/notices')}>View All</Button>
         </div>
       </CardHeader>
       <CardContent>

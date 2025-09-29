@@ -34,20 +34,26 @@ function NotificationsDropdown() {
         if (notification.link) setLocation(notification.link);
     };
 
-    return (
-        <Popover>
-            <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative">
-                    <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 justify-center rounded-full p-0 text-xs">{unreadCount}</Badge>}
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-0">
-                <div className="p-2 border-b"><div className="flex items-center justify-between"><h4 className="font-medium text-sm px-2">Notifications</h4>{unreadCount > 0 && <Button variant="ghost" size="sm" onClick={() => markAllAsRead()}><CheckCheck className="mr-2 h-4 w-4" />Mark all as read</Button>}</div></div>
-                <div className="max-h-96 overflow-y-auto">{isLoading ? <p className="p-4 text-sm text-center">Loading...</p> : !notifications || notifications.length === 0 ? <p className="p-4 text-sm text-center text-muted-foreground">No notifications.</p> : notifications.map(n => (<div key={n.$id} onClick={() => handleNotificationClick(n)} className={cn("p-3 border-b hover:bg-muted/50 cursor-pointer", !n.isRead && "bg-blue-500/10")}><p className="text-sm">{n.message}</p><p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.$createdAt))} ago</p></div>))}</div>
-            </PopoverContent>
-        </Popover>
-    );
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && <Badge variant="destructive" className="absolute -top-1 -right-1 h-4 w-4 justify-center rounded-full p-0 text-xs">{unreadCount}</Badge>}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80 p-0">
+        <div className="p-2 border-b">
+          <div className="flex items-center justify-between">
+          <h4 className="font-medium text-sm px-2">Notifications</h4>
+          {unreadCount > 0 && <Button variant="ghost" size="sm" onClick={() => markAllAsRead()}><CheckCheck className="mr-2 h-4 w-4" />Mark all as read</Button>}
+          </div>
+          <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => setLocation('/notifications')}>View All</Button>
+        </div>
+        <div className="max-h-96 overflow-y-auto">{isLoading ? <p className="p-4 text-sm text-center">Loading...</p> : !notifications || notifications.length === 0 ? <p className="p-4 text-sm text-center text-muted-foreground">No notifications.</p> : notifications.map(n => (<div key={n.$id} onClick={() => handleNotificationClick(n)} className={cn("p-3 border-b hover:bg-muted/50 cursor-pointer", !n.isRead && "bg-blue-500/10")}> <p className="text-sm">{n.message}</p> <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.$createdAt))} ago</p></div>))}</div>
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 function UserNav() {
@@ -104,12 +110,16 @@ export function TopNav({ title, subtitle, onToggleSidebar, isLoading, showGoBack
     <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 sm:space-x-4">
-          <Button variant="ghost" size="icon" className="lg:hidden" onClick={onToggleSidebar}><Menu className="h-5 w-5" /></Button>
+          {onToggleSidebar && (
+            <Button variant="ghost" size="icon" className="lg:hidden" onClick={onToggleSidebar}>
+              <Menu className="h-5 w-5" />
+            </Button>
+          )}
           {showGoBackButton && <GoBackButton />}
           <div className="flex items-center space-x-2"><h2 className="text-2xl font-bold text-foreground">{title}</h2>{isLoading && <RefreshCw className="w-6 h-6 animate-spin text-primary" />}</div>
           {subtitle && (<p className="text-muted-foreground hidden md:block">{subtitle}</p>)}
         </div>
-        
+
         <div className="flex items-center space-x-2 sm:space-x-4">
           <Popover open={searchQuery.length > 2 && hasResults}>
             <PopoverTrigger asChild>
@@ -122,13 +132,40 @@ export function TopNav({ title, subtitle, onToggleSidebar, isLoading, showGoBack
             <PopoverContent className="w-[400px] p-0"><Command>
                 <CommandList>
                     <CommandEmpty>No results found.</CommandEmpty>
-                    {results?.students.length > 0 && (<CommandGroup heading="Students">{results.students.map((s: any) => (<CommandItem key={s.$id} onSelect={() => handleResultClick(`/students/${s.$id}`)}><User className="mr-2 h-4 w-4" /><span>{s.firstName} {s.lastName}</span></CommandItem>))}</CommandGroup>)}
-                    {results?.teachers.length > 0 && (<CommandGroup heading="Teachers">{results.teachers.map((t: any) => (<CommandItem key={t.$id} onSelect={() => handleResultClick(`/teachers/${t.$id}`)}><User className="mr-2 h-4 w-4" /><span>{t.firstName} {t.lastName}</span></CommandItem>))}</CommandGroup>)}
-                    {results?.exams.length > 0 && (<CommandGroup heading="Exams">{results.exams.map((e: any) => (<CommandItem key={e.$id} onSelect={() => handleResultClick(`/exams`)}><FileText className="mr-2 h-4 w-4" /><span>{e.title}</span></CommandItem>))}</CommandGroup>)}
+                    {Array.isArray(results?.students) && results.students.length > 0 && (
+                      <CommandGroup heading="Students">
+                        {results.students.map((s: any) => (
+                          <CommandItem key={s.$id} onSelect={() => handleResultClick(`/students/${s.$id}`)}>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>{s.firstName} {s.lastName}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                    {Array.isArray(results?.teachers) && results.teachers.length > 0 && (
+                      <CommandGroup heading="Teachers">
+                        {results.teachers.map((t: any) => (
+                          <CommandItem key={t.$id} onSelect={() => handleResultClick(`/teachers/${t.$id}`)}>
+                            <User className="mr-2 h-4 w-4" />
+                            <span>{t.firstName} {t.lastName}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                    {Array.isArray(results?.exams) && results.exams.length > 0 && (
+                      <CommandGroup heading="Exams">
+                        {results.exams.map((e: any) => (
+                          <CommandItem key={e.$id} onSelect={() => handleResultClick(`/exams/${e.$id}`)}>
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>{e.title}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
                 </CommandList>
             </Command></PopoverContent>
           </Popover>
-          
+
           <NotificationsDropdown />
           <UserNav />
         </div>

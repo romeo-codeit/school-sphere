@@ -185,9 +185,21 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
       "w-20": isCollapsed,
     }, className)}>
       <div className="p-4 flex items-center justify-between">
-        <div className={cn("flex items-center space-x-3", { "hidden": isCollapsed })}>
+        <div className="flex items-center">
           <Logo />
+          {!isCollapsed && (
+            <span className="ml-3 text-xl font-bold tracking-tight text-primary select-none">SchoolSphere</span>
+          )}
         </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-2"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+        </Button>
       </div>
       <div className="flex-1 overflow-y-auto">
         <nav className="px-2 py-4">

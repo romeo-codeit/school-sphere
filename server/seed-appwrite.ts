@@ -425,7 +425,7 @@ async function seedDemoUsers() {
   console.log('Demo user seeding complete.');
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function seedDemoData() {
     console.log('Seeding demo data...');
@@ -444,7 +444,8 @@ async function seedDemoData() {
     const adminUserId = adminUserList.users[0].$id;
 
     // Seed classes
-    const classesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes');
+  const dbId = APPWRITE_DATABASE_ID!;
+  const classesCollection = await databases.listDocuments(dbId, 'classes');
     if (classesCollection.total === 0) {
         console.log('Seeding classes...');
         const classData = [
@@ -452,17 +453,17 @@ async function seedDemoData() {
             { name: 'SS2 Arts', teacherId: teacherUserId },
         ];
         for (const c of classData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'classes', ID.unique(), c);
+            await databases.createDocument(dbId, 'classes', ID.unique(), c);
             await delay(100);
         }
         console.log('Classes seeded.');
     }
-    const seededClasses = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes');
+  const seededClasses = await databases.listDocuments(dbId, 'classes');
     const class1Id = seededClasses.documents[0].$id;
     const class2Id = seededClasses.documents[1].$id;
 
     // Seed students
-    const studentsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students');
+  const studentsCollection = await databases.listDocuments(dbId, 'students');
     if (studentsCollection.total === 0) {
         console.log('Seeding students...');
         const studentData = [
@@ -473,14 +474,14 @@ async function seedDemoData() {
             { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active', gender: 'male' },
         ];
         for (const student of studentData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), student);
+            await databases.createDocument(dbId, 'students', ID.unique(), student);
             await delay(100);
         }
         console.log('Students seeded.');
     }
 
     // Seed teachers
-    const teachersCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachers');
+  const teachersCollection = await databases.listDocuments(dbId, 'teachers');
     if (teachersCollection.total === 0) {
         console.log('Seeding teachers...');
         const teacherData = [
@@ -489,14 +490,14 @@ async function seedDemoData() {
             { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active', classIds: [] },
         ];
         for (const teacher of teacherData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), teacher);
+            await databases.createDocument(dbId, 'teachers', ID.unique(), teacher);
             await delay(100);
         }
         console.log('Teachers seeded.');
     }
 
     // Seed exams
-    const examsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'exams');
+  const examsCollection = await databases.listDocuments(dbId, 'exams');
     if (examsCollection.total === 0) {
         console.log('Seeding exams...');
         const examData = [
@@ -507,18 +508,18 @@ async function seedDemoData() {
             { title: 'Internal Chemistry Test', type: 'internal', subject: 'Chemistry', questions: JSON.stringify([{ "question": "What is the chemical symbol for water?", "options": ["H2O", "CO2", "O2"], "answer": "H2O" }]), duration: 30, createdBy: teacherUserId, isActive: true },
         ];
         for (const exam of examData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), exam);
+            await databases.createDocument(dbId, 'exams', ID.unique(), exam);
             await delay(100);
         }
         console.log('Exams seeded.');
     }
 
-    const seededStudents = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students');
-    const seededExams = await databases.listDocuments(APPWRITE_DATABASE_ID, 'exams');
-    const seededTeachers = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachers');
+  const seededStudents = await databases.listDocuments(dbId, 'students');
+  const seededExams = await databases.listDocuments(dbId, 'exams');
+  const seededTeachers = await databases.listDocuments(dbId, 'teachers');
 
     // Seed exam attempts
-    const examAttemptsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'examAttempts');
+  const examAttemptsCollection = await databases.listDocuments(dbId, 'examAttempts');
     if (examAttemptsCollection.total === 0 && seededStudents.total > 0 && seededExams.total > 0) {
         console.log('Seeding exam attempts...');
         for (const student of seededStudents.documents) {
@@ -533,7 +534,7 @@ async function seedDemoData() {
                     timeSpent: Math.floor(Math.random() * 60),
                     completedAt: new Date().toISOString(),
                 };
-                await databases.createDocument(APPWRITE_DATABASE_ID, 'examAttempts', ID.unique(), attempt);
+                await databases.createDocument(dbId, 'examAttempts', ID.unique(), attempt);
                 await delay(100);
             }
         }
@@ -541,23 +542,23 @@ async function seedDemoData() {
     }
 
     // Seed payments
-    const paymentsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'payments');
+  const paymentsCollection = await databases.listDocuments(dbId, 'payments');
     if (paymentsCollection.total === 0 && seededStudents.total > 0) {
         console.log('Seeding payments...');
         for (const student of seededStudents.documents) {
             const paymentData = { studentId: student.$id, amount: 50000.00, purpose: 'School Fees', status: 'pending' };
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'payments', ID.unique(), paymentData);
+            await databases.createDocument(dbId, 'payments', ID.unique(), paymentData);
             await delay(100);
         }
         console.log('Payments seeded.');
     }
 
   // Seed attendance records (normalized)
-  const attendanceRecordsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'attendanceRecords');
+  const attendanceRecordsCollection = await databases.listDocuments(dbId, 'attendanceRecords');
   if (attendanceRecordsCollection.total === 0 && seededClasses.total > 0) {
     console.log('Seeding attendance records...');
     for (const aClass of seededClasses.documents) {
-      const classStudents = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [
+            const classStudents = await databases.listDocuments(dbId, 'students', [
         Query.equal('classId', aClass.$id)
       ]);
       if (classStudents.total > 0) {
@@ -568,7 +569,7 @@ async function seedDemoData() {
             studentId: student.$id,
             status: 'present',
           };
-          await databases.createDocument(APPWRITE_DATABASE_ID, 'attendanceRecords', ID.unique(), attendanceRecord);
+                    await databases.createDocument(dbId, 'attendanceRecords', ID.unique(), attendanceRecord);
           await delay(20);
         }
       }
@@ -577,7 +578,7 @@ async function seedDemoData() {
   }
 
     // Seed messages
-    const messagesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'messages');
+  const messagesCollection = await databases.listDocuments(dbId, 'messages');
     if (messagesCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding messages...');
         const studentId = seededStudents.documents[0].$id;
@@ -587,14 +588,14 @@ async function seedDemoData() {
             { senderId: studentId, recipientId: teacherId, subject: 'Re: Welcome', content: 'Thank you!', isRead: false, messageType: 'personal' },
         ];
         for (const message of messageData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'messages', ID.unique(), message);
+            await databases.createDocument(dbId, 'messages', ID.unique(), message);
             await delay(100);
         }
         console.log('Messages seeded.');
     }
 
     // Seed resources
-    const resourcesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'resources');
+  const resourcesCollection = await databases.listDocuments(dbId, 'resources');
     if (resourcesCollection.total === 0 && seededTeachers.total > 0) {
         console.log('Seeding resources...');
         const teacherId = seededTeachers.documents[0].$id;
@@ -603,14 +604,14 @@ async function seedDemoData() {
             { title: 'English Language Video', description: 'A video on nouns', type: 'video', subject: 'English', class: 'JSS 1', uploadedBy: teacherId, isPublic: true },
         ];
         for (const resource of resourceData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'resources', ID.unique(), resource);
+            await databases.createDocument(dbId, 'resources', ID.unique(), resource);
             await delay(100);
         }
         console.log('Resources seeded.');
     }
 
     // Seed grades
-    const gradesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'grades');
+  const gradesCollection = await databases.listDocuments(dbId, 'grades');
     if (gradesCollection.total === 0 && seededStudents.total > 0 && seededExams.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding grades...');
         const teacherId = seededTeachers.documents[0].$id;
@@ -627,7 +628,7 @@ async function seedDemoData() {
                     academicYear: '2024/2025',
                     teacherId: teacherId
                 };
-                await databases.createDocument(APPWRITE_DATABASE_ID, 'grades', ID.unique(), gradeData);
+                await databases.createDocument(dbId, 'grades', ID.unique(), gradeData);
                 await delay(100);
             }
         }
@@ -635,7 +636,7 @@ async function seedDemoData() {
     }
 
   // Seed subjects
-  const subjectsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'subjects');
+  const subjectsCollection = await databases.listDocuments(dbId, 'subjects');
   if (subjectsCollection.total === 0) {
     console.log('Seeding subjects...');
     const subjectData = [
@@ -647,14 +648,14 @@ async function seedDemoData() {
       { name: 'History', description: 'History for arts students' },
     ];
     for (const subject of subjectData) {
-      await databases.createDocument(APPWRITE_DATABASE_ID, 'subjects', ID.unique(), subject);
+  await databases.createDocument(dbId, 'subjects', ID.unique(), subject);
       await delay(100);
     }
     console.log('Subjects seeded.');
   }
 
     // Seed video meetings
-    const videoMeetingsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'videoMeetings');
+  const videoMeetingsCollection = await databases.listDocuments(dbId, 'videoMeetings');
     if (videoMeetingsCollection.total === 0 && seededTeachers.total > 0) {
         console.log('Seeding video meetings...');
         const teacherId = seededTeachers.documents[0].$id;
@@ -668,12 +669,12 @@ async function seedDemoData() {
             isActive: true,
             participantCount: 0,
         };
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'videoMeetings', ID.unique(), meetingData);
+  await databases.createDocument(dbId, 'videoMeetings', ID.unique(), meetingData);
         console.log('Video meetings seeded.');
     }
 
     // Seed chat messages
-    const chatMessagesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'chatMessages');
+  const chatMessagesCollection = await databases.listDocuments(dbId, 'chatMessages');
     if (chatMessagesCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding chat messages...');
         const studentId = seededStudents.documents[0].$id;
@@ -684,14 +685,14 @@ async function seedDemoData() {
             { conversationId, senderId: teacherId, content: 'Hello, how can I help you?' },
         ];
         for (const chat of chatData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'chatMessages', ID.unique(), chat);
+            await databases.createDocument(dbId, 'chatMessages', ID.unique(), chat);
             await delay(100);
         }
         console.log('Chat messages seeded.');
     }
 
     // Seed forum threads
-    const forumThreadsCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'forumThreads');
+  const forumThreadsCollection = await databases.listDocuments(dbId, 'forumThreads');
     if (forumThreadsCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding forum threads...');
         const studentId = seededStudents.documents[0].$id;
@@ -701,19 +702,19 @@ async function seedDemoData() {
             content: 'Can someone explain the process of photosynthesis again?',
             createdBy: studentId,
         };
-        const parentThread = await databases.createDocument(APPWRITE_DATABASE_ID, 'forumThreads', ID.unique(), threadData);
+  const parentThread = await databases.createDocument(dbId, 'forumThreads', ID.unique(), threadData);
         await delay(100);
         const replyData = {
             content: 'Sure, I can help with that. Photosynthesis is the process used by plants, algae and certain bacteria to harness energy from sunlight into chemical energy.',
             createdBy: teacherId,
             parentThreadId: parentThread.$id,
         };
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'forumThreads', ID.unique(), replyData);
+  await databases.createDocument(dbId, 'forumThreads', ID.unique(), replyData);
         console.log('Forum threads seeded.');
     }
 
     // Seed activities
-    const activitiesCollection = await databases.listDocuments(APPWRITE_DATABASE_ID, 'activities');
+  const activitiesCollection = await databases.listDocuments(dbId, 'activities');
     if (activitiesCollection.total === 0) {
         console.log('Seeding activities...');
         const activityData = [
@@ -723,7 +724,7 @@ async function seedDemoData() {
             { activity: "Payment overdue alert for 3 students", date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), type: 'payment_overdue' },
         ];
         for (const activity of activityData) {
-            await databases.createDocument(APPWRITE_DATABASE_ID, 'activities', ID.unique(), activity);
+            await databases.createDocument(dbId, 'activities', ID.unique(), activity);
             await delay(100);
         }
         console.log('Activities seeded.');

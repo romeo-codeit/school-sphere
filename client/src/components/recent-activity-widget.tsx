@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow, isValid } from 'date-fns';
@@ -23,6 +24,7 @@ const formatTimestamp = (timestamp: string) => {
 };
 
 export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) {
+  const [, setLocation] = useLocation();
   return (
     <Card>
       <CardHeader>
@@ -47,7 +49,7 @@ export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) 
         {activities.length === 0 && (
           <p className="text-center text-muted-foreground py-4">No recent activities</p>
         )}
-        <Button variant="outline" className="w-full mt-4">View All</Button>
+        <Button variant="outline" className="w-full mt-4" onClick={() => setLocation('/activities')}>View All</Button>
       </CardContent>
     </Card>
   );

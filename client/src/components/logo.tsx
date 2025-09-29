@@ -8,28 +8,14 @@ export function Logo() {
       xmlns="http://www.w3.org/2000/svg"
       className="text-primary"
     >
-      <rect width="40" height="40" rx="8" fill="currentColor" />
-      <path
-        d="M12 28V14.5C12 12.567 13.567 11 15.5 11H24.5C26.433 11 28 12.567 28 14.5V28"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M12 19H28"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M20 11V28"
-        stroke="white"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <rect width="40" height="40" rx="12" fill="currentColor" />
+      <g>
+        <ellipse cx="20" cy="28" rx="10" ry="4" fill="#fff" fillOpacity="0.15" />
+        <path d="M12 28V16C12 13.2386 14.2386 11 17 11H23C25.7614 11 28 13.2386 28 16V28" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        <rect x="16" y="18" width="8" height="6" rx="2" fill="#fff" fillOpacity="0.7" />
+        <path d="M20 18V24" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" />
+        <circle cx="20" cy="15" r="2" fill="#fff" />
+      </g>
     </svg>
   );
 }
