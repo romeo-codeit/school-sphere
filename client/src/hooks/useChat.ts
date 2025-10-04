@@ -105,11 +105,11 @@ export function useConversations() {
         queryKey: ['conversations', user?.$id],
         queryFn: async () => {
             if (!user?.$id) return [];
-            const response = await databases.listDocuments(
-                DATABASE_ID,
-                CONVERSATIONS_COLLECTION_ID,
-                [Query.search('members', user.$id), Query.orderDesc('lastActivity')]
-            );
+      const response = await databases.listDocuments(
+        DATABASE_ID,
+        CONVERSATIONS_COLLECTION_ID,
+        [Query.equal('members', user.$id), Query.orderDesc('lastActivity')]
+      );
             return response.documents;
         },
         enabled: !!user?.$id,

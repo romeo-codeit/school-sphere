@@ -2,13 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DayPicker } from "react-day-picker";
 import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useEvents } from "@/hooks/useEvents";
+import { useNotices } from "@/hooks/useNotices";
 import { Badge } from "@/components/ui/badge";
 
 export function EventCalendar() {
-  const { events, isLoading } = useEvents();
+  const { notices, isLoading } = useNotices();
 
-  const eventDays = events?.map((e: any) => new Date(e.date)) || [];
+  const eventDays = notices?.map((n: any) => new Date(n.date)) || [];
   const eventModifiers = {
     events: eventDays,
   };
@@ -16,18 +16,18 @@ export function EventCalendar() {
   const eventModifierStyles = {
     events: {
       color: 'white',
-      backgroundColor: 'var(--secondary)',
+      backgroundColor: 'var(--primary)',
     },
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Event Calendar</CardTitle>
+        <CardTitle>Notice Calendar</CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4">
         {isLoading ? (
-          <div className="text-center py-8">Loading events...</div>
+          <div className="text-center py-8">Loading notices...</div>
         ) : (
           <DayPicker
             showOutsideDays
@@ -70,12 +70,12 @@ export function EventCalendar() {
           <h4 className="font-semibold mb-2">Upcoming Events</h4>
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading...</p>
-          ) : events && events.length > 0 ? (
+          ) : notices && notices.length > 0 ? (
             <ul className="space-y-2">
-              {events.slice(0, 3).map((event: any) => (
-                <li key={event.$id} className="flex items-center justify-between text-sm">
-                  <span>{event.title}</span>
-                  <Badge variant="secondary">{new Date(event.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Badge>
+              {notices.slice(0, 3).map((notice: any) => (
+                <li key={notice.$id} className="flex items-center justify-between text-sm">
+                  <span>{notice.title}</span>
+                  <Badge variant="secondary">{new Date(notice.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Badge>
                 </li>
               ))}
             </ul>

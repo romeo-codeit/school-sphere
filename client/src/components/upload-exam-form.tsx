@@ -87,29 +87,29 @@ export function UploadExamForm({ onFinished }: { onFinished: () => void }) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
         <FormField control={form.control} name="title" render={({ field }) => (
-          <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
         )}/>
         <FormField control={form.control} name="type" render={({ field }) => (
           <FormItem><FormLabel>Exam Type</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select an exam type" /></SelectTrigger></FormControl><SelectContent><SelectItem value="jamb">JAMB</SelectItem><SelectItem value="waec">WAEC</SelectItem><SelectItem value="neco">NECO</SelectItem><SelectItem value="internal">Internal</SelectItem></SelectContent></Select><FormMessage /></FormItem>
         )}/>
         <FormField control={form.control} name="subject" render={({ field }) => (
-          <FormItem><FormLabel>Subject</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+          <FormItem><FormLabel>Subject</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
         )}/>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <FormField control={form.control} name="duration" render={({ field }) => (
-            <FormItem><FormLabel>Duration (mins)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Duration (mins)</FormLabel><FormControl><Input type="number" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="totalMarks" render={({ field }) => (
-            <FormItem><FormLabel>Total Marks</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Total Marks</FormLabel><FormControl><Input type="number" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="passingMarks" render={({ field }) => (
-            <FormItem><FormLabel>Passing Marks</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Passing Marks</FormLabel><FormControl><Input type="number" {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
           )}/>
         </div>
         <FormField control={form.control} name="questions" render={({ field }) => (
           <FormItem>
             <FormLabel>Questions (JSON format)</FormLabel>
-            <FormControl><Textarea {...field} rows={8} placeholder='[{"question": "What is 2+2?", "options": ["3", "4", "5"], "answer": "4"}]' /></FormControl>
+            <FormControl><Textarea {...field} rows={8} placeholder='[{"question": "What is 2+2?", "options": ["3", "4", "5"], "answer": "4"}]' className="w-full" /></FormControl>
             <FormDescription>Enter questions as a JSON array.</FormDescription>
             <FormMessage />
           </FormItem>
@@ -125,7 +125,7 @@ export function UploadExamForm({ onFinished }: { onFinished: () => void }) {
                 <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} /></FormControl>
             </FormItem>
         )}/>
-        <Button type="submit">Create Exam</Button>
+        <Button type="submit" className="w-full sm:w-auto">Create Exam</Button>
       </form>
     </Form>
   );

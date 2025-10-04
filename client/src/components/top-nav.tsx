@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Search, Bell, Menu, RefreshCw, User, Book, FileText, CheckCheck, LogOut, Settings } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -105,10 +105,13 @@ export function TopNav({ title, subtitle, onToggleSidebar, isLoading, showGoBack
   };
 
   const hasResults = results && (results.students.length > 0 || results.teachers.length > 0 || results.exams.length > 0);
+  const showPopover = searchQuery.length >= 3;
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   return (
-    <header className="bg-card border-b border-border px-6 py-4">
-      <div className="flex items-center justify-between">
+    <header className="bg-card border-b border-border py-3 sm:py-4 px-2 w-full">
+  <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2 sm:space-x-4">
           {onToggleSidebar && (
             <Button variant="ghost" size="icon" className="lg:hidden" onClick={onToggleSidebar}>
@@ -116,54 +119,77 @@ export function TopNav({ title, subtitle, onToggleSidebar, isLoading, showGoBack
             </Button>
           )}
           {showGoBackButton && <GoBackButton />}
-          <div className="flex items-center space-x-2"><h2 className="text-2xl font-bold text-foreground">{title}</h2>{isLoading && <RefreshCw className="w-6 h-6 animate-spin text-primary" />}</div>
-          {subtitle && (<p className="text-muted-foreground hidden md:block">{subtitle}</p>)}
+          <div className="flex flex-col">
+            <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-foreground leading-tight">{title}</h2>
+            {subtitle && (<p className="text-muted-foreground text-xs sm:text-sm hidden md:block">{subtitle}</p>)}
+          </div>
+           {isLoading && <RefreshCw className="w-5 h-5 sm:w-6 sm:h-6 animate-spin text-primary" />}
         </div>
 
-        <div className="flex items-center space-x-2 sm:space-x-4">
-          <Popover open={searchQuery.length > 2 && hasResults}>
+        <div className="flex items-center space-x-1 sm:space-x-2">
+          <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
             <PopoverTrigger asChild>
               <div className="relative hidden md:block">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="text" placeholder="Search..." className="w-64 pl-10 bg-muted" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  placeholder="Search..."
+                  className="w-40 sm:w-48 lg:w-64 pl-10 bg-muted"
+                  value={searchQuery}
+                  onFocus={() => setPopoverOpen(searchQuery.length >= 3)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPopoverOpen(e.target.value.length >= 3);
+                  }}
+                />
                 {isSearching && <RefreshCw className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin" />}
               </div>
             </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0"><Command>
+            <PopoverContent
+              className="w-[--radix-popover-trigger-width] p-0"
+              onOpenAutoFocus={() => {
+                setTimeout(() => {
+                  inputRef.current?.focus();
+                }, 0);
+              }}
+            >
+              <Command>
                 <CommandList>
-                    <CommandEmpty>No results found.</CommandEmpty>
-                    {Array.isArray(results?.students) && results.students.length > 0 && (
-                      <CommandGroup heading="Students">
-                        {results.students.map((s: any) => (
-                          <CommandItem key={s.$id} onSelect={() => handleResultClick(`/students/${s.$id}`)}>
-                            <User className="mr-2 h-4 w-4" />
-                            <span>{s.firstName} {s.lastName}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    {Array.isArray(results?.teachers) && results.teachers.length > 0 && (
-                      <CommandGroup heading="Teachers">
-                        {results.teachers.map((t: any) => (
-                          <CommandItem key={t.$id} onSelect={() => handleResultClick(`/teachers/${t.$id}`)}>
-                            <User className="mr-2 h-4 w-4" />
-                            <span>{t.firstName} {t.lastName}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
-                    {Array.isArray(results?.exams) && results.exams.length > 0 && (
-                      <CommandGroup heading="Exams">
-                        {results.exams.map((e: any) => (
-                          <CommandItem key={e.$id} onSelect={() => handleResultClick(`/exams/${e.$id}`)}>
-                            <FileText className="mr-2 h-4 w-4" />
-                            <span>{e.title}</span>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    )}
+                  {hasResults ? null : <CommandEmpty>No results found.</CommandEmpty>}
+                  {Array.isArray(results?.students) && results.students.length > 0 && (
+                    <CommandGroup heading="Students">
+                      {results.students.map((s: any) => (
+                        <CommandItem key={s.$id} onSelect={() => handleResultClick(`/students/${s.$id}`)}>
+                          <User className="mr-2 h-4 w-4" />
+                          <span>{s.firstName} {s.lastName}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {Array.isArray(results?.teachers) && results.teachers.length > 0 && (
+                    <CommandGroup heading="Teachers">
+                      {results.teachers.map((t: any) => (
+                        <CommandItem key={t.$id} onSelect={() => handleResultClick(`/teachers/${t.$id}`)}>
+                          <User className="mr-2 h-4 w-4" />
+                          <span>{t.firstName} {t.lastName}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
+                  {Array.isArray(results?.exams) && results.exams.length > 0 && (
+                    <CommandGroup heading="Exams">
+                      {results.exams.map((e: any) => (
+                        <CommandItem key={e.$id} onSelect={() => handleResultClick(`/exams/${e.$id}`)}>
+                          <FileText className="mr-2 h-4 w-4" />
+                          <span>{e.title}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  )}
                 </CommandList>
-            </Command></PopoverContent>
+              </Command>
+            </PopoverContent>
           </Popover>
 
           <NotificationsDropdown />

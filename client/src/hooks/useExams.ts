@@ -49,12 +49,15 @@ export function useExams() {
 
   const createExamMutation = useMutation({
     mutationFn: async (examData: any) => {
+      const search = [examData.title, examData.type, examData.subject, examData.createdBy]
+        .filter(Boolean)
+        .join(' ');
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(examData),
+        body: JSON.stringify({ ...examData, search }),
       });
       if (!response.ok) {
         throw new Error('Failed to create exam');
@@ -68,12 +71,15 @@ export function useExams() {
 
   const updateExamMutation = useMutation({
     mutationFn: async ({ examId, examData }: { examId: string, examData: any }) => {
+      const search = [examData.title, examData.type, examData.subject, examData.createdBy]
+        .filter(Boolean)
+        .join(' ');
       const response = await fetch(`${API_URL}/${examId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(examData),
+        body: JSON.stringify({ ...examData, search }),
       });
       if (!response.ok) {
         throw new Error('Failed to update exam');

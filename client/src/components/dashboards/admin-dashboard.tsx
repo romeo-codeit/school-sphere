@@ -23,6 +23,7 @@ import { NoticeBoard } from "@/components/notice-board";
 import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 import { useActivities } from "@/hooks/useActivities";
+import { useNotices } from "@/hooks/useNotices";
 
 const RoundedBar = (props: any) => {
   const { fill, x, y, width, height } = props;
@@ -46,11 +47,12 @@ export function AdminDashboard() {
   const { exams, isLoading: examsLoading, error: examsError } = useExams();
   const { attendance, isLoading: attendanceLoading, error: attendanceError } = useAttendance();
   const { activities: recentActivities, isLoading: activitiesLoading, error: activitiesError } = useActivities();
+  const { notices, isLoading: noticesLoading, error: noticesError } = useNotices(5);
   const [, setLocation] = useLocation();
   const [chartData, setChartData] = useState<any[]>([]);
 
-  const isLoading = statsLoading || studentsLoading || paymentsLoading || examsLoading || attendanceLoading || activitiesLoading;
-  const isError = statsError || studentsError || paymentsError || examsError || attendanceError || activitiesError;
+  const isLoading = statsLoading || studentsLoading || paymentsLoading || examsLoading || attendanceLoading || activitiesLoading || noticesLoading;
+  const isError = statsError || studentsError || paymentsError || examsError || attendanceError || activitiesError || noticesError;
 
   useEffect(() => {
     if (attendance) {
@@ -89,9 +91,9 @@ export function AdminDashboard() {
   const totalPaidStudents = payments?.filter((p: any) => p.status === 'paid').length || 0;
   const totalPendingPayments = payments?.filter((p: any) => p.status === 'pending').length || 0;
   const totalOverduePayments = payments?.filter((p: any) => p.status === 'overdue').length || 0;
-  const jambQuestions = exams?.filter((e: any) => e.type === 'JAMB').length || 0;
-  const waecQuestions = exams?.filter((e: any) => e.type === 'WAEC').length || 0;
-  const necoQuestions = exams?.filter((e: any) => e.type === 'NECO').length || 0;
+  const jambQuestions = exams?.filter((e: any) => e.type === 'jamb').length || 0;
+  const waecQuestions = exams?.filter((e: any) => e.type === 'waec').length || 0;
+  const necoQuestions = exams?.filter((e: any) => e.type === 'neco').length || 0;
 
   const studentGenderData = [
     { name: 'Male', value: 0, fill: 'var(--primary)' },
@@ -123,7 +125,7 @@ export function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       <TopNav title="Admin Dashboard" subtitle={`Welcome back, ${user?.name || 'Admin'}`} />
       <div className="space-y-6">
         {/* Stats Cards */}
@@ -146,7 +148,7 @@ export function AdminDashboard() {
 
         {/* Notices and Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
-          <div className="lg:col-span-2 space-y-6"><NoticeBoard notices={recentActivities || []} /></div>
+          <div className="lg:col-span-2 space-y-6"><NoticeBoard notices={notices || []} /></div>
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
 
@@ -207,6 +209,6 @@ export function AdminDashboard() {
           </Card>
         </div>
       </div>
-    </div>
+    </>
   );
 }

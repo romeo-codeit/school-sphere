@@ -20,7 +20,8 @@ export function useSubjects() {
 
   const createSubjectMutation = useMutation({
     mutationFn: async (subjectData: { name: string, description?: string }) => {
-      return await databases.createDocument(DATABASE_ID, SUBJECTS_COLLECTION_ID, ID.unique(), subjectData);
+      const search = [subjectData.name, subjectData.description].filter(Boolean).join(' ');
+      return await databases.createDocument(DATABASE_ID, SUBJECTS_COLLECTION_ID, ID.unique(), { ...subjectData, search });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subjects'] });
@@ -29,7 +30,8 @@ export function useSubjects() {
 
   const updateSubjectMutation = useMutation({
     mutationFn: async ({ subjectId, subjectData }: { subjectId: string, subjectData: { name: string, description?: string } }) => {
-      return await databases.updateDocument(DATABASE_ID, SUBJECTS_COLLECTION_ID, subjectId, subjectData);
+      const search = [subjectData.name, subjectData.description].filter(Boolean).join(' ');
+      return await databases.updateDocument(DATABASE_ID, SUBJECTS_COLLECTION_ID, subjectId, { ...subjectData, search });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['subjects'] });

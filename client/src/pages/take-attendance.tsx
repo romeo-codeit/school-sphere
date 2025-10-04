@@ -66,15 +66,15 @@ export default function TakeAttendance() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
   <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
-      <div className="p-6">
+      <div className="py-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Select Class</CardTitle>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <CardTitle className="text-lg sm:text-xl">Select Class</CardTitle>
               <Select onValueChange={setSelectedClassId}>
-                <SelectTrigger className="w-[280px]">
+                <SelectTrigger className="w-full sm:w-[280px]">
                   <SelectValue placeholder="Select a class..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -86,40 +86,64 @@ export default function TakeAttendance() {
           </CardHeader>
           <CardContent>
             {selectedClassId ?
-             (studentsLoading ? <p>Loading students...</p> :
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student Name</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {students?.map((student: any) => (
-                      <TableRow key={student.$id}>
-                        <TableCell className="font-medium">{student.firstName} {student.lastName}</TableCell>
-                        <TableCell>
-                          <Select onValueChange={(value) => handleStatusChange(student.$id, value)} value={attendance[student.$id] || 'present'}>
-                            <SelectTrigger className="w-[180px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="present">Present</SelectItem>
-                              <SelectItem value="absent">Absent</SelectItem>
-                              <SelectItem value="late">Late</SelectItem>
-                              <SelectItem value="excused">Excused</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-                <div className="flex justify-end p-4">
-                  <Button onClick={handleSubmit}>Submit Attendance</Button>
+             (studentsLoading ? <p className="text-center py-4">Loading students...</p> :
+              <>
+                {/* Mobile: Card view */}
+                <div className="grid grid-cols-1 gap-4 sm:hidden">
+                  {students?.map((student: any) => (
+                    <Card key={student.$id} className="p-4">
+                      <div className="flex flex-col gap-2">
+                        <div className="font-medium text-base">{student.firstName} {student.lastName}</div>
+                        <Select onValueChange={(value) => handleStatusChange(student.$id, value)} value={attendance[student.$id] || 'present'}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="present">Present</SelectItem>
+                            <SelectItem value="absent">Absent</SelectItem>
+                            <SelectItem value="late">Late</SelectItem>
+                            <SelectItem value="excused">Excused</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-              </div>) :
+                {/* Desktop: Table view */}
+                <div className="rounded-md border overflow-x-auto hidden sm:block">
+                  <Table className="min-w-[400px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student Name</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {students?.map((student: any) => (
+                        <TableRow key={student.$id}>
+                          <TableCell className="font-medium text-sm">{student.firstName} {student.lastName}</TableCell>
+                          <TableCell>
+                            <Select onValueChange={(value) => handleStatusChange(student.$id, value)} value={attendance[student.$id] || 'present'}>
+                              <SelectTrigger className="w-[180px]">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="present">Present</SelectItem>
+                                <SelectItem value="absent">Absent</SelectItem>
+                                <SelectItem value="late">Late</SelectItem>
+                                <SelectItem value="excused">Excused</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div className="flex justify-end p-4 mt-4">
+                  <Button onClick={handleSubmit} className="w-full sm:w-auto">Submit Attendance</Button>
+                </div>
+              </>) :
              <p className="text-center text-muted-foreground p-8">Please select a class to take attendance.</p>
             }
           </CardContent>

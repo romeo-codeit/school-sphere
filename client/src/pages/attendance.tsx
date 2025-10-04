@@ -47,37 +47,60 @@ const StudentAttendanceView: React.FC = () => {
     }, [user, role, toast]);
 
     return (
+      <>
+        <TopNav title="My Attendance" subtitle="View your personal attendance history" showGoBackButton={true} />
         <div className="space-y-6">
-            <TopNav title="My Attendance" subtitle="View your personal attendance history" showGoBackButton={true} />
-            <div className="p-6">
-                <Card>
-                    <CardHeader><CardTitle>Attendance History</CardTitle></CardHeader>
-                    <CardContent>
-                        {isLoading ? <p>Loading your attendance history...</p> :
-                         studentHistory.length === 0 ? <p>No attendance records found.</p> :
-                         <div className="rounded-md border"><Table>
-                            <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
-                            <TableBody>
-                                {studentHistory.map((record, index) => (
-                                    <TableRow key={index}>
-                                        <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
-                                        <TableCell className="text-right">
-                                            <Badge className={cn({
-                                                "bg-green-500 hover:bg-green-600": record.status === 'present',
-                                                "bg-red-500 hover:bg-red-600": record.status === 'absent',
-                                                "bg-yellow-500 hover:bg-yellow-600": record.status === 'late',
-                                            })}>
-                                                {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
-                                            </Badge>
-                                        </TableCell>
-                                    </TableRow>
-                                ))}
-                            </TableBody>
-                         </Table></div>}
-                    </CardContent>
-                </Card>
-            </div>
+          <div className="py-6">
+            <Card>
+              <CardHeader><CardTitle className="text-lg sm:text-xl">Attendance History</CardTitle></CardHeader>
+              <CardContent>
+                {isLoading ? <p className="text-center py-4">Loading your attendance history...</p> :
+                  studentHistory.length === 0 ? <p className="text-center py-4 text-muted-foreground">No attendance records found.</p> :
+                  <>
+                    {/* Mobile: Card view */}
+                    <div className="grid grid-cols-1 gap-4 sm:hidden">
+                      {studentHistory.map((record, index) => (
+                        <Card key={index} className="p-4 flex justify-between items-center">
+                          <div className="text-sm">{new Date(record.date).toLocaleDateString()}</div>
+                          <Badge className={cn({
+                            "bg-green-500 hover:bg-green-600": record.status === 'present',
+                            "bg-red-500 hover:bg-red-600": record.status === 'absent',
+                            "bg-yellow-500 hover:bg-yellow-600": record.status === 'late',
+                          })}>
+                            {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
+                          </Badge>
+                        </Card>
+                      ))}
+                    </div>
+                    {/* Desktop: Table view */}
+                    <div className="rounded-md border overflow-x-auto hidden sm:block">
+                      <Table className="min-w-[400px]">
+                        <TableHeader><TableRow><TableHead>Date</TableHead><TableHead className="text-right">Status</TableHead></TableRow></TableHeader>
+                        <TableBody>
+                          {studentHistory.map((record, index) => (
+                            <TableRow key={index}>
+                              <TableCell className="text-sm">{new Date(record.date).toLocaleDateString()}</TableCell>
+                              <TableCell className="text-right">
+                                <Badge className={cn({
+                                  "bg-green-500 hover:bg-green-600": record.status === 'present',
+                                  "bg-red-500 hover:bg-red-600": record.status === 'absent',
+                                  "bg-yellow-500 hover:bg-yellow-600": record.status === 'late',
+                                })}>
+                                  {record.status?.charAt(0).toUpperCase() + record.status?.slice(1)}
+                                </Badge>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                }
+              </CardContent>
+            </Card>
+          </div>
         </div>
+      </>
     );
 };
 
@@ -108,28 +131,30 @@ const AttendanceHubView: React.FC = () => {
   const availableLinks = navLinks.filter(link => role && link.roles.includes(role));
 
   return (
-    <div className="space-y-6">
+    <>
       <TopNav title="Attendance Management" subtitle="Manage all attendance-related tasks" />
-      <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {availableLinks.map((link) => (
-          <Link href={link.href} key={link.href}>
-            <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer flex flex-col">
-              <CardHeader>
-                <CardTitle>{link.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="flex-grow">
-                <p className="text-muted-foreground">{link.description}</p>
-              </CardContent>
-              <div className="p-6 pt-0">
-                  <Button variant="link" className="p-0">
-                    Go to Page <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-              </div>
-            </Card>
-          </Link>
-        ))}
+      <div className="space-y-6">
+        <div className="py-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-6 lg:px-8">
+          {availableLinks.map((link) => (
+            <Link href={link.href} key={link.href}>
+              <Card className="h-full hover:bg-muted/50 transition-colors cursor-pointer flex flex-col">
+                <CardHeader>
+                  <CardTitle className="text-lg sm:text-xl">{link.title}</CardTitle>
+                </CardHeader>
+                <CardContent className="flex-grow">
+                  <p className="text-muted-foreground text-sm sm:text-base">{link.description}</p>
+                </CardContent>
+                <div className="p-6 pt-0">
+                    <Button variant="link" className="p-0">
+                      Go to Page <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </div>
+              </Card>
+            </Link>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

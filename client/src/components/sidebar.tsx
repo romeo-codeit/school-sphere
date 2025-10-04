@@ -21,6 +21,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
+import React from "react";
 
 const getNavigationItems = (role: string | null) => {
   const baseItems = [
@@ -159,6 +160,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
   const [location, setLocation] = useLocation();
   const { role } = useRole();
   const { logout, isAuthenticated } = useAuth();
+  const sidebarRef = React.useRef<HTMLElement>(null);
   
   const navigationItems = getNavigationItems(role);
   const settingsItems = getSettingsItems(role);
@@ -179,87 +181,124 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
     setLocation('/login');
   };
 
+  // Click outside to collapse sidebar (for mobile/small screens)
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (window.innerWidth < 768 && !isCollapsed && sidebarRef.current && !sidebarRef.current.contains(event.target as Node)) {
+        setIsCollapsed(true);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isCollapsed, setIsCollapsed]);
+
   return (
-    <aside className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full relative transition-all duration-300", {
-      "w-60": !isCollapsed,
-      "w-20": isCollapsed,
-    }, className)}>
-      <div className="p-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <Logo />
-          {!isCollapsed && (
-            <span className="ml-3 text-xl font-bold tracking-tight text-primary select-none">SchoolSphere</span>
-          )}
-        </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="ml-2"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-        </Button>
-      </div>
-      <div className="flex-1 overflow-y-auto">
-        <nav className="px-2 py-4">
-          <div className="space-y-2">
-            {navigationItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
-                  { "justify-center": isCollapsed },
-                  isActive(item.href, item.exact)
-                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                )}
-                data-testid={`link-${item.name.toLowerCase()}`}
-              >
-                <item.icon className="w-5 h-5" />
-                <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
-                {item.badge && !isCollapsed && (
-                  <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
-                    {item.badge}
-                  </Badge>
-                )}
-              </Link>
-            ))}
-          </div>
-        </nav>
-      </div>
-      {/* Bottom section with settings and logout (fixed at bottom) */}
-      <div className="absolute bottom-0 w-full border-t border-border p-2">
-        {settingsItems.map((item) => (
-          <Link
-            key={item.name}
-            href={item.href}
-            className={cn(
-              "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
-              { "justify-center": isCollapsed },
-              isActive(item.href)
-                ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-            )}
-            data-testid={`link-${item.name.toLowerCase()}`}
+    <>
+      {/* Only show overlay and collapse on mobile screens */}
+      {!isCollapsed && (
+        <div
+          className="fixed inset-0 z-40 bg-black/20 md:hidden"
+          onClick={() => {
+            if (window.innerWidth < 768) setIsCollapsed(true);
+          }}
+          aria-label="Close sidebar overlay"
+        />
+      )}
+      <aside ref={sidebarRef} className={cn("bg-card shadow-lg border-r border-border flex flex-col h-full fixed md:relative z-50 transition-all duration-300", {
+        "w-60": !isCollapsed,
+        "w-20": isCollapsed,
+      }, className)}>
+        <div className="p-4 flex items-center justify-between">
+          <div className="flex items-center cursor-pointer group"
+            onClick={() => {
+              if (window.innerWidth >= 768) setIsCollapsed(!isCollapsed);
+            }}
+            tabIndex={0}
+            role="button"
+            aria-label="Toggle sidebar"
           >
-            <item.icon className="w-5 h-5" />
-            <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
-          </Link>
-        ))}
-        <Button
-          variant="ghost"
-          className={cn("w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground", {
-            "justify-center px-0": isCollapsed,
-          })}
-          onClick={handleLogout}
-          data-testid="button-logout"
-        >
-          <LogOut className="w-5 h-5" />
-          <span className={cn("font-medium ml-3", { "hidden": isCollapsed })}>Logout</span>
-        </Button>
-      </div>
-    </aside>
+            <div className="w-20 h-20 sm:w-14 sm:h-14 flex items-center justify-center">
+              <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+            </div>
+            {!isCollapsed && (
+              <span className="ml-2 text-base font-bold tracking-tight text-primary select-none leading-tight">
+                Ohman<br />Foundations
+              </span>
+            )}
+            {/* Mobile close chevron */}
+            <button
+              type="button"
+              className="ml-2 md:hidden flex items-center justify-center"
+              onClick={() => setIsCollapsed(true)}
+              aria-label="Close sidebar"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto pb-24">
+          <nav className="px-2 py-4">
+            <div className="space-y-2">
+              {navigationItems.map((item) => (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+                    { "justify-center": isCollapsed },
+                    isActive(item.href, item.exact)
+                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                  )}
+                  data-testid={`link-${item.name.toLowerCase()}`}
+                >
+                  <item.icon className="w-5 h-5" />
+                  <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+                  {item.badge && !isCollapsed && (
+                    <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
+                      {item.badge}
+                    </Badge>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        </div>
+        {/* Bottom section with settings and logout (fixed at bottom, always visible above scroll) */}
+        <div className="w-full border-t border-border p-2 absolute bottom-0 left-0 bg-card">
+          {settingsItems.map((item) => (
+            <Link
+              key={item.name}
+              href={item.href}
+              className={cn(
+                "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+                { "justify-center": isCollapsed },
+                isActive(item.href)
+                  ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              )}
+              data-testid={`link-${item.name.toLowerCase()}`}
+            >
+              <item.icon className="w-5 h-5" />
+              <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+            </Link>
+          ))}
+          <Button
+            variant="ghost"
+            className={cn("w-full justify-start px-4 py-3 text-muted-foreground hover:text-foreground", {
+              "justify-center px-0": isCollapsed,
+            })}
+            onClick={handleLogout}
+            data-testid="button-logout"
+          >
+            <LogOut className="w-5 h-5" />
+            <span className={cn("font-medium ml-3", { "hidden": isCollapsed })}>Logout</span>
+          </Button>
+        </div>
+      </aside>
+    </>
   );
 }

@@ -8,8 +8,6 @@ interface Notice {
   $id: string;
   activity: string;
   date: string;
-  // This is a placeholder, as the data model doesn't have a specific icon or category
-  icon?: LucideIcon;
   category?: string;
 }
 
@@ -17,12 +15,25 @@ interface NoticeBoardProps {
   notices: Notice[];
 }
 
-const getIconForActivity = (activity: string): LucideIcon => {
-  if (!activity) return FileText; // Guard against undefined activity
+const getIconForActivity = (activity: string, category?: string): LucideIcon => {
+  // First check category
+  if (category) {
+    switch (category.toLowerCase()) {
+      case 'exam': return BookOpen;
+      case 'payment': return Rss;
+      case 'announcement': return Mic;
+      case 'event': return Calendar;
+      case 'holiday': return Calendar;
+      default: break;
+    }
+  }
+  
+  // Fallback to activity text
+  if (!activity) return FileText;
   if (activity.toLowerCase().includes('exam')) return BookOpen;
   if (activity.toLowerCase().includes('payment')) return Rss;
   if (activity.toLowerCase().includes('announcement')) return Mic;
-  return FileText; // Default icon
+  return FileText;
 }
 
 export function NoticeBoard({ notices }: NoticeBoardProps) {
@@ -38,7 +49,7 @@ export function NoticeBoard({ notices }: NoticeBoardProps) {
       <CardContent>
         <ul className="space-y-4">
           {notices.map((notice) => {
-            const Icon = getIconForActivity(notice.activity);
+            const Icon = getIconForActivity(notice.activity, notice.category);
             return (
               <li key={notice.$id} className="flex items-center space-x-2 sm:space-x-4 p-2 rounded-lg hover:bg-muted/50">
                 <div className="p-2 bg-muted rounded-lg">

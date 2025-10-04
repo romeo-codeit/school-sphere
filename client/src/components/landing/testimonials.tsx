@@ -6,7 +6,7 @@ const testimonials = [
     name: "Mrs. Adebayo",
     role: "Principal, Bright Future High School",
     testimonial:
-      "EduManage has transformed how we manage our school. It's intuitive, powerful, and has saved us countless hours of administrative work.",
+  "OhmanFoundations has transformed how we manage our school. It's intuitive, powerful, and has saved us countless hours of administrative work.",
     avatar: "https://randomuser.me/api/portraits/women/68.jpg",
   },
   {
@@ -20,7 +20,7 @@ const testimonials = [
     name: "Dr. Funke",
     role: "Parent",
     testimonial:
-      "I love how easy it is to keep track of my child's progress and communicate with teachers. EduManage is a game-changer for parent-school collaboration.",
+  "I love how easy it is to keep track of my child's progress and communicate with teachers. OhmanFoundations is a game-changer for parent-school collaboration.",
     avatar: "https://randomuser.me/api/portraits/women/79.jpg",
   },
 ];

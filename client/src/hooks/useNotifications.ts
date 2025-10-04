@@ -43,11 +43,12 @@ export function useNotifications() {
 
   const createNotificationMutation = useMutation({
     mutationFn: async (notificationData: { userId: string; message: string; link?: string }) => {
+      const search = [notificationData.userId, notificationData.message, notificationData.link].filter(Boolean).join(' ');
       return await databases.createDocument(
         DB.id,
         NOTIFICATIONS_COLLECTION_ID,
         ID.unique(),
-        { ...notificationData, isRead: false }
+        { ...notificationData, search }
       );
     },
     // Invalidation is handled by the real-time subscription

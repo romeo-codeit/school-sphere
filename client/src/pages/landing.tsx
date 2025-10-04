@@ -12,37 +12,38 @@ export default function Landing() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Header */}
-      <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-border">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center">
-                <GraduationCap className="text-primary-foreground text-xl" />
+        <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-xl border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-3">
+            <div className="flex flex-row items-center justify-between min-h-[56px]">
+              <div className="flex items-center gap-2 sm:gap-3">
+                <div className="w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center">
+                  <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+                </div>
+                <div className="flex flex-col justify-center ml-2 sm:ml-3">
+                  <h1 className="text-base sm:text-2xl font-bold text-foreground leading-tight">OhmanFoundations</h1>
+                  <p className="text-xs sm:text-sm text-muted-foreground">Smart School Management</p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold text-foreground">SchoolSphere</h1>
-                <p className="text-sm text-muted-foreground">Smart School Management</p>
+              <div className="flex items-center gap-2 sm:gap-4">
+                {/* Show header buttons only on screens >=sm */}
+                <Button variant="outline" className="hidden sm:inline-flex text-foreground border-border hover:bg-accent hover:text-accent-foreground px-4 py-2" onClick={() => navigate('/login')}>
+                  Sign In
+                </Button>
+                <Button className="hidden sm:inline-flex bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2" onClick={() => navigate('/signup')}>
+                  Get Started
+                </Button>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button variant="outline" className="text-foreground border-border hover:bg-accent hover:text-accent-foreground" onClick={() => navigate('/login')}>
-                Sign In
-              </Button>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={() => navigate('/signup')}>
-                Get Started
-              </Button>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* Hero Section */}
-      <section className="relative min-h-screen flex items-center justify-center px-6 lg:px-12 pt-20 overflow-hidden">
+      <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-12 overflow-hidden mt-12 sm:mt-0">
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 py-16">
           <motion.div
-            className="lg:w-1/2 text-center lg:text-left"
+            className="w-full md:w-1/2 text-center md:text-left"
             initial={{ opacity: 0, x: -50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.3 }}
@@ -58,7 +59,7 @@ export default function Landing() {
             </motion.div>
             
             <motion.h1
-              className="text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight"
+              className="text-3xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-4 sm:mb-6 leading-tight"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.7 }}
@@ -67,49 +68,63 @@ export default function Landing() {
               <br />
               <span className="text-primary">Simplified & Efficient</span>
             </motion.h1>
-            
+            {/* ...existing code... */}
             <motion.p
-              className="text-xl text-muted-foreground mb-8 leading-relaxed max-w-lg lg:max-w-none mx-auto lg:mx-0"
+              className="text-base sm:text-lg lg:text-xl text-muted-foreground mb-6 sm:mb-8 leading-relaxed max-w-lg md:max-w-none mx-auto md:mx-0"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut", delay: 0.9 }}
             >
-              SchoolSphere provides a comprehensive platform to manage all aspects of your educational institution,
+              OhmanFoundations provides a comprehensive platform to manage all aspects of your educational institution,
               from student administration to academic planning and communication.
             </motion.p>
-            
             <motion.div
-              className="flex items-center justify-center lg:justify-start gap-6"
+              className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-3 sm:gap-6"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut", delay: 1.1 }}
             >
-              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90" onClick={scrollToFeatures}>
-                Explore Features
+              <Button size="lg" className="bg-primary text-primary-foreground hover:bg-primary/90 w-full sm:w-auto" onClick={() => navigate('/signup')}>
+                Get Started
               </Button>
-              <Button size="lg" variant="outline" className="text-foreground border-border hover:bg-accent hover:text-accent-foreground" onClick={scrollToFeatures}>
-                Learn More
+              <Button size="lg" variant="outline" className="text-foreground border-border hover:bg-accent hover:text-accent-foreground w-full sm:w-auto" onClick={() => navigate('/login')}>
+                Sign In
               </Button>
             </motion.div>
           </motion.div>
 
           <motion.div
-            className="lg:w-1/2 flex justify-center lg:justify-end"
+            className="w-full md:w-1/2 flex justify-center md:justify-end mt-8 md:mt-0 relative"
             initial={{ opacity: 0, x: 50 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.8, ease: "easeOut", delay: 0.5 }}
           >
-            <motion.img
-              src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-              alt="Stack of books"
-              className="rounded-lg shadow-xl w-full max-w-md lg:max-w-full h-auto object-cover"
-            />
+            <div className="relative w-full max-w-md lg:max-w-full">
+              <motion.img
+                src="https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=2070&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="Stack of books"
+                className="rounded-lg shadow-xl w-full h-auto object-cover aspect-[16/9] lg:aspect-[21/13]"
+              />
+              {/* Play Icon Overlay */}
+              <button
+                type="button"
+                className="absolute inset-0 flex items-center justify-center"
+                aria-label="Play video"
+              >
+                <span className="bg-primary text-primary-foreground rounded-full shadow-lg w-14 h-14 flex items-center justify-center transition-transform hover:scale-105 border-4 border-background opacity-95 lg:w-16 lg:h-16 md:w-14 md:h-14 sm:w-14 sm:h-14 w-12 h-12">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="16" cy="16" r="16" fill="currentColor" className="opacity-10" />
+                    <polygon points="13,11 23,16 13,21" fill="currentColor" className="text-primary-foreground" />
+                  </svg>
+                </span>
+              </button>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="py-20 px-6 bg-muted/20">
+      <section id="features" className="py-14 sm:py-20 px-4 sm:px-6 lg:px-8 bg-muted/20">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <div className="inline-flex items-center px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-semibold mb-6">
@@ -152,26 +167,26 @@ export default function Landing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-6 bg-primary text-primary-foreground">
+      <section className="py-14 sm:py-20 px-4 sm:px-6 bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl lg:text-5xl font-bold mb-6">
+          <h2 className="text-2xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6">
             Ready to Transform Your School Management?
           </h2>
-          <p className="text-xl opacity-90 mb-8 leading-relaxed">
-            Join numerous educational institutions already using SchoolSphere to streamline
+          <p className="text-base sm:text-xl opacity-90 mb-6 sm:mb-8 leading-relaxed">
+            Join numerous educational institutions already using OhmanFoundations to streamline
             their operations and improve educational outcomes.
           </p>
-          <Button size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90" onClick={() => navigate('/signup')}>
+          <Button size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 w-full sm:w-auto" onClick={() => navigate('/signup')}>
             Get Started Today
           </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 bg-card border-t border-border text-muted-foreground text-center">
+      <footer className="py-8 sm:py-12 px-4 sm:px-6 bg-card border-t border-border text-muted-foreground text-center">
         <div className="max-w-7xl mx-auto">
-          <p>&copy; {new Date().getFullYear()} SchoolSphere. All rights reserved.</p>
-          <p className="mt-2 text-sm">
+          <p className="text-xs sm:text-sm">&copy; {new Date().getFullYear()} OhmanFoundations. All rights reserved.</p>
+          <p className="mt-2 text-xs sm:text-sm">
             <a href="#" className="hover:text-foreground">Privacy Policy</a> | <a href="#" className="hover:text-foreground">Terms of Service</a>
           </p>
         </div>

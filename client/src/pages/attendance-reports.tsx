@@ -93,21 +93,21 @@ const AttendanceReports: React.FC = () => {
         return (
             <div className="space-y-6">
             <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" showGoBackButton={true} />
-            <div className="p-6 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+            <div className="px-4 sm:px-6 lg:px-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Overall Attendance</CardTitle>
+                        <CardTitle className="text-base sm:text-lg">Overall Attendance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-4xl font-bold">{overallStats.presentRate}%</div>
-                        <p className="text-sm text-muted-foreground">Based on {overallStats.totalRecords} records</p>
+                        <div className="text-3xl sm:text-4xl font-bold">{overallStats.presentRate}%</div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Based on {overallStats.totalRecords} records</p>
                     </CardContent>
                 </Card>
             </div>
 
-            <div className="p-6 grid gap-6 md:grid-cols-1 lg:grid-cols-2">
+            <div className="px-4 sm:px-6 lg:px-8 grid gap-6 grid-cols-1 lg:grid-cols-2">
                 <Card>
-                    <CardHeader><CardTitle>Daily Attendance Trend (Last 7 Days)</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base sm:text-lg">Daily Attendance Trend (Last 7 Days)</CardTitle></CardHeader>
                     <CardContent>
                         <ResponsiveContainer width="100%" height={300}>
                             <LineChart data={dailyTrend}>
@@ -122,7 +122,7 @@ const AttendanceReports: React.FC = () => {
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader><CardTitle>Attendance Rate by Class</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base sm:text-lg">Attendance Rate by Class</CardTitle></CardHeader>
                     <CardContent>
                         <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={classStats}>
@@ -138,38 +138,63 @@ const AttendanceReports: React.FC = () => {
                 </Card>
             </div>
 
-            <div className="p-6">
+            <div className="px-4 sm:px-6 lg:px-8">
                 <Card>
-                    <CardHeader><CardTitle>Recent Attendance Records</CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="text-base sm:text-lg">Recent Attendance Records</CardTitle></CardHeader>
                     <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Class</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Present</TableHead>
-                                    <TableHead>Total Students</TableHead>
-                                    <TableHead>Attendance Rate</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {records.slice(0, 10).map(record => {
-                                    const attendances = JSON.parse(record.studentAttendances);
-                                    const presentCount = attendances.filter((a: any) => a.status === 'present').length;
-                                    const totalCount = attendances.length;
-                                    const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
-                                    return (
-                                        <TableRow key={record.$id}>
-                                            <TableCell>{getClassName(record.classId)}</TableCell>
-                                            <TableCell>{format(new Date(record.date), 'PPP')}</TableCell>
-                                            <TableCell>{presentCount}</TableCell>
-                                            <TableCell>{totalCount}</TableCell>
-                                            <TableCell><Badge>{rate}</Badge></TableCell>
-                                        </TableRow>
-                                    )
-                                })}
-                            </TableBody>
-                        </Table>
+                        {/* Mobile: Card view */}
+                        <div className="grid grid-cols-1 gap-4 sm:hidden">
+                            {records.slice(0, 10).map(record => {
+                                const attendances = JSON.parse(record.studentAttendances);
+                                const presentCount = attendances.filter((a: any) => a.status === 'present').length;
+                                const totalCount = attendances.length;
+                                const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
+                                return (
+                                    <Card key={record.$id} className="p-4">
+                                        <div className="flex justify-between items-center mb-2">
+                                            <div className="font-medium text-base">{getClassName(record.classId)}</div>
+                                            <div className="text-sm text-muted-foreground">{format(new Date(record.date), 'PPP')}</div>
+                                        </div>
+                                        <div className="grid grid-cols-3 gap-2 text-sm">
+                                            <div><span className="font-medium">Present:</span> {presentCount}</div>
+                                            <div><span className="font-medium">Total:</span> {totalCount}</div>
+                                            <div><span className="font-medium">Rate:</span> <Badge>{rate}</Badge></div>
+                                        </div>
+                                    </Card>
+                                )
+                            })}
+                        </div>
+                        {/* Desktop: Table view */}
+                        <div className="rounded-md border overflow-x-auto hidden sm:block">
+                            <Table className="min-w-[600px]">
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Class</TableHead>
+                                        <TableHead>Date</TableHead>
+                                        <TableHead>Present</TableHead>
+                                        <TableHead>Total Students</TableHead>
+                                        <TableHead>Attendance Rate</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {records.slice(0, 10).map(record => {
+                                        const attendances = JSON.parse(record.studentAttendances);
+                                        const presentCount = attendances.filter((a: any) => a.status === 'present').length;
+                                        const totalCount = attendances.length;
+                                        const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
+                                        return (
+                                            <TableRow key={record.$id}>
+                                                <TableCell className="text-sm">{getClassName(record.classId)}</TableCell>
+                                                <TableCell className="text-sm">{format(new Date(record.date), 'PPP')}</TableCell>
+                                                <TableCell className="text-sm">{presentCount}</TableCell>
+                                                <TableCell className="text-sm">{totalCount}</TableCell>
+                                                <TableCell className="text-sm"><Badge>{rate}</Badge></TableCell>
+                                            </TableRow>
+                                        )
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

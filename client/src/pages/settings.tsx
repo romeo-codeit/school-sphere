@@ -43,6 +43,7 @@ import { useTheme } from "@/hooks/useTheme";
 import { useSchoolData } from "@/hooks/useSchoolData";
 import { useUserProfile, useUserSettings } from "@/hooks/useUserSettings";
 import { account } from '@/lib/appwrite';
+import { AuthenticationFactor } from 'appwrite';
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -79,9 +80,9 @@ type NotificationFormData = z.infer<typeof notificationFormSchema>;
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { user, refetch: refetchUser } = useAuth();
+  const { user } = useAuth();
   const { theme, setTheme, primaryColor, setPrimaryColor } = useTheme();
-  const userId = user?.$id;
+  const userId = user?.$id || "";
   const { profile, isLoading: isLoadingProfile, upsertUserProfile } = useUserProfile(userId);
   const { settings, isLoading: isLoadingSettings, upsertUserSettings } = useUserSettings(userId);
 
@@ -179,7 +180,7 @@ export default function Settings() {
     try {
       await upsertUserProfile(data);
       toast({ title: "Success", description: "Profile updated successfully" });
-      refetchUser?.();
+      // Removed refetchUser (no longer available)
     } catch (e) {
       toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
     }
@@ -229,7 +230,7 @@ export default function Settings() {
     setSecurityLoading(true);
     try {
       // Appwrite 2FA: send verification email or start 2FA setup
-      await account.createMfaChallenge();
+  await account.createMfaChallenge({ factor: AuthenticationFactor.Totp });
       toast({ title: "2FA Challenge Sent", description: "Check your email or authenticator app." });
     } catch (e) {
       toast({ title: "Error", description: "Failed to start 2FA setup", variant: "destructive" });
@@ -277,7 +278,7 @@ export default function Settings() {
   const handleDeleteAccount = async () => {
     setSecurityLoading(true);
     try {
-      await account.delete();
+  await account.deleteSession("current");
       toast({ title: "Account Deleted", description: "Your account has been deleted." });
       // Optionally, redirect to login page
     } catch (e) {
@@ -290,7 +291,6 @@ export default function Settings() {
   return (
     <div className="space-y-6">
       <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} showGoBackButton={true} />
-      
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
@@ -749,35 +749,42 @@ export default function Settings() {
                 <div>
                   <h4 className="text-lg font-medium mb-4">Theme</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Light Mode Card */}
                     <Card 
                       className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "light" ? "border-2 border-primary" : ""}`}
                       onClick={() => setTheme("light")}
                     >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-background border rounded mb-3"></div>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 bg-white border rounded shadow"></div>
+                        </div>
                         <p className="font-medium">Light</p>
                         <p className="text-sm text-muted-foreground">Default light theme</p>
                       </CardContent>
                     </Card>
-                    
+                    {/* Dark Mode Card */}
                     <Card 
                       className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "dark" ? "border-2 border-primary" : ""}`}
                       onClick={() => setTheme("dark")}
                     >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-slate-900 border rounded mb-3"></div>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 bg-slate-900 border rounded shadow"></div>
+                        </div>
                         <p className="font-medium">Dark</p>
                         <p className="text-sm text-muted-foreground">Dark theme</p>
                       </CardContent>
                     </Card>
-                    
+                    {/* System Card: Diagonal split */}
                     <Card 
                       className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "system" ? "border-2 border-primary" : ""}`}
                       onClick={() => setTheme("system")}
                     >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-gradient-to-r from-background to-slate-100 border rounded mb-3"></div>
-                        <p className="font-medium">Auto</p>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 border rounded shadow bg-gradient-to-tr from-white to-slate-900"></div>
+                        </div>
+                        <p className="font-medium">System</p>
                         <p className="text-sm text-muted-foreground">System preference</p>
                       </CardContent>
                     </Card>
@@ -786,21 +793,19 @@ export default function Settings() {
 
                 <div>
                   <h4 className="text-lg font-medium mb-4">Color Scheme</h4>
-                  <div className="grid grid-cols-4 gap-3">
-                    {colorOptions.map((color) => (
-                      <div
-                        key={color.name}
-                        className={`cursor-pointer p-3 border rounded-lg hover:shadow-sm transition-shadow ${primaryColor === color.value ? "border-2 border-primary" : ""}`}
-                        onClick={() => {
-                          setPrimaryColor(color.value);
-                        }}
-                        data-testid={`color-${color.name.toLowerCase()}`}
-                      >
-                        <div className={`w-full h-8 ${color.className} rounded mb-2`}></div>
-                        <p className="text-sm font-medium text-center">{color.name}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <Select value={primaryColor} onValueChange={setPrimaryColor}>
+                    <SelectTrigger className="w-full max-w-xs">
+                      <SelectValue placeholder="Select color scheme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colorOptions.map((color) => (
+                        <SelectItem key={color.value} value={color.value} className="flex items-center gap-2">
+                          <span className={`inline-block w-4 h-4 rounded ${color.className} mr-2 border`} />
+                          {color.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <Button data-testid="button-save-appearance" onClick={onAppearanceSave} type="button">

@@ -46,7 +46,15 @@ export function useTeachers(filters: TeacherFilters = {}) {
 
   const createTeacherMutation = useMutation({
     mutationFn: async (teacherData: any) => {
-      return await databases.createDocument(DATABASE_ID, 'teachers', ID.unique(), teacherData);
+      const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
+        .filter(Boolean)
+        .join(' ');
+      return await databases.createDocument(
+        DATABASE_ID,
+        'teachers',
+        ID.unique(),
+        { ...teacherData, search }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
@@ -55,7 +63,15 @@ export function useTeachers(filters: TeacherFilters = {}) {
 
   const updateTeacherMutation = useMutation({
     mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
-      return await databases.updateDocument(DATABASE_ID, 'teachers', teacherId, teacherData);
+      const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
+        .filter(Boolean)
+        .join(' ');
+      return await databases.updateDocument(
+        DATABASE_ID,
+        'teachers',
+        teacherId,
+        { ...teacherData, search }
+      );
     },
     onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });

@@ -58,25 +58,25 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
     }, [attendance]);
 
     if (!attendance || attendance.length === 0) {
-        return <p>No attendance records available.</p>;
+        return <p className="text-sm text-muted-foreground">No attendance records available.</p>;
     }
 
     return (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card>
-                <CardHeader>
-                    <CardTitle>Present</CardTitle>
+                <CardHeader className="p-4">
+                    <CardTitle className="text-base">Present</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-bold">{summary.present}</p>
+                <CardContent className="p-4">
+                    <p className="text-2xl sm:text-3xl font-bold">{summary.present}</p>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader>
-                    <CardTitle>Absent</CardTitle>
+                <CardHeader className="p-4">
+                    <CardTitle className="text-base">Absent</CardTitle>
                 </CardHeader>
-                <CardContent>
-                    <p className="text-3xl font-bold">{summary.absent}</p>
+                <CardContent className="p-4">
+                    <p className="text-2xl sm:text-3xl font-bold">{summary.absent}</p>
                 </CardContent>
             </Card>
         </div>
@@ -85,33 +85,35 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
 
 export function ExamAttemptsTable({ examAttempts, exams }: { examAttempts: ExamAttempt[], exams: Exam[] }) {
     if (!examAttempts || examAttempts.length === 0) {
-        return <p>No exam attempts available.</p>;
+        return <p className="text-sm text-muted-foreground">No exam attempts available.</p>;
     }
 
     return (
-        <Table>
-            <TableHeader>
-                <TableRow>
-                    <TableHead>Exam</TableHead>
-                    <TableHead>Score</TableHead>
-                    <TableHead>Total Questions</TableHead>
-                    <TableHead>Correct Answers</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {examAttempts.map((attempt: ExamAttempt) => {
-                    const exam = exams.find(e => e.id === attempt.examId);
-                    return (
-                        <TableRow key={attempt.id}>
-                            <TableCell>{exam ? exam.title : attempt.examId}</TableCell>
-                            <TableCell>{attempt.score}</TableCell>
-                            <TableCell>{attempt.totalQuestions}</TableCell>
-                            <TableCell>{attempt.correctAnswers}</TableCell>
-                        </TableRow>
-                    )
-                })}
-            </TableBody>
-        </Table>
+        <div className="overflow-x-auto rounded-md border">
+            <Table className="min-w-[600px]">
+                <TableHeader className="hidden sm:table-header-group">
+                    <TableRow>
+                        <TableHead>Exam</TableHead>
+                        <TableHead>Score</TableHead>
+                        <TableHead>Total Questions</TableHead>
+                        <TableHead>Correct Answers</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {examAttempts.map((attempt: ExamAttempt) => {
+                        const exam = exams.find(e => e.id === attempt.examId);
+                        return (
+                            <TableRow key={attempt.id} className="block sm:table-row mb-4 sm:mb-0 border-b sm:border-none rounded-lg sm:rounded-none">
+                                <TableCell className="block sm:table-cell text-sm sm:text-base" data-label="Exam">{exam ? exam.title : attempt.examId}</TableCell>
+                                <TableCell className="block sm:table-cell text-sm sm:text-base" data-label="Score">{attempt.score}</TableCell>
+                                <TableCell className="block sm:table-cell text-sm sm:text-base" data-label="Total Questions">{attempt.totalQuestions}</TableCell>
+                                <TableCell className="block sm:table-cell text-sm sm:text-base" data-label="Correct Answers">{attempt.correctAnswers}</TableCell>
+                            </TableRow>
+                        )
+                    })}
+                </TableBody>
+            </Table>
+        </div>
     );
 }
 
@@ -164,11 +166,11 @@ export default function Progress() {
     <div className="space-y-6">
       <TopNav title="Progress" subtitle="Track student progress and performance" showGoBackButton={true} />
 
-      <div className="p-6 space-y-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {(role === 'admin' || role === 'teacher') && (
           <Card>
             <CardHeader>
-              <CardTitle>Select Student</CardTitle>
+              <CardTitle className="text-lg sm:text-xl">Select Student</CardTitle>
             </CardHeader>
             <CardContent>
               <Popover open={open} onOpenChange={setOpen}>
@@ -177,7 +179,7 @@ export default function Progress() {
                     variant="outline"
                     role="combobox"
                     aria-expanded={open}
-                    className="w-[200px] justify-between"
+                    className="w-full sm:w-[250px] justify-between"
                   >
                     {selectedStudentId
                       ? students?.find(student => student.$id === selectedStudentId)?.firstName + ' ' + students?.find(student => student.$id === selectedStudentId)?.lastName
@@ -185,7 +187,7 @@ export default function Progress() {
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[200px] p-0">
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                   <Command>
                     <CommandInput placeholder="Search student..." />
                     <CommandEmpty>No student found.</CommandEmpty>
@@ -216,10 +218,10 @@ export default function Progress() {
         {error && <div className="text-red-500">Error: {error.message}</div>}
 
         {studentIdToFetch ? (
-          <div className="space-y-6">
-            <Card>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="lg:col-span-2">
               <CardHeader>
-                <CardTitle>Grades</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Grades</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades || []} />}
@@ -228,7 +230,7 @@ export default function Progress() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Attendance Summary</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
@@ -237,7 +239,7 @@ export default function Progress() {
 
             <Card>
               <CardHeader>
-                <CardTitle>Exam Attempts</CardTitle>
+                <CardTitle className="text-lg sm:text-xl">Exam Attempts</CardTitle>
               </CardHeader>
               <CardContent>
                 {isLoadingExamAttempts || isLoadingExams ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts || []} exams={exams || []} />}

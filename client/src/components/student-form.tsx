@@ -38,6 +38,7 @@ const studentFormSchema = z.object({
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
   dateOfBirth: z.string().optional(),
+  gender: z.string().optional(),
   address: z.string().optional(),
   parentName: z.string().optional(),
   parentPhone: z.string().optional(),
@@ -117,44 +118,130 @@ export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-full max-w-lg md:max-w-xl">
         <DialogHeader><DialogTitle>{student ? "Edit Student" : "Add New Student"}</DialogTitle></DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="studentId" render={({ field }) => (<FormItem><FormLabel>Student ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="studentId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Student ID</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
               <FormField control={form.control} name="classId" render={({ field }) => (
-                  <FormItem><FormLabel>Class</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl><SelectTrigger disabled={isLoadingClasses}><SelectValue placeholder="Select a class" /></SelectTrigger></FormControl>
-                      <SelectContent>{classes?.map(c => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
-                  </Select><FormMessage /></FormItem>
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Class</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger disabled={isLoadingClasses}><SelectValue placeholder="Select a class" /></SelectTrigger></FormControl>
+                    <SelectContent>{classes?.map(c => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
               )}/>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="firstName" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="firstName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">First Name</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="lastName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Last Name</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)} />
-              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Email</FormLabel>
+                  <FormControl><Input type="email" {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Phone</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
             </div>
-            <FormField control={form.control} name="dateOfBirth" render={({ field }) => (<FormItem><FormLabel>Date of Birth</FormLabel><FormControl><Input type="date" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-            <FormField control={form.control} name="address" render={({ field }) => (<FormItem><FormLabel>Address</FormLabel><FormControl><Textarea {...field} /></FormControl><FormMessage /></FormItem>)}/>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="dateOfBirth" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Date of Birth</FormLabel>
+                  <FormControl><Input type="date" {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
+              <FormField control={form.control} name="gender" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Gender</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}/>
+            </div>
+            <FormField control={form.control} name="address" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Address</FormLabel>
+                <FormControl><Textarea {...field} className="w-full" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )}/>
             <div className="space-y-4 pt-4 border-t">
               <h4 className="font-medium text-foreground">Parent/Guardian Information</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="parentName" render={({ field }) => (<FormItem><FormLabel>Parent Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={form.control} name="parentPhone" render={({ field }) => (<FormItem><FormLabel>Parent Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="parentName" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block mb-1 sm:mb-0">Parent Name</FormLabel>
+                    <FormControl><Input {...field} className="w-full" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+                <FormField control={form.control} name="parentPhone" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block mb-1 sm:mb-0">Parent Phone</FormLabel>
+                    <FormControl><Input {...field} className="w-full" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
               </div>
-              <FormField control={form.control} name="parentEmail" render={({ field }) => (<FormItem><FormLabel>Parent Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+              <FormField control={form.control} name="parentEmail" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Parent Email</FormLabel>
+                  <FormControl><Input type="email" {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}/>
             </div>
             <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem><FormLabel>Status</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                    <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent>
-                </Select><FormMessage /></FormItem>
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Status</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
             )}/>
-            <div className="flex justify-end space-x-2"><Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button><Button type="submit">{student ? "Update Student" : "Create Student"}</Button></div>
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
+              <Button type="submit" className="w-full sm:w-auto">{student ? "Update Student" : "Create Student"}</Button>
+            </div>
           </form>
         </Form>
       </DialogContent>

@@ -52,7 +52,15 @@ export function useStudents(filters: StudentFilters = {}) {
 
   const createStudentMutation = useMutation({
     mutationFn: async (studentData: any) => {
-      return await databases.createDocument(DATABASE_ID, 'students', ID.unique(), studentData);
+      const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
+        .filter(Boolean)
+        .join(' ');
+      return await databases.createDocument(
+        DATABASE_ID,
+        'students',
+        ID.unique(),
+        { ...studentData, search }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
@@ -61,7 +69,15 @@ export function useStudents(filters: StudentFilters = {}) {
 
   const updateStudentMutation = useMutation({
     mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
-      return await databases.updateDocument(DATABASE_ID, 'students', studentId, studentData);
+      const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
+        .filter(Boolean)
+        .join(' ');
+      return await databases.updateDocument(
+        DATABASE_ID,
+        'students',
+        studentId,
+        { ...studentData, search }
+      );
     },
     onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });

@@ -6,7 +6,7 @@ const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const USER_SETTINGS_COLLECTION = 'userSettings';
 const USER_PROFILES_COLLECTION = 'userProfiles';
 
-export function useUserSettings(userId) {
+export function useUserSettings(userId: string) {
   const queryClient = useQueryClient();
 
   // Fetch user settings
@@ -16,16 +16,16 @@ export function useUserSettings(userId) {
       const res = await databases.listDocuments(DATABASE_ID, USER_SETTINGS_COLLECTION, [
         Query.equal('userId', userId)
       ]);
-      return res.documents[0];
+      return res.documents[0] || null;
     },
     enabled: !!userId,
   });
 
   // Upsert user settings
   const upsertMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: Record<string, any>) => {
       if (settings && settings.$id) {
-        return await databases.updateDocument(DATABASE_ID, USER_SETTINGS_COLLECTION, settings.$id, data);
+        return await databases.updateDocument(DATABASE_ID, USER_SETTINGS_COLLECTION, settings.$id, { ...data });
       } else {
         return await databases.createDocument(DATABASE_ID, USER_SETTINGS_COLLECTION, ID.unique(), { ...data, userId });
       }
@@ -43,7 +43,7 @@ export function useUserSettings(userId) {
   };
 }
 
-export function useUserProfile(userId) {
+export function useUserProfile(userId: string) {
   const queryClient = useQueryClient();
 
   // Fetch user profile
@@ -53,16 +53,16 @@ export function useUserProfile(userId) {
       const res = await databases.listDocuments(DATABASE_ID, USER_PROFILES_COLLECTION, [
         Query.equal('userId', userId)
       ]);
-      return res.documents[0];
+      return res.documents[0] || null;
     },
     enabled: !!userId,
   });
 
   // Upsert user profile
   const upsertMutation = useMutation({
-    mutationFn: async (data) => {
+    mutationFn: async (data: Record<string, any>) => {
       if (profile && profile.$id) {
-        return await databases.updateDocument(DATABASE_ID, USER_PROFILES_COLLECTION, profile.$id, data);
+        return await databases.updateDocument(DATABASE_ID, USER_PROFILES_COLLECTION, profile.$id, { ...data });
       } else {
         return await databases.createDocument(DATABASE_ID, USER_PROFILES_COLLECTION, ID.unique(), { ...data, userId });
       }

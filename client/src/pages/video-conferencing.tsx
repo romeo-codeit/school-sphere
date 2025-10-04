@@ -25,7 +25,7 @@ import { getAllClasses } from '@/lib/api/attendance';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-const generateRoomId = () => `EduManage-Meeting-${Math.random().toString(36).substr(2, 9)}`;
+const generateRoomId = () => `OhmanFoundations-Meeting-${Math.random().toString(36).substr(2, 9)}`;
 
 declare const JitsiMeetExternalAPI: any;
 
@@ -153,13 +153,13 @@ export default function VideoConferencing() {
     return (
       <div className="h-screen flex flex-col">
         <TopNav title={activeRoom.topic} subtitle={`Room: ${activeRoom.roomId}`} />
-        <div className="p-2">
-            <Button onClick={handleLeaveMeeting} variant="outline">
-                <LogOut className="w-4 h-4 mr-2" />
-                Leave Meeting
-            </Button>
+        <div className="px-4 sm:px-6 lg:px-8 py-2">
+          <Button onClick={handleLeaveMeeting} variant="outline" className="w-full sm:w-auto">
+            <LogOut className="w-4 h-4 mr-2" />
+            Leave Meeting
+          </Button>
         </div>
-        <div ref={jitsiContainerRef} className="flex-1"></div>
+        <div ref={jitsiContainerRef} className="flex-1 w-full h-full"></div>
       </div>
     );
   }
@@ -167,35 +167,35 @@ export default function VideoConferencing() {
   return (
     <div className="space-y-6">
       <TopNav title="Video Conferencing" subtitle="Join or create video meetings" showGoBackButton={true} />
-      <div className="p-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Meeting Rooms</CardTitle>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="text-lg sm:text-xl">Meeting Rooms</CardTitle>
               {hasPermission('videoConferencing', 'create') && (
                 <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
                   <DialogTrigger asChild>
-                    <Button><PlusCircle className="w-4 h-4 mr-2" />Create Meeting</Button>
+                    <Button className="w-full sm:w-auto"><PlusCircle className="w-4 h-4 mr-2" />Create Meeting</Button>
                   </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Create New Meeting</DialogTitle>
                       <DialogDescription>Enter a topic for your new meeting room.</DialogDescription>
                     </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
                         <div>
-                            <Label htmlFor="topic">Topic</Label>
-                            <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Weekly Staff Meeting" />
+                            <Label htmlFor="topic" className="block mb-1">Topic</Label>
+                            <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Weekly Staff Meeting" className="w-full" />
                         </div>
                         <div>
-                            <Label htmlFor="class">Class (Optional)</Label>
+                            <Label htmlFor="class" className="block mb-1">Class (Optional)</Label>
                             <Select onValueChange={setSelectedClass} value={selectedClass}>
-                                <SelectTrigger><SelectValue placeholder="Select a class" /></SelectTrigger>
+                                <SelectTrigger className="w-full"><SelectValue placeholder="Select a class" /></SelectTrigger>
                                 <SelectContent>{classes?.map((c: any) => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter><Button onClick={handleCreateMeeting} disabled={!topic}>Create</Button></DialogFooter>
+                    <DialogFooter><Button onClick={handleCreateMeeting} disabled={!topic} className="w-full sm:w-auto">Create</Button></DialogFooter>
                   </DialogContent>
                 </Dialog>
               )}
@@ -204,13 +204,17 @@ export default function VideoConferencing() {
           <CardContent>
             {isLoading ? <p>Loading meetings...</p> :
              filteredMeetings && filteredMeetings.length > 0 ? (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredMeetings.map((meeting: any) => (
-                  <Card key={meeting.$id} className={cn(!meeting.isActive && "bg-muted/50")}>
+                  <Card key={meeting.$id} className={cn(!meeting.isActive && "bg-muted/50")}>...
                     <CardHeader>
                       <div className="flex items-center justify-between">
                         <CardTitle className="text-lg">{meeting.topic}</CardTitle>
-                        <Badge variant={meeting.isActive ? "default" : "secondary"} className={cn(meeting.isActive && "bg-green-500")}>
+                        <Badge 
+                          variant={meeting.isActive ? "primary" : "secondary"} 
+                          className={cn(meeting.isActive && "bg-green-500")}
+                          aria-label={meeting.isActive ? "Meeting Active" : "Meeting Ended"}
+                        >
                           {meeting.isActive ? "Active" : "Ended"}
                         </Badge>
                       </div>

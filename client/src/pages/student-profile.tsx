@@ -29,7 +29,7 @@ function PaymentsTable({ payments }: { payments: Payment[] }) {
     const getStatusVariant = (status: string) => {
       switch (status) {
         case 'paid':
-          return 'success';
+          return 'primary';
         case 'overdue':
           return 'destructive';
         default:
@@ -54,7 +54,10 @@ function PaymentsTable({ payments }: { payments: Payment[] }) {
                             <TableCell>{payment.purpose}</TableCell>
                             <TableCell>₦{parseFloat(payment.amount.toString()).toLocaleString()}</TableCell>
                             <TableCell>
-                              <Badge variant={getStatusVariant(payment.status)}>
+                              <Badge 
+                                variant={getStatusVariant(payment.status)}
+                                aria-label={`Payment status: ${payment.status}`}
+                              >
                                 {payment.status}
                               </Badge>
                             </TableCell>
@@ -115,7 +118,11 @@ export default function StudentProfile() {
                 <Phone className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm">{student.phone || 'N/A'}</span>
               </div>
-              <div className="flex items-center space-x-3 col-span-2">
+              <div className="flex items-center space-x-3">
+                <User className="w-5 h-5 text-muted-foreground" />
+                <span className="text-sm">Gender: {student.gender ? student.gender.charAt(0).toUpperCase() + student.gender.slice(1) : 'N/A'}</span>
+              </div>
+              <div className="flex items-center space-x-3">
                 <Home className="w-5 h-5 text-muted-foreground" />
                 <span className="text-sm">{student.address || 'N/A'}</span>
               </div>
@@ -163,7 +170,14 @@ export default function StudentProfile() {
                 <CardTitle>Payment History</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingPayments ? <p className="text-center py-8">Loading payments...</p> : <PaymentsTable payments={payments || []} />}
+                {isLoadingPayments ? <p className="text-center py-8">Loading payments...</p> : <PaymentsTable payments={Array.isArray(payments) ? payments.map(p => ({
+                  $id: p.$id,
+                  purpose: p.purpose,
+                  amount: p.amount,
+                  status: p.status,
+                  paidDate: p.paidDate,
+                  dueDate: p.dueDate,
+                })) : []} />}
               </CardContent>
             </Card>
           </TabsContent>

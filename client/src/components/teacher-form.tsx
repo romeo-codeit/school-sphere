@@ -36,6 +36,7 @@ const teacherFormSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   email: z.string().email().optional().or(z.literal('')),
   phone: z.string().optional(),
+  gender: z.string().optional(),
   subjects: z.array(z.string()).optional(),
   qualification: z.string().optional(),
   experience: z.preprocess(
@@ -75,80 +76,134 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
         subjects: teacher.subjects || [],
         qualification: teacher.qualification || "",
         experience: teacher.experience?.toString() || "",
-        status: teacher.status || "active",
-      });
-    } else {
-      form.reset({
-        employeeId: "",
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        subjects: [],
-        qualification: "",
-        experience: "",
-        status: "active",
+        status: teacher.status || "active"
       });
     }
-  }, [teacher, open, form]);
+  }, [teacher, form]);
 
   const onSubmit = async (data: TeacherFormData) => {
     try {
       if (teacher) {
-        await updateTeacher({ teacherId: teacher.$id, teacherData: data });
-        toast({ title: "Success", description: "Teacher updated successfully" });
+        await updateTeacher({ teacherId: teacher.id, teacherData: data });
+        toast({ title: "Teacher updated successfully" });
       } else {
         await createTeacher(data);
-        toast({ title: "Success", description: "Teacher created successfully" });
+        toast({ title: "Teacher created successfully" });
       }
       onOpenChange(false);
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>{teacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle></DialogHeader>
+      <DialogContent className="w-full max-w-lg md:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{teacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle>
+        </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="employeeId" render={({ field }) => (<FormItem><FormLabel>Employee ID</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="firstName" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-              <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-            </div>
-            <FormField control={form.control} name="subjects" render={({ field }) => (
+            <FormField control={form.control} name="employeeId" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Employee ID</FormLabel>
+                <FormControl><Input {...field} className="w-full" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="firstName" render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Subjects</FormLabel>
-                    <MultiSelect
-                        options={subjectOptions}
-                        selected={field.value || []}
-                        onChange={field.onChange}
-                        className="w-full"
-                    />
-                    <FormMessage />
+                  <FormLabel className="block mb-1 sm:mb-0">First Name</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
                 </FormItem>
-            )}/>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <FormField control={form.control} name="qualification" render={({ field }) => (<FormItem><FormLabel>Qualification</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
-              <FormField control={form.control} name="experience" render={({ field }) => (<FormItem><FormLabel>Experience (years)</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+              )} />
+              <FormField control={form.control} name="lastName" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Last Name</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="email" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Email</FormLabel>
+                  <FormControl><Input type="email" {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Phone</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+            </div>
+            <FormField control={form.control} name="gender" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Gender</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue placeholder="Select gender" /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="subjects" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Subjects</FormLabel>
+                <MultiSelect
+                  options={subjectOptions}
+                  selected={field.value || []}
+                  onChange={field.onChange}
+                  className="w-full"
+                />
+                <FormMessage />
+              </FormItem>
+            )} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField control={form.control} name="qualification" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Qualification</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={form.control} name="experience" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Experience (years)</FormLabel>
+                  <FormControl><Input type="number" {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
             </div>
             <FormField control={form.control} name="status" render={({ field }) => (
-                <FormItem><FormLabel>Status</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                        <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem></SelectContent>
-                    </Select>
-                <FormMessage /></FormItem>
-            )}/>
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit">{teacher ? "Update Teacher" : "Create Teacher"}</Button>
+              <FormItem>
+                <FormLabel className="block mb-1 sm:mb-0">Status</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <div className="flex flex-col sm:flex-row justify-end gap-2">
+              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" className="w-full sm:w-auto">
+                {teacher ? "Update Teacher" : "Create Teacher"}
+              </Button>
             </div>
           </form>
         </Form>

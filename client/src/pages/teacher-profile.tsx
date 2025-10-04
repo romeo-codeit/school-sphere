@@ -23,7 +23,7 @@ export default function TeacherProfile() {
   const getStatusVariant = (status: string) => {
     switch (status) {
       case 'active':
-        return 'success';
+        return 'primary';
       case 'on-leave':
         return 'secondary';
       default:
@@ -49,7 +49,11 @@ export default function TeacherProfile() {
               <div className="ml-6">
                 <h1 className="text-2xl font-bold">{teacher.firstName} {teacher.lastName}</h1>
                 <p className="text-muted-foreground">Employee ID: {teacher.employeeId}</p>
-                <Badge variant={getStatusVariant(teacher.status)} className="mt-2">
+                <Badge 
+                  variant={getStatusVariant(teacher.status)} 
+                  className="mt-2"
+                  aria-label={`Teacher status: ${teacher.status}`}
+                >
                   {teacher.status}
                 </Badge>
               </div>
@@ -69,6 +73,10 @@ export default function TeacherProfile() {
             <div className="flex items-center space-x-3">
               <Phone className="w-5 h-5 text-muted-foreground" />
               <span className="text-sm">{teacher.phone || 'N/A'}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <User className="w-5 h-5 text-muted-foreground" />
+              <span className="text-sm">Gender: {teacher.gender ? teacher.gender.charAt(0).toUpperCase() + teacher.gender.slice(1) : 'N/A'}</span>
             </div>
             <div className="flex items-center space-x-3">
               <Book className="w-5 h-5 text-muted-foreground" />

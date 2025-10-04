@@ -1,5 +1,7 @@
 import { Client, Users, ID, Databases, Permission, Role, Query } from 'node-appwrite';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
@@ -68,16 +70,18 @@ const collections = [
       { id: 'classId', type: 'string', size: 255, required: false },
       { id: 'enrollmentDate', type: 'string', size: 255, required: false },
       { id: 'status', type: 'string', size: 50, required: false },
+      { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
   {
     id: 'notifications',
     name: 'Notifications',
     attributes: [
-        { id: 'userId', type: 'string', size: 255, required: true },
-        { id: 'message', type: 'string', size: 1024, required: true },
-        { id: 'isRead', type: 'boolean', required: true, default: false },
-        { id: 'link', type: 'string', size: 255, required: false },
+  { id: 'userId', type: 'string', size: 255, required: true },
+  { id: 'message', type: 'string', size: 1024, required: true },
+  { id: 'isRead', type: 'boolean', required: true, default: false },
+  { id: 'link', type: 'string', size: 255, required: false },
+  { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
   {
@@ -106,6 +110,7 @@ const collections = [
         { id: 'experience', type: 'integer', required: false },
         { id: 'status', type: 'string', size: 50, required: false },
         { id: 'classIds', type: 'string', size: 255, required: false, array: true },
+        { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
   {
@@ -115,12 +120,15 @@ const collections = [
         { id: 'title', type: 'string', size: 255, required: true },
         { id: 'type', type: 'string', size: 50, required: true },
         { id: 'subject', type: 'string', size: 255, required: true },
-        { id: 'questions', type: 'string', size: 1024, required: true },
+        { id: 'exam_year', type: 'string', size: 10, required: true },
+        { id: 'paper_type', type: 'string', size: 50, required: true },
+        { id: 'questions', type: 'string', size: 65535, required: true },
         { id: 'duration', type: 'integer', required: false },
         { id: 'totalMarks', type: 'integer', required: false },
         { id: 'passingMarks', type: 'integer', required: false },
         { id: 'createdBy', type: 'string', size: 255, required: false },
         { id: 'isActive', type: 'boolean', required: false },
+        { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
   {
@@ -277,8 +285,9 @@ const collections = [
     id: 'classes',
     name: 'Classes',
     attributes: [
-      { id: 'name', type: 'string', size: 255, required: true },
-      { id: 'description', type: 'string', size: 1024, required: false },
+  { id: 'name', type: 'string', size: 255, required: true },
+  { id: 'description', type: 'string', size: 1024, required: false },
+  { id: 'search', type: 'string', size: 1024, required: false },
       { id: 'teacherId', type: 'string', size: 255, required: false },
     ]
   },
@@ -296,6 +305,16 @@ const collections = [
     attributes: [
       { id: 'name', type: 'string', size: 255, required: true },
       { id: 'description', type: 'string', size: 1024, required: false },
+    ]
+  },
+  {
+    id: 'notices',
+    name: 'Notices',
+    attributes: [
+      { id: 'activity', type: 'string', size: 1024, required: true },
+      { id: 'date', type: 'string', size: 255, required: true },
+      { id: 'category', type: 'string', size: 255, required: false },
+      { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
 ];
@@ -427,6 +446,59 @@ async function seedDemoUsers() {
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+async function seedExamsOnly() {
+    console.log('Seeding exams only...');
+
+    // Get teacher user ID (assuming it exists)
+    const teacherUserList = await users.list({ search: 'teacher@example.com' });
+    if (teacherUserList.total === 0) {
+        console.error("Could not find teacher user. Aborting exam seeding.");
+        return;
+    }
+    const teacherUserId = teacherUserList.users[0].$id;
+
+    const dbId = APPWRITE_DATABASE_ID!;
+
+    // Seed exams
+    const examsCollection = await databases.listDocuments(dbId, 'exams');
+    if (examsCollection.total > 0) {
+      console.log('Emptying exams collection...');
+      for (const exam of examsCollection.documents) {
+        await databases.deleteDocument(dbId, 'exams', exam.$id);
+      }
+      console.log('Exams collection emptied.');
+    }
+
+    console.log('Seeding exams from JSON files...');
+    const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
+    const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
+    for (const file of files) {
+      const filePath = path.join(assetsPath, file);
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      const parts = file.replace('.json', '').split('_');
+      const exam_type = parts[0];
+      const subject = parts.slice(1, -2).join('_');
+      const exam_year = parts[parts.length - 2];
+      const paper_type = parts[parts.length - 1];
+      const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
+      const exam = {
+        title,
+        type: exam_type.toLowerCase(),
+        subject: subject.replace(/_/g, ' '),
+        exam_year,
+        paper_type,
+        questions: JSON.stringify(data),
+        duration: 60,
+        createdBy: teacherUserId,
+        isActive: true,
+      };
+      const search = [exam.title, exam.type, exam.subject, exam.exam_year, exam.paper_type].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      await delay(10);
+    }
+    console.log('Exams seeded.');
+}
+
 async function seedDemoData() {
     console.log('Seeding demo data...');
 
@@ -459,60 +531,83 @@ async function seedDemoData() {
         console.log('Classes seeded.');
     }
   const seededClasses = await databases.listDocuments(dbId, 'classes');
-    const class1Id = seededClasses.documents[0].$id;
-    const class2Id = seededClasses.documents[1].$id;
+  const class1Id = seededClasses.documents[0].$id;
+  const class2Id = seededClasses.documents[1].$id;
 
     // Seed students
   const studentsCollection = await databases.listDocuments(dbId, 'students');
     if (studentsCollection.total === 0) {
-        console.log('Seeding students...');
-        const studentData = [
-            { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active', gender: 'male' },
-            { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active', gender: 'female' },
-            { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active', gender: 'male' },
-            { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active', gender: 'female' },
-            { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active', gender: 'male' },
-        ];
-        for (const student of studentData) {
-            await databases.createDocument(dbId, 'students', ID.unique(), student);
-            await delay(100);
-        }
-        console.log('Students seeded.');
+    console.log('Seeding students...');
+    const studentData = [
+      { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active', gender: 'male' },
+      { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active', gender: 'female' },
+      { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active', gender: 'male' },
+      { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active', gender: 'female' },
+      { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active', gender: 'male' },
+    ];
+    for (const student of studentData) {
+      const search = [student.firstName, student.lastName, student.email, student.studentId, student.classId, student.status, student.gender].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
+      await delay(100);
+    }
+    console.log('Students seeded.');
     }
 
     // Seed teachers
   const teachersCollection = await databases.listDocuments(dbId, 'teachers');
     if (teachersCollection.total === 0) {
-        console.log('Seeding teachers...');
-        const teacherData = [
-            { userId: teacherUserId, employeeId: 'T001', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', subjects: ['Mathematics', 'Physics'], status: 'active', classIds: [class1Id, class2Id] },
-            { userId: ID.unique(), employeeId: 'T002', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', subjects: ['English', 'History'], status: 'active', classIds: [] },
-            { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active', classIds: [] },
-        ];
-        for (const teacher of teacherData) {
-            await databases.createDocument(dbId, 'teachers', ID.unique(), teacher);
-            await delay(100);
-        }
-        console.log('Teachers seeded.');
+    console.log('Seeding teachers...');
+    const teacherData = [
+      { userId: teacherUserId, employeeId: 'T001', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
+      { userId: ID.unique(), employeeId: 'T002', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', subjects: ['English', 'History'], status: 'active', gender: 'female', classIds: [] },
+      { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active', gender: 'male', classIds: [] },
+    ];
+    for (const teacher of teacherData) {
+      const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'teachers', ID.unique(), { ...teacher, search });
+      await delay(100);
+    }
+    console.log('Teachers seeded.');
     }
 
     // Seed exams
   const examsCollection = await databases.listDocuments(dbId, 'exams');
-    if (examsCollection.total === 0) {
-        console.log('Seeding exams...');
-        const examData = [
-            { title: 'JAMB Practice Test', type: 'jamb', subject: 'Mathematics', questions: JSON.stringify([{ "question": "What is 2+2?", "options": ["3", "4", "5"], "answer": "4" }]), duration: 60, createdBy: teacherUserId, isActive: true },
-            { title: 'WAEC Practice Test', type: 'waec', subject: 'English', questions: JSON.stringify([{ "question": "What is a noun?", "options": ["Person, place, or thing", "An action word", "A describing word"], "answer": "Person, place, or thing" }]), duration: 60, createdBy: teacherUserId, isActive: true },
-            { title: 'NECO Practice Test', type: 'neco', subject: 'Biology', questions: JSON.stringify([{ "question": "What is photosynthesis?", "options": ["The process of making food in plants", "The process of respiration", "The process of digestion"], "answer": "The process of making food in plants" }]), duration: 60, createdBy: teacherUserId, isActive: true },
-            { title: 'Internal Physics Test', type: 'internal', subject: 'Physics', questions: JSON.stringify([{ "question": "What is the formula for force?", "options": ["m*a", "m/a", "m+a"], "answer": "m*a" }]), duration: 30, createdBy: teacherUserId, isActive: true },
-            { title: 'Internal Chemistry Test', type: 'internal', subject: 'Chemistry', questions: JSON.stringify([{ "question": "What is the chemical symbol for water?", "options": ["H2O", "CO2", "O2"], "answer": "H2O" }]), duration: 30, createdBy: teacherUserId, isActive: true },
-        ];
-        for (const exam of examData) {
-            await databases.createDocument(dbId, 'exams', ID.unique(), exam);
-            await delay(100);
-        }
-        console.log('Exams seeded.');
+    if (examsCollection.total > 0) {
+      console.log('Emptying exams collection...');
+      for (const exam of examsCollection.documents) {
+        await databases.deleteDocument(dbId, 'exams', exam.$id);
+        await delay(10);
+      }
+      console.log('Exams collection emptied.');
     }
+    console.log('Seeding exams from JSON files...');
+    const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
+    const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
+    for (const file of files) {
+      const filePath = path.join(assetsPath, file);
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+      const parts = file.replace('.json', '').split('_');
+      const exam_type = parts[0];
+      const subject = parts.slice(1, -2).join('_');
+      const exam_year = parts[parts.length - 2];
+      const paper_type = parts[parts.length - 1];
+      const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
+      const exam = {
+        title,
+        type: exam_type.toLowerCase(),
+        subject: subject.replace(/_/g, ' '),
+        exam_year,
+        paper_type,
+        questions: JSON.stringify(data),
+        duration: 60,
+        createdBy: teacherUserId,
+        isActive: true,
+      };
+      const search = [exam.title, exam.type, exam.subject, exam.exam_year, exam.paper_type].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      await delay(10);
+    }
+    console.log('Exams seeded.');
 
   const seededStudents = await databases.listDocuments(dbId, 'students');
   const seededExams = await databases.listDocuments(dbId, 'exams');
@@ -612,7 +707,7 @@ async function seedDemoData() {
 
     // Seed grades
   const gradesCollection = await databases.listDocuments(dbId, 'grades');
-    if (gradesCollection.total === 0 && seededStudents.total > 0 && seededExams.total > 0 && seededTeachers.total > 0) {
+  if (gradesCollection.total === 0 && seededStudents.total > 0 && seededExams.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding grades...');
         const teacherId = seededTeachers.documents[0].$id;
         for (const student of seededStudents.documents) {
@@ -648,7 +743,8 @@ async function seedDemoData() {
       { name: 'History', description: 'History for arts students' },
     ];
     for (const subject of subjectData) {
-  await databases.createDocument(dbId, 'subjects', ID.unique(), subject);
+      const search = [subject.name, subject.description].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'subjects', ID.unique(), { ...subject, search });
       await delay(100);
     }
     console.log('Subjects seeded.');
@@ -693,7 +789,7 @@ async function seedDemoData() {
 
     // Seed forum threads
   const forumThreadsCollection = await databases.listDocuments(dbId, 'forumThreads');
-    if (forumThreadsCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
+  if (forumThreadsCollection.total === 0 && seededStudents.total > 0 && seededTeachers.total > 0) {
         console.log('Seeding forum threads...');
         const studentId = seededStudents.documents[0].$id;
         const teacherId = seededTeachers.documents[0].$id;
@@ -715,7 +811,7 @@ async function seedDemoData() {
 
     // Seed activities
   const activitiesCollection = await databases.listDocuments(dbId, 'activities');
-    if (activitiesCollection.total === 0) {
+  if (activitiesCollection.total === 0) {
         console.log('Seeding activities...');
         const activityData = [
             { activity: "New student registration completed", date: new Date().toISOString(), type: 'new_student' },
@@ -734,10 +830,11 @@ async function seedDemoData() {
 }
 
 async function main() {
+  console.log('Starting exam-only seeding...');
   await createDatabaseIfNotExists();
-  await seedCollections();
-  await seedDemoUsers();
-  await seedDemoData();
+  // Skip seedCollections() since collections already exist
+  // await seedCollections();
+  await seedExamsOnly();
 }
 
 main();

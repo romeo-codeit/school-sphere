@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 // --- FORUM COMPONENTS ---
 
@@ -23,6 +24,7 @@ function EditPostDialog({ post, onUpdate }: { post: any, onUpdate: () => void })
     const [open, setOpen] = useState(false);
     const [content, setContent] = useState(post.content);
     const { updatePost } = useForum();
+    const { toast } = useToast();
 
     const handleUpdate = async () => {
         if (!content) return;
@@ -57,6 +59,7 @@ function PostItem({ post, isReply = false }: { post: any, isReply?: boolean }) {
     const { refetch } = useReplies(post.parentThreadId);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const author = useMemo(() => users?.find(u => u.$id === post.createdBy), [users, post.createdBy]);
+    const { toast } = useToast();
 
     const handleDelete = async () => {
         try {
@@ -160,6 +163,7 @@ function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: 
     const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
     const { createConversation } = useChat("");
     const { user: currentUser } = useAuth();
+    const { toast } = useToast();
 
     const handleSelectUser = (user: any) => {
         setSelectedUsers(prev => prev.some(su => su.$id === user.$id) ? prev.filter(su => su.$id !== user.$id) : [...prev, user]);
@@ -217,25 +221,44 @@ function ConversationList({ onSelect, selectedConversationId }: { onSelect: (id:
     };
 
     return (
-        <div className="flex flex-col h-full"><div className="p-4 border-b"><h2 className="text-xl font-bold">Chats</h2></div>
-            <div className="flex-1 overflow-y-auto">{isLoading ? <p className="p-4">Loading...</p> :
-                conversations?.map(conv => (
-                <div key={conv.$id} onClick={() => onSelect(conv.$id)} className={cn("p-4 border-b cursor-pointer hover:bg-muted/50", selectedConversationId === conv.$id && "bg-accent")}>
-                    <p className="font-semibold">{getConversationName(conv)}</p>
-                    <p className="text-sm text-muted-foreground truncate">{conv.lastMessage || "No messages yet."}</p>
-                </div>))}
+        <div className="flex flex-col h-full">
+            <div className="p-4 border-b">
+                <h2 className="text-xl font-bold">Chats</h2>
             </div>
-            <div className="p-4 border-t"><NewChatDialog onConversationCreated={onSelect} /></div>
+            <div className="flex-1 overflow-y-auto">
+                {isLoading ? <p className="p-4">Loading...</p> :
+                 conversations?.map(conv => (
+                    <div key={conv.$id} onClick={() => onSelect(conv.$id)} className={cn("p-4 border-b cursor-pointer hover:bg-muted/50", selectedConversationId === conv.$id && "bg-accent")}>
+                        <p className="font-semibold">{getConversationName(conv)}</p>
+                        <p className="text-sm text-muted-foreground truncate">{conv.lastMessage || "No messages yet."}</p>
+                    </div>
+                ))}
+            </div>
+            <div className="p-4 border-t">
+                <NewChatDialog onConversationCreated={onSelect} />
+            </div>
         </div>
     );
 }
 
-function ChatPanel({ conversationId }: { conversationId: string | null }) {
+function ChatPanel({ conversationId, onBack }: { conversationId: string | null, onBack?: () => void }) {
+    const { conversations } = useConversations();
     const { messages, isLoadingMessages, sendMessage } = useChat(conversationId!);
     const { user } = useAuth();
     const { users } = useUsers();
     const [message, setMessage] = useState("");
     const messagesEndRef = useRef<HTMLDivElement>(null);
+    const isMobile = useIsMobile();
+
+    const conversation = useMemo(() => conversations?.find(c => c.$id === conversationId), [conversations, conversationId]);
+
+    const getConversationName = (conv: any) => {
+        if (!conv) return "Chat";
+        if (conv.isGroup) return conv.name;
+        const otherMemberId = conv.members.find((id: string) => id !== user?.$id);
+        const otherUser = users?.find(u => u.userId === otherMemberId);
+        return otherUser ? `${otherUser.firstName} ${otherUser.lastName}` : "Unknown User";
+    };
 
     useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -247,58 +270,103 @@ function ChatPanel({ conversationId }: { conversationId: string | null }) {
 
     const getUserDetails = (senderId: string) => users?.find(u => u.userId === senderId);
 
-    if (!conversationId) return <div className="flex items-center justify-center h-full text-muted-foreground">Select a conversation to start chatting.</div>
+    if (!conversationId) {
+        return (
+            <div className="hidden md:flex items-center justify-center h-full text-muted-foreground">
+                Select a conversation to start chatting.
+            </div>
+        );
+    }
 
     return (
         <Card className="h-full flex flex-col">
-            <CardHeader><CardTitle>Messages</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
+                <div className="flex items-center space-x-4">
+                    {isMobile && onBack && (
+                        <Button variant="ghost" size="icon" onClick={onBack}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                    )}
+                    <CardTitle>{getConversationName(conversation)}</CardTitle>
+                </div>
+            </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
                 {isLoadingMessages ? <p>Loading...</p> :
                  messages?.map((msg: any) => {
                     const sender = getUserDetails(msg.senderId);
+                    const isCurrentUser = msg.senderId === user?.$id;
                     return (
-                        <div key={msg.$id} className="flex items-start space-x-3">
-                            <Avatar><AvatarImage src={sender?.avatarUrl} /><AvatarFallback>{sender?.firstName?.[0] || 'U'}</AvatarFallback></Avatar>
-                            <div>
-                                <p className="font-bold">{sender?.firstName ? `${sender.firstName} ${sender.lastName}` : 'Unknown User'}</p>
-                                <p className="text-sm bg-muted p-2 rounded-lg">{msg.content}</p>
+                        <div key={msg.$id} className={cn("flex items-end space-x-3", isCurrentUser && "justify-end")}>
+                            {!isCurrentUser && (
+                                <Avatar className="w-8 h-8"><AvatarImage src={sender?.avatarUrl} /><AvatarFallback>{sender?.firstName?.[0] || 'U'}</AvatarFallback></Avatar>
+                            )}
+                            <div className={cn("max-w-xs lg:max-w-md p-3 rounded-lg", isCurrentUser ? "bg-primary text-primary-foreground" : "bg-muted")}>
+                                {!isCurrentUser && <p className="font-bold text-sm mb-1">{sender?.firstName ? `${sender.firstName} ${sender.lastName}` : 'Unknown User'}</p>}
+                                <p className="text-sm">{msg.content}</p>
+                                <p className="text-xs text-right mt-1 opacity-70">{formatDistanceToNow(new Date(msg.$createdAt), { addSuffix: true })}</p>
                             </div>
+                             {isCurrentUser && (
+                                <Avatar className="w-8 h-8"><AvatarImage src={sender?.avatarUrl} /><AvatarFallback>{sender?.firstName?.[0] || 'U'}</AvatarFallback></Avatar>
+                            )}
                         </div>
                     );
                  })}
                  <div ref={messagesEndRef} />
             </CardContent>
-            <div className="p-4 border-t"><div className="flex space-x-2">
-                <Input value={message} onChange={e => setMessage(e.target.value)} placeholder="Type a message..." onKeyDown={e => e.key === 'Enter' && handleSend()} />
-                <Button onClick={handleSend}><Send className="w-4 h-4" /></Button>
-            </div></div>
+            <div className="p-4 border-t">
+                <div className="flex space-x-2">
+                    <Input value={message} onChange={e => setMessage(e.target.value)} placeholder="Type a message..." onKeyDown={e => e.key === 'Enter' && handleSend()} />
+                    <Button onClick={handleSend} disabled={!message}><Send className="w-4 h-4" /></Button>
+                </div>
+            </div>
         </Card>
     );
 }
+
 
 // --- MAIN COMPONENT ---
 
 export default function Communications() {
   const [selectedThread, setSelectedThread] = useState<any | null>(null);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
-  return (
-    <div className="space-y-6">
-      <TopNav title="Communications" subtitle="Engage in forum discussions and private chats" showGoBackButton={true} />
-      <div className="p-6">
-        <Tabs defaultValue="chat">
-          <TabsList><TabsTrigger value="forum"><MessageSquare className="w-4 h-4 mr-2" />Forum</TabsTrigger><TabsTrigger value="chat"><Send className="w-4 h-4 mr-2" />Chat</TabsTrigger></TabsList>
-          <TabsContent value="forum" className="mt-6">
-            {selectedThread ? <ThreadView thread={selectedThread} onBack={() => setSelectedThread(null)} /> : <ForumList onSelectThread={setSelectedThread} />}
-          </TabsContent>
-          <TabsContent value="chat" className="mt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[80vh]">
-                <div className="md:col-span-1 lg:col-span-1 border rounded-lg"><ConversationList onSelect={setSelectedConversationId} selectedConversationId={selectedConversationId} /></div>
-                <div className="md:col-span-2 lg:col-span-3"><ChatPanel conversationId={selectedConversationId} /></div>
+    return (
+        <div className="space-y-6">
+            <TopNav title="Communications" subtitle="Engage in forum discussions and private chats" showGoBackButton={true} />
+            <div className="px-4 sm:px-6 lg:px-8 py-4">
+                <Tabs defaultValue="forum">
+                    <TabsList>
+                        <TabsTrigger value="forum">Forum</TabsTrigger>
+                        <TabsTrigger value="chat">Chat</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="forum" className="mt-4">
+                        <div className="w-full mx-auto">
+                            {selectedThread ? <ThreadView thread={selectedThread} onBack={() => setSelectedThread(null)} /> : <ForumList onSelectThread={setSelectedThread} />}
+                        </div>
+                    </TabsContent>
+                    <TabsContent value="chat" className="mt-4">
+                        {isMobile ? (
+                            <div className="h-[calc(100vh-200px)]">
+                                {selectedConversationId ? (
+                                    <ChatPanel conversationId={selectedConversationId} onBack={() => setSelectedConversationId(null)} />
+                                ) : (
+                                    <ConversationList onSelect={setSelectedConversationId} selectedConversationId={selectedConversationId} />
+                                )}
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 h-[calc(100vh-220px)]">
+                                <div className="md:col-span-1 lg:col-span-1 border rounded-lg overflow-hidden">
+                                    <ConversationList onSelect={setSelectedConversationId} selectedConversationId={selectedConversationId} />
+                                </div>
+                                <div className="md:col-span-2 lg:col-span-3">
+                                    <ChatPanel conversationId={selectedConversationId} />
+                                </div>
+                            </div>
+                        )}
+                    </TabsContent>
+                </Tabs>
             </div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    </div>
-  );
+        </div>
+    );
 }

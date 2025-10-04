@@ -1,19 +1,17 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { databases } from "@/lib/appwrite";
-import { NoticeBoard } from "@/components/notice-board";
-import { Megaphone, Rss, Mic, FileText } from "lucide-react";
-import { BookOpen } from "lucide-react";
+import { Megaphone, Calendar as CalendarIcon, FileText, Bell, Search, Clock, Tag } from "lucide-react";
 import { useState, useEffect } from "react";
-// Removed duplicate import of useState
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "lucide-react";
 import { TopNav } from "@/components/top-nav";
-import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 export default function NoticesPage() {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useQuery({
     queryKey: ["allNotices"],
     queryFn: async () => {
@@ -30,122 +28,258 @@ export default function NoticesPage() {
     if (data) setNotices(data);
   }, [data]);
 
-  const handleCreateNotice = () => {
-    // For demo, just add to local state. In production, call backend API.
-    setNotices([
-      ...notices,
-      { $id: Math.random().toString(), ...newNotice }
-    ]);
-    setShowModal(false);
-    setNewNotice({ activity: "", date: "", category: "General" });
+  const handleCreateNotice = async () => {
+    try {
+      await databases.createDocument(DATABASE_ID, "notices", "unique()", {
+        activity: newNotice.activity,
+        date: newNotice.date,
+        category: newNotice.category,
+      });
+      // Refetch notices
+      queryClient.invalidateQueries({ queryKey: ["allNotices"] });
+      setShowModal(false);
+      setNewNotice({ activity: "", date: "", category: "General" });
+    } catch (error) {
+      console.error("Error creating notice:", error);
+      // You might want to show an error toast here
+    }
   };
 
   const [search, setSearch] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
-  const getIconForActivity = (activity: string) => {
-    if (!activity) return FileText;
-    if (activity.toLowerCase().includes('exam')) return BookOpen;
-    if (activity.toLowerCase().includes('payment')) return Rss;
-    if (activity.toLowerCase().includes('announcement')) return Mic;
-    return FileText;
+  const categories = ["All", "General", "Exam", "Payment", "Announcement", "Event", "Holiday"];
+
+  const getCategoryColor = (category: string) => {
+    const colors: Record<string, string> = {
+      General: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
+      Exam: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+      Payment: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+      Announcement: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300",
+      Event: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300",
+      Holiday: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-300",
+    };
+    return colors[category] || "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300";
   };
 
-  // Filter notices by search and date range
+  const getCategoryIcon = (category: string) => {
+    const icons: Record<string, any> = {
+      General: FileText,
+      Exam: FileText,
+      Payment: FileText,
+      Announcement: Megaphone,
+      Event: CalendarIcon,
+      Holiday: CalendarIcon,
+    };
+    return icons[category] || FileText;
+  };
+
+  // Filter notices by search and category
   const filtered = (notices || []).filter((notice: any) => {
     const matchesSearch = notice.activity.toLowerCase().includes(search.toLowerCase());
-    const noticeDate = new Date(notice.date);
-    const matchesStart = startDate ? noticeDate >= new Date(startDate) : true;
-    const matchesEnd = endDate ? noticeDate <= new Date(endDate) : true;
-    return matchesSearch && matchesStart && matchesEnd;
+    const matchesCategory = selectedCategory === "All" || notice.category === selectedCategory;
+    return matchesSearch && matchesCategory;
   });
 
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - date.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) return "Today";
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return `${diffDays} days ago`;
+    
+    return date.toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
   return (
-    <div className="min-h-screen bg-background">
-      <TopNav title="All Notices" subtitle="School-wide announcements and updates" showGoBackButton />
-      <div className="px-4 py-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-primary flex items-center gap-2">
-            <Megaphone className="w-6 h-6 text-primary" /> All Notices
-          </h2>
-          <Button onClick={() => setShowModal(true)}>
-            <Megaphone className="w-4 h-4 mr-2" /> Create Notice
-          </Button>
-        </div>
-        <div className="flex flex-col md:flex-row gap-2 mb-6">
-          <Input
-            type="text"
-            placeholder="Search notices..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="md:w-1/3"
-          />
-          <div className="flex gap-2">
-            <label className="flex items-center gap-1 text-sm">
-              <Calendar className="w-4 h-4 text-primary" /> From
-              <Input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="w-32" />
-            </label>
-            <label className="flex items-center gap-1 text-sm">
-              <Calendar className="w-4 h-4 text-primary" /> To
-              <Input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-32" />
-            </label>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+      <TopNav title="Notice Board" subtitle="Stay updated with school announcements and events" showGoBackButton />
+      
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
+        {/* Search and Filter Section */}
+        <div className="mb-6 space-y-4">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+              <Input
+                type="text"
+                placeholder="Search notices..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-10 h-12"
+              />
+            </div>
+            <Button onClick={() => setShowModal(true)} className="h-12 px-6">
+              <Megaphone className="w-5 h-5 mr-2" />
+              Post Notice
+            </Button>
+          </div>
+
+          {/* Category Filter Pills */}
+          <div className="flex flex-wrap gap-2">
+            {categories.map((category) => (
+              <button
+                key={category}
+                onClick={() => setSelectedCategory(category)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  selectedCategory === category
+                    ? "bg-primary text-primary-foreground shadow-md scale-105"
+                    : "bg-card hover:bg-accent text-muted-foreground hover:text-foreground border"
+                }`}
+              >
+                {category}
+              </button>
+            ))}
           </div>
         </div>
+
+        {/* Modal for Creating Notice */}
         {showModal && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-bold mb-4">Create Notice</h3>
-              <Input className="mb-2" placeholder="Notice text" value={newNotice.activity} onChange={e => setNewNotice({ ...newNotice, activity: e.target.value })} />
-              <Input className="mb-2" type="date" value={newNotice.date} onChange={e => setNewNotice({ ...newNotice, date: e.target.value })} />
-              <select className="mb-4 w-full p-2 border rounded" value={newNotice.category} onChange={e => setNewNotice({ ...newNotice, category: e.target.value })}>
-                <option value="General">General</option>
-                <option value="Exam">Exam</option>
-                <option value="Payment">Payment</option>
-                <option value="Announcement">Announcement</option>
-              </select>
-              <div className="flex gap-2 justify-end">
-                <Button onClick={handleCreateNotice}>
-                  <Megaphone className="w-4 h-4 mr-2" /> Create
-                </Button>
-                <Button variant="secondary" onClick={() => setShowModal(false)}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <Card className="w-full max-w-lg">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-primary" />
+                  Post New Notice
+                </CardTitle>
+                <CardDescription>Share important information with everyone</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Notice Content</label>
+                  <textarea
+                    className="w-full p-3 border rounded-lg min-h-[120px] focus:ring-2 focus:ring-primary"
+                    placeholder="Write your notice here..."
+                    value={newNotice.activity}
+                    onChange={e => setNewNotice({ ...newNotice, activity: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Date</label>
+                  <Input
+                    type="date"
+                    value={newNotice.date}
+                    onChange={e => setNewNotice({ ...newNotice, date: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Category</label>
+                  <select
+                    className="w-full p-2 border rounded-lg focus:ring-2 focus:ring-primary"
+                    value={newNotice.category}
+                    onChange={e => setNewNotice({ ...newNotice, category: e.target.value })}
+                  >
+                    {categories.filter(c => c !== "All").map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2 justify-end pt-4">
+                  <Button variant="outline" onClick={() => setShowModal(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleCreateNotice}>
+                    <Megaphone className="w-4 h-4 mr-2" />
+                    Post Notice
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
+
+        {/* Content Section */}
         {isLoading ? (
-          <div className="flex flex-col items-center py-12 text-muted-foreground">
-            <BookOpen className="w-10 h-10 mb-2 animate-pulse text-primary" />
-            <span>Loading notices...</span>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader className="space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-3 bg-muted rounded w-1/2"></div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="h-3 bg-muted rounded"></div>
+                    <div className="h-3 bg-muted rounded w-5/6"></div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : error ? (
-          <p className="text-destructive">Error loading notices</p>
-        ) : (
-          <ul className="space-y-4">
-            {filtered.length === 0 && (
-              <div className="flex flex-col items-center py-12 text-muted-foreground">
-                <BookOpen className="w-10 h-10 mb-2 text-primary" />
-                <span>No notices found</span>
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="p-4 bg-destructive/10 rounded-full mb-4">
+                  <FileText className="w-12 h-12 text-destructive" />
+                </div>
+                <h3 className="text-lg font-semibold text-destructive mb-2">Error Loading Notices</h3>
+                <p className="text-muted-foreground">Unable to fetch notices. Please try again later.</p>
               </div>
-            )}
+            </CardContent>
+          </Card>
+        ) : filtered.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <div className="p-4 bg-muted rounded-full mb-4">
+                  <Bell className="w-12 h-12 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">No Notices Found</h3>
+                <p className="text-muted-foreground">
+                  {search || selectedCategory !== "All" 
+                    ? "Try adjusting your filters" 
+                    : "No notices have been posted yet"}
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filtered.map((notice: any) => {
-              const Icon = getIconForActivity(notice.activity);
+              const CategoryIcon = getCategoryIcon(notice.category);
               return (
-                <li key={notice.$id} className="flex items-center space-x-4 p-4 bg-card rounded-lg shadow-sm border-l-4 border-primary">
-                  <div className="p-2 bg-primary/10 rounded-lg">
-                    <Icon className="w-5 h-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-foreground text-base">{notice.activity}</p>
-                    <span className="inline-block px-2 py-1 rounded text-xs font-semibold mr-2 bg-primary/10 text-primary">{notice.category}</span>
-                    <p className="text-xs text-muted-foreground mt-1">{new Date(notice.date).toLocaleString()}</p>
-                  </div>
-                </li>
+                <Card 
+                  key={notice.$id} 
+                  className="group hover:shadow-lg transition-all duration-300 hover:-translate-y-1 cursor-pointer border-l-4 border-l-primary"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <Badge className={getCategoryColor(notice.category)}>
+                        <CategoryIcon className="w-3 h-3 mr-1" />
+                        {notice.category}
+                      </Badge>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {formatDate(notice.date)}
+                      </div>
+                    </div>
+                    <CardTitle className="text-lg leading-tight group-hover:text-primary transition-colors">
+                      {notice.activity}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <CalendarIcon className="w-4 h-4" />
+                      {new Date(notice.date).toLocaleDateString('en-US', { 
+                        weekday: 'short',
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
               );
             })}
-          </ul>
+          </div>
         )}
       </div>
     </div>

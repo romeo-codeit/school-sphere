@@ -5,15 +5,15 @@ import { usePayments } from './usePayments';
 import { useAttendance } from './useAttendance';
 
 export function useDashboard() {
-  const { students, isLoading: isLoadingStudents } = useStudents();
-  const { teachers, isLoading: isLoadingTeachers } = useTeachers();
+  const { students, total: totalStudents, isLoading: isLoadingStudents } = useStudents({ limit: 1000 });
+  const { teachers, total: totalTeachers, isLoading: isLoadingTeachers } = useTeachers({ limit: 1000 });
   const { payments, isLoading: isLoadingPayments } = usePayments();
   const { attendance, isLoading: isLoadingAttendance } = useAttendance();
 
   const isLoading = isLoadingStudents || isLoadingTeachers || isLoadingPayments || isLoadingAttendance;
 
   const stats = {
-    totalStudents: students?.length || 0,
+    totalStudents: totalStudents || 0,
     activeTeachers: teachers?.filter((t: any) => t.status === 'active').length || 0,
     pendingPayments: payments?.filter((p: any) => p.status === 'pending').length || 0,
     averageAttendance: 0,
