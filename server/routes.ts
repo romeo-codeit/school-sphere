@@ -218,7 +218,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset += result.documents.length;
       } while (allExams.length < total);
 
-      console.log('Total exams returned:', allExams.length);
       res.json(allExams);
     } catch (error) {
       console.error(error);
