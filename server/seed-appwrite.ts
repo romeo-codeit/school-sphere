@@ -457,89 +457,111 @@ async function seedDemoUsers() {
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function seedExamsOnly() {
-    console.log('Seeding exams only...');
+  console.log('Seeding exams only...');
 
-    // Get teacher user ID (assuming it exists)
-    const teacherUserList = await users.list({ search: 'teacher@example.com' });
-    if (teacherUserList.total === 0) {
-        console.error("Could not find teacher user. Aborting exam seeding.");
-        return;
-    }
-    const teacherUserId = teacherUserList.users[0].$id;
+  const dbId = APPWRITE_DATABASE_ID!;
 
-    const dbId = APPWRITE_DATABASE_ID!;
-
-    // Empty exams collection
-    const examsCollection = await databases.listDocuments(dbId, 'exams');
-    if (examsCollection.total > 0) {
-      console.log('Emptying exams collection...');
-      for (const exam of examsCollection.documents) {
-        await databases.deleteDocument(dbId, 'exams', exam.$id);
+  // Delete and recreate 'exams' and 'questions' collections
+  const collectionsToReset = ['exams', 'questions'];
+  for (const colId of collectionsToReset) {
+    try {
+      await databases.deleteCollection(dbId, colId);
+      console.log(`Deleted collection: ${colId}`);
+    } catch (err: any) {
+      if (err.code !== 404) {
+        console.error(`Error deleting collection ${colId}:`, err);
       }
-      console.log('Exams collection emptied.');
+    }
+  }
+
+  // Recreate collections with correct attributes
+  for (const collection of collections.filter(c => collectionsToReset.includes(c.id))) {
+    try {
+      await databases.createCollection(dbId, collection.id, collection.name, [
+        Permission.read(Role.any()),
+        Permission.create(Role.users()),
+        Permission.update(Role.users()),
+        Permission.delete(Role.users()),
+      ]);
+      for (const attr of collection.attributes) {
+        switch (attr.type) {
+          case 'string':
+            await databases.createStringAttribute(dbId, collection.id, attr.id, attr.size || 255, attr.required, undefined, attr.array);
+            break;
+          case 'integer':
+            // @ts-ignore
+            await databases.createIntegerAttribute(dbId, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            break;
+          case 'float':
+            // @ts-ignore
+            await databases.createFloatAttribute(dbId, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            break;
+          case 'boolean':
+            await databases.createBooleanAttribute(dbId, collection.id, attr.id, attr.required, undefined, attr.array);
+            break;
+        }
+      }
+      console.log(`Recreated collection: ${collection.id}`);
+    } catch (err) {
+      console.error(`Error recreating collection ${collection.id}:`, err);
+    }
+  }
+
+  // Wait for attributes to be ready
+  await delay(3000);
+
+  // Seeding logic
+  console.log('Seeding exams from JSON files...');
+  const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
+  const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
+  for (const file of files) {
+    const filePath = path.join(assetsPath, file);
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const parts = file.replace('.json', '').split('_');
+    const exam_type = parts[0];
+    const subject = parts.slice(1, -2).join('_');
+    const exam_year = parts[parts.length - 2];
+    const paper_type = parts[parts.length - 1];
+
+    // Validation
+    if (!exam_year || !exam_type || !subject || !paper_type) {
+      console.log(`Skipping file ${file}: invalid parsing - type: ${exam_type}, subject: ${subject}, year: ${exam_year}, paper_type: ${paper_type}`);
+      continue;
     }
 
-    // Empty questions collection
-    const questionsCollection = await databases.listDocuments(dbId, 'questions');
-    if (questionsCollection.total > 0) {
-      console.log('Emptying questions collection...');
-      for (const question of questionsCollection.documents) {
-        await databases.deleteDocument(dbId, 'questions', question.$id);
-      }
-      console.log('Questions collection emptied.');
-    }
+    const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
+    const exam = {
+      title,
+      type: exam_type.toLowerCase(),
+      subject: subject.replace(/_/g, ' '),
+      year: exam_year,
+      paper_type,
+    };
+    const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
+    const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+    console.log(`Created exam: ${title}`);
 
-    console.log('Seeding exams from JSON files...');
-    const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
-    const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
-    for (const file of files) {
-      const filePath = path.join(assetsPath, file);
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      const parts = file.replace('.json', '').split('_');
-      const exam_type = parts[0];
-      const subject = parts.slice(1, -2).join('_');
-      const exam_year = parts[parts.length - 2];
-      const paper_type = parts[parts.length - 1];
-      
-      // Validation
-      if (!exam_year || !exam_type || !subject || !paper_type) {
-        console.log(`Skipping file ${file}: invalid parsing - type: ${exam_type}, subject: ${subject}, year: ${exam_year}, paper_type: ${paper_type}`);
-        continue;
-      }
-      
-      const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
-      const exam = {
-        title,
-        type: exam_type.toLowerCase(),
-        subject: subject.replace(/_/g, ' '),
-        year: exam_year,
-        paper_type,
+    // Seed questions
+    for (let i = 0; i < data.length; i++) {
+      const q = data[i];
+      const question = {
+        examId: examDoc.$id,
+        questionNumber: parseInt(q.number) || (i + 1),
+        questionText: q.text,
+        options: Object.values(q.options || {}),
+        correctAnswer: q.correct_answer,
+        explanation: q.explanation,
+        imageUrl: q.image,
+        answerUrl: q.answer_url,
+        section: q.section,
+        instructions: q.instructions,
       };
-      const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
-      const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
-      console.log(`Created exam: ${title}`);
-
-      // Seed questions
-      for (let i = 0; i < data.length; i++) {
-        const q = data[i];
-        const question = {
-          examId: examDoc.$id,
-          questionNumber: parseInt(q.number) || (i + 1),
-          questionText: q.text,
-          options: Object.values(q.options || {}),
-          correctAnswer: q.correct_answer,
-          explanation: q.explanation,
-          imageUrl: q.image,
-          answerUrl: q.answer_url,
-          section: q.section,
-          instructions: q.instructions,
-        };
-        await databases.createDocument(dbId, 'questions', ID.unique(), question);
-      }
-      console.log(`Seeded ${data.length} questions for ${title}`);
-      await delay(10);
+      await databases.createDocument(dbId, 'questions', ID.unique(), question);
     }
-    console.log('Exams and questions seeded.');
+    console.log(`Seeded ${data.length} questions for ${title}`);
+    await delay(10);
+  }
+  console.log('Exams and questions seeded.');
 }
 
 async function seedDemoData() {
