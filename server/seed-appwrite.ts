@@ -2,6 +2,7 @@ import { Client, Users, ID, Databases, Permission, Role, Query } from 'node-appw
 import dotenv from 'dotenv';
 import fs from 'fs';
 import path from 'path';
+import minimist from 'minimist';
 
 dotenv.config();
 
@@ -535,6 +536,29 @@ async function seedExamsOnly() {
   if (!ready) {
     throw new Error('Not all question attributes are available in Appwrite. Aborting seeding.');
   }
+
+  // Parse command-line args for exam type filter
+  const argv = minimist(process.argv.slice(2));
+  const filterType = argv.type ? String(argv.type).toLowerCase() : undefined;
+
+  const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
+  let files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical'));
+  if (filterType) {
+    files = files.filter(f => f.toLowerCase().startsWith(filterType));
+    if (files.length === 0) {
+      console.log(`No files found for exam type: ${filterType}`);
+      return;
+    }
+    console.log(`Seeding only exam type: ${filterType} (${files.length} files)`);
+  }
+  for (const file of files) {
+    const filePath = path.join(assetsPath, file);
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+    const parts = file.replace('.json', '').split('_');
+    const exam_type = parts[0];
+    if (filterType && exam_type.toLowerCase() !== filterType) {
+      continue; // Extra safety: skip if not matching filter
+    }
 
   // Seeding logic
   console.log('Seeding exams from JSON files...');
