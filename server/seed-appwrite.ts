@@ -513,7 +513,7 @@ async function seedExamsOnly() {
   // Seeding logic
   console.log('Seeding exams from JSON files...');
   const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
-  const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
+  const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical'));
   for (const file of files) {
     const filePath = path.join(assetsPath, file);
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -541,9 +541,8 @@ async function seedExamsOnly() {
     const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
     console.log(`Created exam: ${title}`);
 
-    // Seed questions
-    for (let i = 0; i < data.length; i++) {
-      const q = data[i];
+    // Seed questions in parallel for speed
+    const questionPromises = data.map((q: any, i: number) => {
       const question = {
         examId: examDoc.$id,
         questionNumber: parseInt(q.number) || (i + 1),
@@ -556,10 +555,10 @@ async function seedExamsOnly() {
         section: q.section,
         instructions: q.instructions,
       };
-      await databases.createDocument(dbId, 'questions', ID.unique(), question);
-    }
+      return databases.createDocument(dbId, 'questions', ID.unique(), question);
+    });
+    await Promise.all(questionPromises);
     console.log(`Seeded ${data.length} questions for ${title}`);
-    await delay(10);
   }
   console.log('Exams and questions seeded.');
 }
