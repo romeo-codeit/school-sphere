@@ -120,15 +120,25 @@ const collections = [
         { id: 'title', type: 'string', size: 255, required: true },
         { id: 'type', type: 'string', size: 50, required: true },
         { id: 'subject', type: 'string', size: 255, required: true },
-        { id: 'exam_year', type: 'string', size: 10, required: true },
+        { id: 'year', type: 'string', size: 10, required: true },
         { id: 'paper_type', type: 'string', size: 50, required: true },
-        { id: 'questions', type: 'string', size: 65535, required: true },
-        { id: 'duration', type: 'integer', required: false },
-        { id: 'totalMarks', type: 'integer', required: false },
-        { id: 'passingMarks', type: 'integer', required: false },
-        { id: 'createdBy', type: 'string', size: 255, required: false },
-        { id: 'isActive', type: 'boolean', required: false },
         { id: 'search', type: 'string', size: 1024, required: false },
+    ]
+  },
+  {
+    id: 'questions',
+    name: 'Questions',
+    attributes: [
+        { id: 'examId', type: 'string', size: 255, required: true },
+        { id: 'questionNumber', type: 'integer', required: true },
+        { id: 'questionText', type: 'string', size: 65535, required: true },
+        { id: 'options', type: 'string', size: 1024, required: true, array: true },
+        { id: 'correctAnswer', type: 'string', size: 255, required: false },
+        { id: 'explanation', type: 'string', size: 65535, required: false },
+        { id: 'imageUrl', type: 'string', size: 1024, required: false },
+        { id: 'answerUrl', type: 'string', size: 1024, required: false },
+        { id: 'section', type: 'string', size: 255, required: false },
+        { id: 'instructions', type: 'string', size: 65535, required: false },
     ]
   },
   {
@@ -459,7 +469,7 @@ async function seedExamsOnly() {
 
     const dbId = APPWRITE_DATABASE_ID!;
 
-    // Seed exams
+    // Empty exams collection
     const examsCollection = await databases.listDocuments(dbId, 'exams');
     if (examsCollection.total > 0) {
       console.log('Emptying exams collection...');
@@ -467,6 +477,16 @@ async function seedExamsOnly() {
         await databases.deleteDocument(dbId, 'exams', exam.$id);
       }
       console.log('Exams collection emptied.');
+    }
+
+    // Empty questions collection
+    const questionsCollection = await databases.listDocuments(dbId, 'questions');
+    if (questionsCollection.total > 0) {
+      console.log('Emptying questions collection...');
+      for (const question of questionsCollection.documents) {
+        await databases.deleteDocument(dbId, 'questions', question.$id);
+      }
+      console.log('Questions collection emptied.');
     }
 
     console.log('Seeding exams from JSON files...');
@@ -480,23 +500,46 @@ async function seedExamsOnly() {
       const subject = parts.slice(1, -2).join('_');
       const exam_year = parts[parts.length - 2];
       const paper_type = parts[parts.length - 1];
+      
+      // Validation
+      if (!exam_year || !exam_type || !subject || !paper_type) {
+        console.log(`Skipping file ${file}: invalid parsing - type: ${exam_type}, subject: ${subject}, year: ${exam_year}, paper_type: ${paper_type}`);
+        continue;
+      }
+      
       const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
       const exam = {
         title,
         type: exam_type.toLowerCase(),
         subject: subject.replace(/_/g, ' '),
-        exam_year,
+        year: exam_year,
         paper_type,
-        questions: JSON.stringify(data),
-        duration: 60,
-        createdBy: teacherUserId,
-        isActive: true,
       };
-      const search = [exam.title, exam.type, exam.subject, exam.exam_year, exam.paper_type].filter(Boolean).join(' ');
-      await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
+      const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      console.log(`Created exam: ${title}`);
+
+      // Seed questions
+      for (let i = 0; i < data.length; i++) {
+        const q = data[i];
+        const question = {
+          examId: examDoc.$id,
+          questionNumber: parseInt(q.number) || (i + 1),
+          questionText: q.text,
+          options: Object.values(q.options || {}),
+          correctAnswer: q.correct_answer,
+          explanation: q.explanation,
+          imageUrl: q.image,
+          answerUrl: q.answer_url,
+          section: q.section,
+          instructions: q.instructions,
+        };
+        await databases.createDocument(dbId, 'questions', ID.unique(), question);
+      }
+      console.log(`Seeded ${data.length} questions for ${title}`);
       await delay(10);
     }
-    console.log('Exams seeded.');
+    console.log('Exams and questions seeded.');
 }
 
 async function seedDemoData() {
@@ -580,6 +623,16 @@ async function seedDemoData() {
       }
       console.log('Exams collection emptied.');
     }
+    // Empty questions collection
+    const questionsCollection = await databases.listDocuments(dbId, 'questions');
+    if (questionsCollection.total > 0) {
+      console.log('Emptying questions collection...');
+      for (const question of questionsCollection.documents) {
+        await databases.deleteDocument(dbId, 'questions', question.$id);
+        await delay(10);
+      }
+      console.log('Questions collection emptied.');
+    }
     console.log('Seeding exams from JSON files...');
     const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
     const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
@@ -596,18 +649,34 @@ async function seedDemoData() {
         title,
         type: exam_type.toLowerCase(),
         subject: subject.replace(/_/g, ' '),
-        exam_year,
+        year: exam_year,
         paper_type,
-        questions: JSON.stringify(data),
-        duration: 60,
-        createdBy: teacherUserId,
-        isActive: true,
       };
-      const search = [exam.title, exam.type, exam.subject, exam.exam_year, exam.paper_type].filter(Boolean).join(' ');
-      await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
+      const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
+      console.log(`Created exam: ${title}`);
+
+      // Seed questions
+      for (let i = 0; i < data.length; i++) {
+        const q = data[i];
+        const question = {
+          examId: examDoc.$id,
+          questionNumber: parseInt(q.number) || (i + 1),
+          questionText: q.text,
+          options: Object.values(q.options || {}),
+          correctAnswer: q.correct_answer,
+          explanation: q.explanation,
+          imageUrl: q.image,
+          answerUrl: q.answer_url,
+          section: q.section,
+          instructions: q.instructions,
+        };
+        await databases.createDocument(dbId, 'questions', ID.unique(), question);
+      }
+      console.log(`Seeded ${data.length} questions for ${title}`);
       await delay(10);
     }
-    console.log('Exams seeded.');
+    console.log('Exams and questions seeded.');
 
   const seededStudents = await databases.listDocuments(dbId, 'students');
   const seededExams = await databases.listDocuments(dbId, 'exams');
