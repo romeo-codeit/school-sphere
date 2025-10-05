@@ -507,8 +507,34 @@ async function seedExamsOnly() {
     }
   }
 
-  // Wait for attributes to be ready
-  await delay(3000);
+  // Wait for attributes to be ready (longer delay for Appwrite propagation)
+  const waitMs = 15000;
+  console.log(`Waiting ${waitMs / 1000} seconds for Appwrite attributes to propagate...`);
+  await delay(waitMs);
+
+  // Poll for attribute readiness (questions collection)
+  const requiredAttrs = [
+    'examId', 'questionNumber', 'questionText', 'options', 'correctAnswer', 'explanation', 'imageUrl', 'answerUrl', 'section', 'instructions'
+  ];
+  let ready = false, pollTries = 0;
+  while (!ready && pollTries < 10) {
+    try {
+      const schema = await databases.getCollection(dbId, 'questions');
+      const attrIds = (schema.attributes || []).map((a: any) => a.key || a.id);
+      ready = requiredAttrs.every(attr => attrIds.includes(attr));
+      if (!ready) {
+        pollTries++;
+        console.log('Waiting for all question attributes to be available...');
+        await delay(2000);
+      }
+    } catch (err) {
+      pollTries++;
+      await delay(2000);
+    }
+  }
+  if (!ready) {
+    throw new Error('Not all question attributes are available in Appwrite. Aborting seeding.');
+  }
 
   // Seeding logic
   console.log('Seeding exams from JSON files...');
