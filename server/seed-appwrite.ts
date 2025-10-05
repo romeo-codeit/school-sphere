@@ -129,16 +129,16 @@ const collections = [
     id: 'questions',
     name: 'Questions',
     attributes: [
-        { id: 'examId', type: 'string', size: 255, required: true },
-        { id: 'questionNumber', type: 'integer', required: true },
-        { id: 'questionText', type: 'string', size: 65535, required: true },
-        { id: 'options', type: 'string', size: 1024, required: true, array: true },
-        { id: 'correctAnswer', type: 'string', size: 255, required: false },
-        { id: 'explanation', type: 'string', size: 65535, required: false },
-        { id: 'imageUrl', type: 'string', size: 1024, required: false },
-        { id: 'answerUrl', type: 'string', size: 1024, required: false },
-        { id: 'section', type: 'string', size: 255, required: false },
-        { id: 'instructions', type: 'string', size: 65535, required: false },
+  { id: 'examId', type: 'string', size: 255, required: true },
+  { id: 'questionNumber', type: 'integer', required: true },
+  { id: 'questionText', type: 'string', size: 65535, required: true },
+  { id: 'options', type: 'string', size: 1024, required: true, array: true },
+  { id: 'correctAnswer', type: 'string', size: 500, required: false },
+  { id: 'explanation', type: 'string', size: 65535, required: false },
+  { id: 'imageUrl', type: 'string', size: 1024, required: false },
+  { id: 'answerUrl', type: 'string', size: 1024, required: false },
+  { id: 'section', type: 'string', size: 500, required: false },
+  { id: 'instructions', type: 'string', size: 65535, required: false },
     ]
   },
   {
@@ -541,19 +541,28 @@ async function seedExamsOnly() {
     const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
     console.log(`Created exam: ${title}`);
 
-    // Seed questions in parallel for speed
+    // Seed questions in parallel for speed, sanitize all string fields
+    const sanitizeString = (val: any, max = 65535) => {
+      if (typeof val !== 'string') return undefined;
+      return val.length > max ? val.slice(0, max) : val;
+    };
+    const sanitizeOptions = (opts: any[]) =>
+      Array.isArray(opts)
+        ? opts.map(o => (typeof o === 'string' ? sanitizeString(o, 1024) : (o ? String(o).slice(0, 1024) : undefined))).filter(Boolean)
+        : [];
+
     const questionPromises = data.map((q: any, i: number) => {
       const question = {
         examId: examDoc.$id,
         questionNumber: parseInt(q.number) || (i + 1),
-        questionText: q.text,
-        options: Object.values(q.options || {}),
-        correctAnswer: q.correct_answer,
-        explanation: q.explanation,
-        imageUrl: q.image,
-        answerUrl: q.answer_url,
-        section: q.section,
-        instructions: q.instructions,
+        questionText: sanitizeString(q.text, 65535),
+        options: sanitizeOptions(Object.values(q.options || {})),
+        correctAnswer: sanitizeString(q.correct_answer, 500),
+        explanation: sanitizeString(q.explanation, 65535),
+        imageUrl: sanitizeString(q.image, 1024),
+        answerUrl: sanitizeString(q.answer_url, 1024),
+        section: sanitizeString(q.section, 500),
+        instructions: sanitizeString(q.instructions, 65535),
       };
       return databases.createDocument(dbId, 'questions', ID.unique(), question);
     });
