@@ -15,13 +15,17 @@ export function useExams(type?: string) {
         url += `?type=${type}`;
       }
       const jwt = await getJWT();
+      console.log('Fetching exams from:', url);
       const response = await fetch(url, {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
       if (!response.ok) {
+        console.error('Failed to fetch exams, status:', response.status);
         throw new Error('Failed to fetch exams');
       }
-      return await response.json();
+      const data = await response.json();
+      console.log('Exams fetched:', data.length || 'unknown length', data);
+      return data;
     },
   });
 
