@@ -551,19 +551,7 @@ async function seedExamsOnly() {
     }
     console.log(`Seeding only exam type: ${filterType} (${files.length} files)`);
   }
-  for (const file of files) {
-    const filePath = path.join(assetsPath, file);
-    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-    const parts = file.replace('.json', '').split('_');
-    const exam_type = parts[0];
-    if (filterType && exam_type.toLowerCase() !== filterType) {
-      continue; // Extra safety: skip if not matching filter
-    }
-
-  // Seeding logic
   console.log('Seeding exams from JSON files...');
-  const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
-  const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical'));
   for (const file of files) {
     const filePath = path.join(assetsPath, file);
     const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
@@ -577,6 +565,9 @@ async function seedExamsOnly() {
     if (!exam_year || !exam_type || !subject || !paper_type) {
       console.log(`Skipping file ${file}: invalid parsing - type: ${exam_type}, subject: ${subject}, year: ${exam_year}, paper_type: ${paper_type}`);
       continue;
+    }
+    if (filterType && exam_type.toLowerCase() !== filterType) {
+      continue; // Extra safety: skip if not matching filter
     }
 
     const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
