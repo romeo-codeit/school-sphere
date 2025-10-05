@@ -1,7 +1,7 @@
 import { TopNav } from "@/components/top-nav";
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getTeacherClasses, getStudentsByClass, getAttendance, saveAttendance } from '@/lib/api/attendance';
+import { getTeacherClasses, getAttendanceRecordsForDate, saveAttendanceRecords, getAllClasses } from '@/lib/api/attendance';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -36,21 +36,24 @@ export const TeacherAttendanceView: React.FC = () => {
         if (!selectedClass || !date) return;
         setIsLoading(true);
         try {
-            const studentDocs = await getStudentsByClass(selectedClass);
+            // You need to implement fetching students for a class, e.g. via getAllClasses or another API
+            // Example placeholder:
+            const allClasses = await getAllClasses();
+            const classObj = allClasses.find((c: any) => c.$id === selectedClass);
+            const studentDocs = classObj?.students || [];
             setStudents(studentDocs);
 
-            const attendanceDoc = await getAttendance(selectedClass, date.toISOString().split('T')[0]);
-            if (attendanceDoc) {
-                const parsedAttendance = JSON.parse(attendanceDoc.studentAttendances);
-                const attendanceMap = parsedAttendance.reduce((acc: any, item: any) => {
+            const attendanceDocs = await getAttendanceRecordsForDate(selectedClass, date.toISOString().split('T')[0]);
+            if (attendanceDocs && attendanceDocs.length > 0) {
+                const attendanceMap = attendanceDocs.reduce((acc: any, item: any) => {
                     acc[item.studentId] = item.status;
                     return acc;
                 }, {});
                 setAttendance(attendanceMap);
-                setOriginalAttendance(attendanceDoc);
+                setOriginalAttendance(attendanceDocs);
                 setIsEditing(false);
             } else {
-                const initialAttendance = studentDocs.reduce((acc, student) => {
+                const initialAttendance = studentDocs.reduce((acc: any, student: any) => {
                     acc[student.$id] = 'present';
                     return acc;
                 }, {});
@@ -86,7 +89,7 @@ export const TeacherAttendanceView: React.FC = () => {
                 studentId: student.$id,
                 status: attendance[student.$id] || 'present' // Default to 'present' if somehow missing
             }));
-            await saveAttendance(selectedClass, date.toISOString().split('T')[0], studentAttendances);
+            await saveAttendanceRecords(selectedClass, date.toISOString().split('T')[0], studentAttendances);
             toast({ title: "Success", description: `Attendance for ${format(date, "PPP")} submitted successfully.` });
             setIsEditing(false);
             fetchAttendanceData(); // Refresh data

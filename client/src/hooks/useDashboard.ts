@@ -29,13 +29,17 @@ export function useDashboard() {
       }
 
       try {
-        const studentStatuses = JSON.parse(record.studentAttendances);
-        studentStatuses.forEach((student: any) => {
-          attendanceByDate[date].total++;
-          if (student.status === 'present') {
-            attendanceByDate[date].present++;
+        if (record.studentAttendances && record.studentAttendances !== 'undefined') {
+          const studentStatuses = JSON.parse(record.studentAttendances);
+          if (Array.isArray(studentStatuses)) {
+            studentStatuses.forEach((student: any) => {
+              attendanceByDate[date].total++;
+              if (student.status === 'present') {
+                attendanceByDate[date].present++;
+              }
+            });
           }
-        });
+        }
       } catch (e) {
         console.error("Failed to parse studentAttendances", e);
       }

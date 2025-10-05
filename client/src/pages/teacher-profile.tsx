@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { useTeachers } from "@/hooks/useTeachers";
-import { Mail, Phone, Book, Award, Briefcase, UserCheck } from "lucide-react";
+import { Mail, Phone, Book, Award, Briefcase, UserCheck, User } from "lucide-react";
 
-export default function TeacherProfile() {
-  const params = useParams();
-  const teacherId = params.id;
+interface TeacherProfileProps {
+  id: string;
+}
+
+export default function TeacherProfile({ id }: TeacherProfileProps) {
   const { useTeacher } = useTeachers();
-  const { data: teacher, isLoading: isLoadingTeacher } = useTeacher(teacherId || "");
+  const { data: teacher, isLoading: isLoadingTeacher } = useTeacher(id || "");
 
   if (isLoadingTeacher) {
     return <div className="p-6 text-center">Loading teacher profile...</div>;

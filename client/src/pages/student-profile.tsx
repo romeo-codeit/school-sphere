@@ -70,14 +70,16 @@ function PaymentsTable({ payments }: { payments: Payment[] }) {
     );
 }
 
-export default function StudentProfile() {
-  const params = useParams();
-  const studentId = params.id;
+interface StudentProfileProps {
+  id: string;
+}
+
+export default function StudentProfile({ id }: StudentProfileProps) {
   const { useStudent } = useStudents();
-  const { data: student, isLoading: isLoadingStudent } = useStudent(studentId || "");
-  const { grades, isLoading: isLoadingGrades } = useGrades(studentId || "");
-  const { attendance, isLoading: isLoadingAttendance } = useAttendance(studentId || "");
-  const { payments, isLoading: isLoadingPayments } = usePayments(studentId || "");
+  const { data: student, isLoading: isLoadingStudent } = useStudent(id || "");
+  const { grades, isLoading: isLoadingGrades } = useGrades(id || "");
+  const { attendance, isLoading: isLoadingAttendance } = useAttendance(id || "");
+  const { payments, isLoading: isLoadingPayments } = usePayments(id || "");
 
   if (isLoadingStudent) {
     return <div className="p-6 text-center">Loading student profile...</div>;
@@ -160,7 +162,16 @@ export default function StudentProfile() {
                 <CardTitle>Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p className="text-center py-8">Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
+                {isLoadingAttendance ? <p className="text-center py-8">Loading attendance...</p> : <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
+                  date: a.date ? new Date(a.date) : new Date(),
+                  id: a.$id,
+                  createdAt: a.createdAt ? new Date(a.createdAt) : null,
+                  studentId: a.studentId || null,
+                  classId: a.classId || null,
+                  status: a.status as any,
+                  remarks: a.remarks || null,
+                  markedBy: a.markedBy || null,
+                }))} />}
               </CardContent>
             </Card>
           </TabsContent>

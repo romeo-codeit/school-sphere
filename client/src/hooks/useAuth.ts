@@ -1,8 +1,23 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
 
 export function useAuth() {
+  // JWT state (in-memory, not persisted)
+  const [jwt, setJwt] = useState<string | null>(null);
+
+  // Fetch JWT from Appwrite
+  const getJWT = async () => {
+    if (jwt) return jwt;
+    try {
+      const { jwt: token } = await account.createJWT();
+      setJwt(token);
+      return token;
+    } catch (e) {
+      return null;
+    }
+  };
   const queryClient = useQueryClient();
 
   const { data: user, isLoading } = useQuery({
@@ -104,5 +119,6 @@ export function useAuth() {
     createUserByAdmin: createUserByAdminMutation.mutateAsync,
     updateName: updateNameMutation.mutateAsync,
     updatePassword: updatePasswordMutation.mutateAsync,
+    getJWT,
   };
 }

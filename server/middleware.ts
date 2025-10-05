@@ -26,7 +26,15 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
 
   const account = new Account(client);
 
-  req.appwrite = { client, account };
-
-  next();
+  // Verify JWT by calling get() on account
+  account.get()
+    .then((user) => {
+      req.appwrite = { client, account };
+      // Optionally attach user info for downstream use
+      (req as any).user = user;
+      next();
+    })
+    .catch(() => {
+      res.status(401).json({ message: 'Invalid or expired token' });
+    });
 };

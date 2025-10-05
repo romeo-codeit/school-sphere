@@ -1,6 +1,6 @@
 
 // Helper to determine best foreground color (white or dark) for contrast
-function getPrimaryForeground(primary, isDark) {
+function getPrimaryForeground(primary: string, isDark: boolean) {
   // Use white for dark backgrounds, dark for light backgrounds
   if (isDark) {
     return 'hsl(210, 40%, 98%)';
@@ -10,7 +10,7 @@ function getPrimaryForeground(primary, isDark) {
 }
 
 // Helper to update sidebar CSS variables for correct contrast
-function updateSidebarColors(theme, primaryColor) {
+function updateSidebarColors(theme: string, primaryColor: string) {
   // Always set sidebar background and text for best contrast
   if (theme === 'dark') {
     document.documentElement.style.setProperty('--sidebar', 'hsl(215, 28%, 17%)');

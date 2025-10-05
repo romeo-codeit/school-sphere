@@ -115,7 +115,7 @@ export function AttendanceManagementView() {
                           <TableCell>{record.className}</TableCell>
                           <TableCell>{format(new Date(record.date), 'PPP')}</TableCell>
                           <TableCell>
-                            <Badge variant={record.status === 'present' ? 'default' : record.status === 'absent' ? 'destructive' : 'secondary'}>
+                            <Badge variant={record.status === 'present' ? 'primary' : record.status === 'absent' ? 'destructive' : 'secondary'}>
                               {record.status}
                             </Badge>
                           </TableCell>

@@ -117,11 +117,23 @@ function Router() {
           <Switch>
             <Route path="/"><Dashboard /></Route>
             <Route path="/students"><RoleGuard allowedRoles={['admin', 'teacher']}><Students /></RoleGuard></Route>
-            <Route path="/students/:id">{params => <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}><StudentProfile id={params.id} /></RoleGuard>}</Route>
+            <Route path="/students/:id">{params => (
+              <RoleGuard allowedRoles={['admin', 'teacher', 'student', 'parent']}>
+                <StudentProfile id={params.id} />
+              </RoleGuard>
+            )}</Route>
             <Route path="/teachers"><RoleGuard allowedRoles={['admin']}><Teachers /></RoleGuard></Route>
-            <Route path="/teachers/:id">{params => <RoleGuard allowedRoles={['admin', 'teacher']}><TeacherProfile id={params.id} /></RoleGuard>}</Route>
+            <Route path="/teachers/:id">{params => (
+              <RoleGuard allowedRoles={['admin', 'teacher']}>
+                <TeacherProfile id={params.id} />
+              </RoleGuard>
+            )}</Route>
             <Route path="/exams"><Exams /></Route>
-            <Route path="/exams/:id/take">{params => <RoleGuard allowedRoles={['student']}><ExamTaking id={params.id} /></RoleGuard>}</Route>
+            <Route path="/exams/:id/take">
+              <RoleGuard allowedRoles={['admin', 'student']}>
+                <ExamTaking />
+              </RoleGuard>
+            </Route>
             <Route path="/progress"><Progress /></Route>
             <Route path="/payments"><RoleGuard allowedRoles={['admin', 'student', 'parent']}><Payments /></RoleGuard></Route>
             <Route path="/messages"><Messages /></Route>
@@ -134,10 +146,10 @@ function Router() {
             <Route path="/activities"><ActivitiesPage /></Route>
             <Route path="/notifications"><NotificationsPage /></Route>
             <Route path="/take-attendance">
-              <RoleGuard allowedRoles={['teacher', 'admin']}><TakeAttendance /></RoleGuard>
+              <RoleGuard allowedRoles={['admin', 'teacher']}><TakeAttendance /></RoleGuard>
             </Route>
             <Route path="/historical-attendance">
-              <RoleGuard allowedRoles={['teacher', 'admin']}><HistoricalAttendance /></RoleGuard>
+              <RoleGuard allowedRoles={['admin', 'teacher']}><HistoricalAttendance /></RoleGuard>
             </Route>
             <Route path="/create-user">
               <RoleGuard allowedRoles={['admin']}><CreateUserPage /></RoleGuard>

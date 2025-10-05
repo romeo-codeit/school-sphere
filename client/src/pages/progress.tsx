@@ -17,7 +17,7 @@ import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Grade, Attendance, ExamAttempt, Exam } from "~/shared/schema";
+import { Grade, Attendance, ExamAttempt, Exam } from "../../../shared/schema";
 
 export function GradesChart({ grades }: { grades: Grade[] }) {
   const data = useMemo(() => {
@@ -233,7 +233,16 @@ export default function Progress() {
                 <CardTitle className="text-lg sm:text-xl">Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={attendance || []} />}
+                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
+                  date: a.date ? new Date(a.date) : new Date(),
+                  id: a.$id,
+                  createdAt: a.createdAt ? new Date(a.createdAt) : null,
+                  studentId: a.studentId || null,
+                  classId: a.classId || null,
+                  status: a.status as any,
+                  remarks: a.remarks || null,
+                  markedBy: a.markedBy || null,
+                }))} />}
               </CardContent>
             </Card>
 

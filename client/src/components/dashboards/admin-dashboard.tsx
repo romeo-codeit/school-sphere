@@ -20,6 +20,7 @@ import { useLocation } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StudentsProgressChart } from "@/components/students-progress-chart";
 import { NoticeBoard } from "@/components/notice-board";
+import type { Notice } from "@/components/notice-board";
 import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 import { useActivities } from "@/hooks/useActivities";
@@ -148,7 +149,14 @@ export function AdminDashboard() {
 
         {/* Notices and Recent Activity */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
-          <div className="lg:col-span-2 space-y-6"><NoticeBoard notices={notices || []} /></div>
+          <div className="lg:col-span-2 space-y-6">
+            <NoticeBoard notices={(notices || []).map((n: any) => ({
+              $id: n.$id,
+              activity: n.activity,
+              date: n.date,
+              category: n.category,
+            })) as Notice[]} />
+          </div>
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
 

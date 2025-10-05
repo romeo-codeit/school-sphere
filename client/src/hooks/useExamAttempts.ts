@@ -1,10 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 
-const API_URL = '/api/examAttempts';
+const API_URL = '/api/cbt/attempts';
 
 export function useExamAttempts(studentId?: string) {
+  const { getJWT } = useAuth();
   const queryClient = useQueryClient();
 
+  // Fetch all attempts for the current user (or specified student for admin/teacher)
   const { data: examAttempts, isLoading, error } = useQuery({
     queryKey: ['examAttempts', studentId],
     queryFn: async () => {
@@ -12,33 +15,53 @@ export function useExamAttempts(studentId?: string) {
       if (studentId) {
         url += `?studentId=${studentId}`;
       }
-      const response = await fetch(url);
+      const jwt = await getJWT();
+      const response = await fetch(url, {
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch exam attempts');
       }
-      const data = await response.json();
-      return data.documents.map((doc: any) => ({
-        id: doc.$id,
-        examId: doc.examId as string,
-        score: doc.score as number,
-        totalQuestions: doc.totalQuestions as number,
-        correctAnswers: doc.correctAnswers as number,
-      }));
+      return await response.json();
     },
-    enabled: !!studentId,
   });
 
-  const createExamAttemptMutation = useMutation({
-    mutationFn: async (examAttemptData: any) => {
+  // Start a new exam attempt
+  const startAttemptMutation = useMutation({
+    mutationFn: async (examId: string) => {
+      const jwt = await getJWT();
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         },
-        body: JSON.stringify(examAttemptData),
+        body: JSON.stringify({ examId }),
       });
       if (!response.ok) {
-        throw new Error('Failed to create exam attempt');
+        throw new Error('Failed to start exam attempt');
+      }
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['examAttempts'] });
+    },
+  });
+
+  // Submit an exam attempt
+  const submitAttemptMutation = useMutation({
+    mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: any }) => {
+      const jwt = await getJWT();
+      const response = await fetch(`${API_URL}/${attemptId}/submit`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        },
+        body: JSON.stringify({ answers }),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to submit exam attempt');
       }
       return await response.json();
     },
@@ -51,6 +74,7 @@ export function useExamAttempts(studentId?: string) {
     examAttempts,
     isLoading,
     error,
-    createExamAttempt: createExamAttemptMutation.mutateAsync,
+    startAttempt: startAttemptMutation.mutateAsync,
+    submitAttempt: submitAttemptMutation.mutateAsync,
   };
 }

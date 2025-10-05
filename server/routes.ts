@@ -71,23 +71,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ message: 'Unauthorized' });
       }
       const user = await req.appwrite.account.get();
-      const teacher = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachers', [Query.equal('userId', user.$id)]);
+      if (!user?.$id) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+  const teacher = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachers', [Query.equal('userId', String(user.$id))]);
 
       if (teacher.documents.length === 0) {
         return res.status(404).json({ message: 'Teacher not found' });
       }
 
-      const teacherId = teacher.documents[0].$id;
+  const teacherId = String(teacher.documents[0].$id);
 
-      const teacherClasses = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachersToClasses', [Query.equal('teacherId', teacherId)]);
+  const teacherClasses = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachersToClasses', [Query.equal('teacherId', teacherId)]);
 
-      const classIds = teacherClasses.documents.map((doc) => doc.classId);
+  const classIds = teacherClasses.documents.map((doc) => String(doc.classId));
 
       if (classIds.length === 0) {
         return res.json({ documents: [] });
       }
 
-      const classes = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes', [Query.equal('$id', classIds)]);
+      if (!classIds.length) {
+        return res.json({ documents: [] });
+      }
+  const classes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'classes', [Query.equal('$id', classIds)]);
 
       res.json(classes);
     } catch (error) {
@@ -98,8 +104,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/classes/:id/students', auth, async (req, res) => {
     try {
-      const classId = req.params.id;
-      const students = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [Query.equal('classId', classId)]);
+  const classId = String(req.params.id);
+  const students = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.equal('classId', classId)]);
       res.json(students);
     } catch (error) {
       console.error(error);
@@ -122,7 +128,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             queries.push(Query.equal(key, req.query[key] as string));
           }
         }
-        const response = await databases.listDocuments(APPWRITE_DATABASE_ID, collection, queries);
+        if (!collection) {
+          return res.status(400).json({ message: 'Missing collection name' });
+        }
+  const response = await databases.listDocuments(APPWRITE_DATABASE_ID!, String(collection), queries);
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -133,7 +142,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Get document
     app.get(`/api/${collection}/:id`, async (req, res) => {
       try {
-        const response = await databases.getDocument(APPWRITE_DATABASE_ID, collection, req.params.id);
+        if (!collection || !req.params.id) {
+          return res.status(400).json({ message: 'Missing collection name or document ID' });
+        }
+  const response = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -144,7 +156,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Create document
     app.post(`/api/${collection}`, async (req, res) => {
       try {
-        const response = await databases.createDocument(APPWRITE_DATABASE_ID, collection, ID.unique(), req.body);
+        if (!collection) {
+          return res.status(400).json({ message: 'Missing collection name' });
+        }
+  const response = await databases.createDocument(APPWRITE_DATABASE_ID!, String(collection), ID.unique(), req.body);
         res.status(201).json(response);
       } catch (error) {
         console.error(error);
@@ -155,7 +170,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Update document
     app.put(`/api/${collection}/:id`, async (req, res) => {
       try {
-        const response = await databases.updateDocument(APPWRITE_DATABASE_ID, collection, req.params.id, req.body);
+        if (!collection || !req.params.id) {
+          return res.status(400).json({ message: 'Missing collection name or document ID' });
+        }
+  const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -166,7 +184,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Delete document
     app.delete(`/api/${collection}/:id`, async (req, res) => {
       try {
-        await databases.deleteDocument(APPWRITE_DATABASE_ID, collection, req.params.id);
+        if (!collection || !req.params.id) {
+          return res.status(400).json({ message: 'Missing collection name or document ID' });
+        }
+  await databases.deleteDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.status(204).send();
       } catch (error) {
         console.error(error);
@@ -174,6 +195,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
   }
+
+  // --- CBT Simulator Endpoints ---
+
+  // Get all available exams (optionally filter by type)
+  app.get('/api/cbt/exams', auth, async (req, res) => {
+    try {
+      const allExams: any[] = [];
+      let offset = 0;
+      const limit = 100; // Appwrite max is 100 per request
+      let total = 0;
+
+      do {
+        const result = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(limit), Query.offset(offset)]
+        );
+        if (result.documents.length === 0) break;
+        allExams.push(...result.documents);
+        total = result.total || allExams.length;
+        offset += result.documents.length;
+      } while (allExams.length < total);
+
+      console.log('Total exams returned:', allExams.length);
+      res.json(allExams);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch exams' });
+    }
+  });
+
+  // Get a single exam (with questions)
+  app.get('/api/cbt/exams/:id', auth, async (req, res) => {
+    try {
+      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', req.params.id);
+      res.json(exam);
+    } catch (error) {
+      console.error(error);
+      res.status(404).json({ message: 'Exam not found' });
+    }
+  });
+
+  // Start an exam attempt
+  app.post('/api/cbt/attempts', auth, async (req, res) => {
+    try {
+  const user = await req.appwrite!.account.get();
+      const { examId } = req.body;
+      if (!examId) return res.status(400).json({ message: 'Missing examId' });
+      // Optionally: check for existing active attempt, enforce limits, etc.
+      const attempt = await databases.createDocument(
+        APPWRITE_DATABASE_ID!,
+        'examAttempts',
+        ID.unique(),
+        {
+          examId,
+          studentId: user.$id,
+          answers: {},
+          score: 0,
+          totalQuestions: 0,
+          correctAnswers: 0,
+          timeSpent: 0,
+          completedAt: null,
+        }
+      );
+      res.status(201).json(attempt);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to start attempt' });
+    }
+  });
+
+  // Submit answers and finish attempt
+  app.post('/api/cbt/attempts/:id/submit', auth, async (req, res) => {
+    try {
+  const user = await req.appwrite!.account.get();
+      const attemptId = req.params.id;
+      const { answers } = req.body;
+      if (!answers) return res.status(400).json({ message: 'Missing answers' });
+      // Fetch attempt and exam
+      const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+      if (attempt.studentId !== user.$id) return res.status(403).json({ message: 'Forbidden' });
+      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', attempt.examId);
+      // Calculate score
+      let score = 0;
+      let correctAnswers = 0;
+      const totalQuestions = Array.isArray(exam.questions) ? exam.questions.length : 0;
+      exam.questions.forEach((q: any, idx: number) => {
+        if (answers[idx] === q.correctAnswer) {
+          score += q.marks || 1;
+          correctAnswers++;
+        }
+      });
+      // Update attempt
+      const updated = await databases.updateDocument(
+        APPWRITE_DATABASE_ID!,
+        'examAttempts',
+        attemptId,
+        {
+          answers,
+          score,
+          totalQuestions,
+          correctAnswers,
+          completedAt: new Date().toISOString(),
+        }
+      );
+      res.json(updated);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to submit attempt' });
+    }
+  });
+
+  // Get all attempts for the current user (or specified student for admin/teacher)
+  app.get('/api/cbt/attempts', auth, async (req, res) => {
+    try {
+      const user = await req.appwrite!.account.get();
+      const { studentId } = req.query;
+      
+      // If studentId is provided and user is admin/teacher, fetch for that student
+      // Otherwise, fetch for current user
+      const targetStudentId = studentId && typeof studentId === 'string' ? studentId : user.$id;
+      
+      const attempts = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'examAttempts',
+        [Query.equal('studentId', targetStudentId), Query.orderDesc('completedAt')]
+      );
+      res.json(attempts.documents);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch attempts' });
+    }
+  });
 
   return httpServer;
 }

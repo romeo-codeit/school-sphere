@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon, FileText } from "lucide-react";
+import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon, FileText, Calendar } from "lucide-react";
+// import { EventCalendar as Calendar } from "@/components/event-calendar";
 import { format } from 'date-fns';
 
-interface Notice {
+export interface Notice {
   $id: string;
   activity: string;
   date: string;

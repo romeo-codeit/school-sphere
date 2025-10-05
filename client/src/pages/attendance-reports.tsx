@@ -35,7 +35,7 @@ const AttendanceReports: React.FC = () => {
     }, []);
 
     const { overallStats, dailyTrend, classStats } = useMemo(() => {
-        if (records.length === 0) return { overallStats: {}, dailyTrend: [], classStats: [] };
+        if (records.length === 0) return { overallStats: { presentRate: 0, totalRecords: 0 }, dailyTrend: [], classStats: [] };
 
         let totalPresent = 0;
         let totalStudents = 0;
@@ -99,8 +99,8 @@ const AttendanceReports: React.FC = () => {
                         <CardTitle className="text-base sm:text-lg">Overall Attendance</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="text-3xl sm:text-4xl font-bold">{overallStats.presentRate}%</div>
-                        <p className="text-xs sm:text-sm text-muted-foreground">Based on {overallStats.totalRecords} records</p>
+                        <div className="text-3xl sm:text-4xl font-bold">{typeof overallStats.presentRate !== 'undefined' ? overallStats.presentRate : 0}%</div>
+                        <p className="text-xs sm:text-sm text-muted-foreground">Based on {typeof overallStats.totalRecords !== 'undefined' ? overallStats.totalRecords : 0} records</p>
                     </CardContent>
                 </Card>
             </div>

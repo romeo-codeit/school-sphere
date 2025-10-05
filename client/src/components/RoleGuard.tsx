@@ -18,10 +18,8 @@ export function RoleGuard({
 }: RoleGuardProps) {
   const { canAccess, hasPermission, role } = useRole();
 
-  // Check role-based access
+  // Check role-based access strictly
   if (allowedRoles && !canAccess(allowedRoles)) {
-    // Admin always has access
-    if (role === 'admin') return <>{children}</>;
     return <div style={{color: 'red', padding: 24, fontWeight: 'bold'}}>Access denied. Your role: {role ?? 'unknown'}. Allowed: {allowedRoles?.join(', ')}.</div>;
   }
 

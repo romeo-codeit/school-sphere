@@ -4,6 +4,11 @@ import fs from 'fs';
 import path from 'path';
 import minimist from 'minimist';
 
+/**
+ * WARNING: DO NOT DELETE, RECREATE, OR MODIFY THE 'exams' OR 'questions' COLLECTIONS!
+ * These collections contain all past question data. Tampering with them will result in data loss.
+ * Only use this script to seed new data. Do not drop or alter the collections in Appwrite manually or programmatically.
+ */
 dotenv.config();
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;

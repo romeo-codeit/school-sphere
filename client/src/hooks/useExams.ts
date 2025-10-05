@@ -1,47 +1,43 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 
-const API_URL = '/api/exams';
+const API_URL = '/api/cbt/exams';
 
-export function useExams() {
+export function useExams(type?: string) {
+  const { getJWT } = useAuth();
   const queryClient = useQueryClient();
 
   const { data: exams, isLoading, error } = useQuery({
-    queryKey: ['exams'],
+    queryKey: ['cbt-exams', type],
     queryFn: async () => {
-      const response = await fetch(API_URL);
+      let url = API_URL;
+      if (type) {
+        url += `?type=${type}`;
+      }
+      const jwt = await getJWT();
+      const response = await fetch(url, {
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
       if (!response.ok) {
         throw new Error('Failed to fetch exams');
       }
-      const data = await response.json();
-      // Ensure questions are parsed from JSON string
-      return data.documents.map((exam: any) => {
-        try {
-          return { ...exam, questions: JSON.parse(exam.questions) };
-        } catch (e) {
-          console.error(`Failed to parse questions for exam ${exam.$id}:`, e);
-          return { ...exam, questions: [] }; // Default to empty array on error
-        }
-      });
+      return await response.json();
     },
   });
 
   const useExam = (examId: string) => {
     return useQuery({
-      queryKey: ['exams', examId],
+      queryKey: ['cbt-exams', examId],
       queryFn: async () => {
         if (!examId) return null;
-        const response = await fetch(`${API_URL}/${examId}`);
+        const jwt = await getJWT();
+        const response = await fetch(`${API_URL}/${examId}`, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        });
         if (!response.ok) {
           throw new Error('Failed to fetch exam');
         }
-        const exam = await response.json();
-        // Ensure questions are parsed from JSON string
-        try {
-          return { ...exam, questions: JSON.parse(exam.questions) };
-        } catch (e) {
-          console.error(`Failed to parse questions for exam ${exam.$id}:`, e);
-          return { ...exam, questions: [] };
-        }
+        return await response.json();
       },
       enabled: !!examId,
     });
@@ -58,6 +54,7 @@ export function useExams() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...examData, search }),
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to create exam');
@@ -80,6 +77,7 @@ export function useExams() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ ...examData, search }),
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to update exam');
@@ -96,6 +94,7 @@ export function useExams() {
     mutationFn: async (examId: string) => {
       const response = await fetch(`${API_URL}/${examId}`, {
         method: 'DELETE',
+        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to delete exam');
