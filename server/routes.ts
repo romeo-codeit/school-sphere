@@ -243,7 +243,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // For each exam, fetch its questions from the questions collection (only if withQuestions=true)
+      // When fetching all exams without questions (limit=all&withQuestions=false), avoid per-exam
+      // question-count queries to prevent overwhelming Appwrite and causing 500s.
       let examsWithQuestions;
+      const skipQuestionCounts = fetchAll && !withQuestions;
       if (withQuestions) {
         examsWithQuestions = await Promise.all(
           exams.map(async (exam) => {
@@ -265,7 +268,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return { ...exam, questions, questionCount: questions.length };
           })
         );
-      } else {
+      } else if (!skipQuestionCounts) {
         // For stats queries, just count questions for each exam
         examsWithQuestions = await Promise.all(
           exams.map(async (exam) => {
@@ -278,6 +281,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return { ...exam, questions: [], questionCount };
           })
         );
+      } else {
+        // Fetching ALL exams without questions: skip per-exam question counts to avoid overload
+        examsWithQuestions = exams.map((exam) => ({ ...exam, questions: [], questionCount: undefined }));
       }
 
       res.json({ exams: examsWithQuestions, total });
