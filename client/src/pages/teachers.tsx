@@ -27,6 +27,7 @@ import { useRole } from "@/hooks/useRole";
 import { useTeachers } from "@/hooks/useTeachers";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
+import { Loading } from "@/components/ui/loading";
 
 export default function Teachers() {
   // Handler to view teacher details
@@ -101,7 +102,9 @@ export default function Teachers() {
                 </div>
               </div>
               {isLoading ? (
-                <div className="text-center py-8 text-base sm:text-lg">Loading teachers...</div>
+                <div className="py-8 flex justify-center items-center">
+                  <Loading text="Loading teachers..." size="md" />
+                </div>
               ) : !teachers || teachers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No teachers found." : "No teachers have been added."}</div>
               ) : (

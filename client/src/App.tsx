@@ -10,6 +10,7 @@ import { RoleGuard } from "@/components/RoleGuard";
 import { useState, lazy, Suspense } from "react";
 import { ThemeInitializer } from "@/hooks/useTheme";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Loading } from "@/components/ui/loading";
 
 // Lazy load all the pages for better performance
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -61,14 +62,14 @@ function Router() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <p>Loading application...</p>
+        <Loading size="lg" text="Loading application..." />
       </div>
     );
   }
 
   if (!isAuthenticated) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+      <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loading size="lg" text="Loading page..." /></div>}>
         <Switch>
           <Route path="/"><Landing /></Route>
           <Route path="/login"><LoginPage /></Route>

@@ -3,17 +3,23 @@ import { useAuth } from './useAuth';
 
 const API_URL = '/api/cbt/exams';
 
-export function useExams(type?: string) {
+
+export function useExams(params?: { type?: string; limit?: number | string; offset?: number; withQuestions?: boolean }) {
   const { getJWT } = useAuth();
   const queryClient = useQueryClient();
 
-  const { data: exams, isLoading, error } = useQuery({
-    queryKey: ['cbt-exams', type],
+  const { type, limit, offset, withQuestions = true } = params || {};
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['cbt-exams', type, limit, offset, withQuestions],
     queryFn: async () => {
       let url = API_URL;
-      if (type) {
-        url += `?type=${type}`;
-      }
+      const query: string[] = [];
+      if (type) query.push(`type=${encodeURIComponent(type)}`);
+      if (limit !== undefined && limit !== null) query.push(`limit=${limit}`);
+      if (typeof offset === 'number') query.push(`offset=${offset}`);
+      if (!withQuestions) query.push(`withQuestions=false`);
+      if (query.length > 0) url += `?${query.join('&')}`;
       const jwt = await getJWT();
       const response = await fetch(url, {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
@@ -21,7 +27,7 @@ export function useExams(type?: string) {
       if (!response.ok) {
         throw new Error('Failed to fetch exams');
       }
-      return await response.json();
+      return await response.json(); // { exams, total }
     },
   });
 
@@ -106,7 +112,8 @@ export function useExams(type?: string) {
   });
 
   return {
-    exams,
+    exams: data?.exams || [],
+    total: data?.total ?? 0,
     isLoading,
     error,
     useExam,

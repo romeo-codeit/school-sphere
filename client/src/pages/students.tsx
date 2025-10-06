@@ -28,6 +28,7 @@ import { useStudents } from "@/hooks/useStudents";
 import { useClasses } from "@/hooks/useClasses";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
+import { Loading } from "@/components/ui/loading";
 
 export default function Students() {
   // Page title and subtitle
@@ -121,7 +122,9 @@ export default function Students() {
                 </div>
               </div>
               {isLoading ? (
-                <div className="text-center py-8 text-base sm:text-lg">Loading students...</div>
+                <div className="py-8 flex justify-center items-center">
+                  <Loading text="Loading students..." size="md" />
+                </div>
               ) : !students || students.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No students found." : "No students have been added."}</div>
               ) : (

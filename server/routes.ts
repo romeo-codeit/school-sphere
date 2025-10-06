@@ -201,24 +201,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all available exams (optionally filter by type)
   app.get('/api/cbt/exams', auth, async (req, res) => {
     try {
-      const allExams: any[] = [];
-      let offset = 0;
-      const limit = 100; // Appwrite max is 100 per request
-      let total = 0;
 
-      do {
+      // Support limit=all for stats queries
+      let limitParam = req.query.limit as string;
+      let limit: number;
+      let fetchAll = false;
+      if (limitParam === 'all') {
+        fetchAll = true;
+        limit = 100; // will loop to fetch all
+      } else {
+        limit = Math.max(1, Math.min(100, parseInt(limitParam) || 10));
+      }
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+      const withQuestions = req.query.withQuestions !== 'false'; // default true
+
+      let exams: any[] = [];
+      let total = 0;
+      if (fetchAll) {
+        // Loop to fetch all exams in batches of 100
+        let done = false;
+        let batchOffset = 0;
+        do {
+          const result = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'exams',
+            [Query.limit(100), Query.offset(batchOffset)]
+          );
+          exams.push(...result.documents);
+          total = result.total || exams.length;
+          batchOffset += result.documents.length;
+          done = exams.length >= total || result.documents.length === 0;
+        } while (!done);
+      } else {
         const result = await databases.listDocuments(
           APPWRITE_DATABASE_ID!,
           'exams',
           [Query.limit(limit), Query.offset(offset)]
         );
-        if (result.documents.length === 0) break;
-        allExams.push(...result.documents);
-        total = result.total || allExams.length;
-        offset += result.documents.length;
-      } while (allExams.length < total);
+        exams = result.documents;
+        total = result.total || exams.length;
+      }
 
-      res.json(allExams);
+      // For each exam, fetch its questions from the questions collection (only if withQuestions=true)
+      let examsWithQuestions;
+      if (withQuestions) {
+        examsWithQuestions = await Promise.all(
+          exams.map(async (exam) => {
+            // Fetch all questions for this exam (with pagination if needed)
+            let questions = [];
+            let qOffset = 0;
+            let qTotal = 0;
+            do {
+              const qResult = await databases.listDocuments(
+                APPWRITE_DATABASE_ID!,
+                'questions',
+                [Query.equal('examId', exam.$id), Query.limit(100), Query.offset(qOffset)]
+              );
+              if (qResult.documents.length === 0) break;
+              questions.push(...qResult.documents);
+              qTotal = qResult.total || questions.length;
+              qOffset += qResult.documents.length;
+            } while (questions.length < qTotal);
+            return { ...exam, questions, questionCount: questions.length };
+          })
+        );
+      } else {
+        // For stats queries, just count questions for each exam
+        examsWithQuestions = await Promise.all(
+          exams.map(async (exam) => {
+            const qResult = await databases.listDocuments(
+              APPWRITE_DATABASE_ID!,
+              'questions',
+              [Query.equal('examId', exam.$id), Query.limit(1)]
+            );
+            const questionCount = qResult.total || 0;
+            return { ...exam, questions: [], questionCount };
+          })
+        );
+      }
+
+      res.json({ exams: examsWithQuestions, total });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Failed to fetch exams' });
@@ -228,6 +290,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get a single exam (with questions)
   app.get('/api/cbt/exams/:id', auth, async (req, res) => {
     try {
+        console.log('[CBT] /api/cbt/exams called');
+        // Debug: If ?debug=1, fetch only one exam, no questions
+        if (req.query.debug === '1') {
+          console.log('[CBT] Debug mode: fetching only one exam, no questions');
+          const result = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'exams',
+            [Query.limit(1)]
+          );
+          console.log('[CBT] Fetched exams:', result.documents.length);
+          return res.json({ exams: result.documents, total: result.total || result.documents.length });
+        }
       const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', req.params.id);
       res.json(exam);
     } catch (error) {
@@ -325,6 +399,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Failed to fetch attempts' });
+    }
+  });
+
+  // DEBUG: Test Appwrite connectivity from backend
+  app.get('/api/debug/appwrite', async (req, res) => {
+    try {
+      const result = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
+      res.json({ success: true, count: result.documents.length });
+    } catch (error) {
+      console.error('Appwrite connectivity test failed:', error);
+      let errorMsg = 'Unknown error';
+      if (typeof error === 'object' && error && 'message' in error) {
+        errorMsg = (error as any).message;
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (error) {
+        errorMsg = String(error);
+      }
+      res.status(500).json({ success: false, error: errorMsg });
+    }
+  });
+
+  // DEBUG: Test Appwrite connectivity for students collection
+  app.get('/api/debug/students', async (req, res) => {
+    try {
+      const result = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.limit(1)]);
+      res.json({ success: true, count: result.documents.length, student: result.documents[0] });
+    } catch (error) {
+      let errorMsg = 'Unknown error';
+      if (typeof error === 'object' && error && 'message' in error) {
+        errorMsg = (error as any).message;
+      } else if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (error) {
+        errorMsg = String(error);
+      }
+      res.status(500).json({ success: false, error: errorMsg });
     }
   });
 
