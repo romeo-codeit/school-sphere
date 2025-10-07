@@ -293,36 +293,276 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get exams assigned to the current user. In development/admin, return all for easier testing
+  app.get('/api/cbt/exams/assigned', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const role = sessionUser?.prefs?.role;
+      const isDev = process.env.NODE_ENV !== 'production';
+      const isAdmin = role === 'admin';
+
+      // Admins (and any user in dev) can see all exams
+      if (isAdmin || isDev) {
+        const result = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(0)]
+        );
+        return res.json({ exams: result.documents, total: result.total || result.documents.length });
+      }
+
+      // Otherwise, compute assignments for the current user (student/teacher)
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+      // Try to resolve student document and class
+      let studentId: string | undefined;
+      let classId: string | undefined;
+      try {
+        const studentDocs = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'students',
+          [Query.equal('userId', String(userId)), Query.limit(1)]
+        );
+        if (studentDocs.total > 0) {
+          studentId = String(studentDocs.documents[0].$id);
+          classId = studentDocs.documents[0].classId ? String(studentDocs.documents[0].classId) : undefined;
+        }
+      } catch {}
+
+      // Fallback: if not student, allow teachers to see all for now (will refine in Phase 6)
+      if (role === 'teacher') {
+        const result = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(0)]
+        );
+        return res.json({ exams: result.documents, total: result.total || result.documents.length });
+      }
+
+      // Fetch a reasonable page of exams and filter in-memory for assignment
+      const result = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'exams',
+        [Query.limit(100), Query.offset(0)]
+      );
+      const exams = result.documents as any[];
+      const visible = exams.filter((e) => {
+        const assigned: string[] = Array.isArray((e as any).assignedTo) ? (e as any).assignedTo : [];
+        // Public if no assignments yet
+        if (!assigned || assigned.length === 0) return true;
+        // Visible if explicitly assigned to student or their class
+        return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
+      });
+      return res.json({ exams: visible, total: visible.length });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch assigned exams' });
+    }
+  });
+
   // Get a single exam (with questions)
   app.get('/api/cbt/exams/:id', auth, async (req, res) => {
     try {
-        console.log('[CBT] /api/cbt/exams called');
-        // Debug: If ?debug=1, fetch only one exam, no questions
-        if (req.query.debug === '1') {
-          console.log('[CBT] Debug mode: fetching only one exam, no questions');
-          const result = await databases.listDocuments(
-            APPWRITE_DATABASE_ID!,
-            'exams',
-            [Query.limit(1)]
-          );
-          console.log('[CBT] Fetched exams:', result.documents.length);
-          return res.json({ exams: result.documents, total: result.total || result.documents.length });
+      const examId = String(req.params.id || '').trim();
+      console.log('[CBT] GET /api/cbt/exams/:id', { id: examId });
+
+      // Basic validation for missing/placeholder ids
+      if (!examId || examId === 'undefined' || examId === 'null') {
+        return res.status(400).json({ message: 'Invalid exam id' });
+      }
+
+      // Handle practice sessions (synthetic examId like 'practice-jamb')
+      if (examId.startsWith('practice-')) {
+        const type = examId.replace('practice-', '');
+        const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
+        
+        // Fetch questions from multiple exams matching type and subjects
+        let questions: any[] = [];
+        for (const subject of subjects) {
+          let offset = 0;
+          while (true) {
+            const examResults = await databases.listDocuments(
+              APPWRITE_DATABASE_ID!,
+              'exams',
+              [Query.limit(100), Query.offset(offset)]
+            );
+            
+            for (const exam of examResults.documents) {
+              const examType = String((exam as any).type || '').toLowerCase();
+              const examSubject = String((exam as any).subject || '').toLowerCase();
+              
+              if (examType === type && examSubject === subject.toLowerCase()) {
+                // Get questions from this exam
+                if (Array.isArray((exam as any).questions)) {
+                  questions.push(...(exam as any).questions);
+                } else {
+                  // Fetch from questions collection
+                  let qOffset = 0;
+                  while (true) {
+                    const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+                      Query.equal('examId', String(exam.$id)),
+                      Query.limit(100),
+                      Query.offset(qOffset),
+                    ]);
+                    questions.push(...qRes.documents);
+                    qOffset += qRes.documents.length;
+                    if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
+                  }
+                }
+              }
+            }
+            
+            offset += examResults.documents.length;
+            if (offset >= (examResults.total || offset) || examResults.documents.length === 0) break;
+          }
         }
-      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', req.params.id);
-      res.json(exam);
+        
+        // Return synthetic practice exam
+        return res.json({
+          $id: examId,
+          title: `${type.toUpperCase()} Practice - ${subjects.join(', ')}`,
+          type,
+          subject: subjects.join(', '),
+          duration: Math.max(60, questions.length * 2), // 2 minutes per question, minimum 60
+          questions,
+          questionCount: questions.length,
+          isPractice: true,
+        });
+      }
+
+      // Debug: If ?debug=1, fetch only one exam, no questions
+      if (req.query.debug === '1') {
+        console.log('[CBT] Debug mode: fetching only one exam (no questions)');
+        const result = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(1)]
+        );
+        return res.json({ exams: result.documents, total: result.total || result.documents.length });
+      }
+
+      // Fetch the exam document
+      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+
+      // Prefer embedded questions if present on the exam document (legacy/imported data)
+      let questions: any[] = Array.isArray((exam as any).questions) ? (exam as any).questions : [];
+
+      if (!Array.isArray(questions) || questions.length === 0) {
+        // Otherwise fetch from the separate questions collection (normalized data)
+        questions = [];
+        let qOffset = 0;
+        while (true) {
+          const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.equal('examId', examId),
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          questions.push(...qRes.documents);
+          qOffset += qRes.documents.length;
+          if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
+        }
+      }
+
+      res.json({ ...exam, questions, questionCount: Array.isArray(questions) ? questions.length : 0 });
     } catch (error) {
       console.error(error);
-      res.status(404).json({ message: 'Exam not found' });
+      // If Appwrite throws document_not_found, surface 404; else 500
+      const msg = (error && typeof error === 'object' && 'type' in (error as any)) ? (error as any).type : '';
+      if (msg === 'document_not_found') {
+        return res.status(404).json({ message: 'Exam not found' });
+      }
+      res.status(500).json({ message: 'Failed to fetch exam' });
+    }
+  });
+
+  // Assign an exam to classes and/or students
+  app.post('/api/cbt/exams/:id/assign', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const role = sessionUser?.prefs?.role;
+      if (!(role === 'admin' || role === 'teacher')) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      const examId = String(req.params.id);
+      const { classIds = [], studentIds = [] } = (req.body || {}) as { classIds?: string[]; studentIds?: string[] };
+      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+
+      let allowedClassIds = classIds;
+      if (role === 'teacher') {
+        // Teachers can only assign to their classes
+        try {
+          const teacherId = sessionUser.$id;
+          const mapping = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachersToClasses', [Query.equal('teacherId', String(teacherId)), Query.limit(100)]);
+          const teacherClassIds = new Set(mapping.documents.map((m: any) => String(m.classId)));
+          allowedClassIds = classIds.filter((cid) => teacherClassIds.has(String(cid)));
+        } catch {}
+      }
+
+      const existing: string[] = Array.isArray((exam as any).assignedTo) ? (exam as any).assignedTo : [];
+      const merged = Array.from(new Set([ ...existing, ...allowedClassIds.map(String), ...studentIds.map(String) ]));
+      const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'exams', examId, { assignedTo: merged });
+      res.json(updated);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to assign exam' });
+    }
+  });
+
+  // Unassign classes/students from an exam
+  app.post('/api/cbt/exams/:id/unassign', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const role = sessionUser?.prefs?.role;
+      if (!(role === 'admin' || role === 'teacher')) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+      const examId = String(req.params.id);
+      const { ids = [] } = (req.body || {}) as { ids?: string[] };
+      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      const existing: string[] = Array.isArray((exam as any).assignedTo) ? (exam as any).assignedTo : [];
+      const toRemove = new Set(ids.map(String));
+      const next = existing.filter((id) => !toRemove.has(String(id)));
+      const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'exams', examId, { assignedTo: next });
+      res.json(updated);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to unassign exam' });
     }
   });
 
   // Start an exam attempt
   app.post('/api/cbt/attempts', auth, async (req, res) => {
     try {
-  const user = await req.appwrite!.account.get();
-      const { examId } = req.body;
+      const user = await req.appwrite!.account.get();
+      const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
-      // Optionally: check for existing active attempt, enforce limits, etc.
+      
+      // Handle practice sessions (synthetic examId like 'practice-jamb')
+      if (examId.startsWith('practice-')) {
+        const type = examId.replace('practice-', '');
+        // For practice mode, we create an attempt without linking to a specific exam document
+        // The exam-taking page will dynamically fetch questions based on type + subjects
+        const attempt = await databases.createDocument(
+          APPWRITE_DATABASE_ID!,
+          'examAttempts',
+          ID.unique(),
+          {
+            examId: examId, // Store the synthetic ID
+            studentId: user.$id,
+            answers: JSON.stringify({}),
+            score: 0,
+            totalQuestions: 0,
+            correctAnswers: 0,
+            timeSpent: 0,
+            subjects: Array.isArray(subjects) ? subjects : undefined,
+            completedAt: null,
+          }
+        );
+        return res.status(201).json(attempt);
+      }
+      
+      // Regular exam attempt
       const attempt = await databases.createDocument(
         APPWRITE_DATABASE_ID!,
         'examAttempts',
@@ -330,11 +570,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         {
           examId,
           studentId: user.$id,
-          answers: {},
+          answers: JSON.stringify({}),
           score: 0,
           totalQuestions: 0,
           correctAnswers: 0,
           timeSpent: 0,
+          subjects: Array.isArray(subjects) ? subjects : undefined,
           completedAt: null,
         }
       );
@@ -350,29 +591,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
   const user = await req.appwrite!.account.get();
       const attemptId = req.params.id;
-      const { answers } = req.body;
+      const { answers } = req.body as { answers?: Record<string, any> | string };
       if (!answers) return res.status(400).json({ message: 'Missing answers' });
       // Fetch attempt and exam
-      const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+      const attempt: any = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
       if (attempt.studentId !== user.$id) return res.status(403).json({ message: 'Forbidden' });
-      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', attempt.examId);
-      // Calculate score
+      const examId = String(attempt.examId);
+
+      // Pull questions for this exam
+      let questions: any[] = [];
+      let qOffset = 0;
+      while (true) {
+        const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+          Query.equal('examId', examId),
+          Query.limit(100),
+          Query.offset(qOffset),
+        ]);
+        questions.push(...qRes.documents);
+        qOffset += qRes.documents.length;
+        if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
+      }
+
+      // Normalize answers to object
+      const ans: any = typeof answers === 'string' ? JSON.parse(answers) : answers;
       let score = 0;
       let correctAnswers = 0;
-      const totalQuestions = Array.isArray(exam.questions) ? exam.questions.length : 0;
-      exam.questions.forEach((q: any, idx: number) => {
-        if (answers[idx] === q.correctAnswer) {
-          score += q.marks || 1;
-          correctAnswers++;
+      const totalQuestions = questions.length;
+      for (const q of questions) {
+        const selected = ans[String(q.questionNumber)] ?? ans[q.questionNumber] ?? ans[q.$id];
+        if (selected != null && String(selected) === String(q.correctAnswer)) {
+          score += 1; // one mark per correct answer for now
+          correctAnswers += 1;
         }
-      });
+      }
       // Update attempt
       const updated = await databases.updateDocument(
         APPWRITE_DATABASE_ID!,
         'examAttempts',
         attemptId,
         {
-          answers,
+          answers: typeof answers === 'string' ? answers : JSON.stringify(answers),
           score,
           totalQuestions,
           correctAnswers,
@@ -408,6 +666,280 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Validate subject selection before starting an exam session
+  app.post('/api/cbt/exams/validate-subjects', auth, async (req, res) => {
+    try {
+      const { type, selectedSubjects } = req.body as { type?: string; selectedSubjects?: string[] };
+      if (!type || !Array.isArray(selectedSubjects)) {
+        return res.status(400).json({ message: 'type and selectedSubjects are required' });
+      }
+      const t = String(type).toLowerCase();
+      
+      console.log('[CBT] Received validation request:', { type: t, selectedSubjects });
+
+      // Basic validation rules
+      if (t === 'jamb') {
+        const lowerSubjects = selectedSubjects.map((s) => s.toLowerCase());
+        console.log('[CBT] JAMB validation - original subjects:', selectedSubjects);
+        console.log('[CBT] JAMB validation - lowercase subjects:', lowerSubjects);
+        
+        // Check for English with flexible matching (handles "English Language", "EnglishLanguage", etc.)
+        const hasEnglish = lowerSubjects.some(s => 
+          s === 'english' || 
+          s === 'english language' || 
+          s === 'englishlanguage' ||
+          s.startsWith('english')
+        );
+        
+        console.log('[CBT] JAMB validation - hasEnglish check result:', hasEnglish);
+        
+        if (!hasEnglish) {
+          console.log('[CBT] JAMB validation FAILED: English not found in', lowerSubjects);
+          return res.status(400).json({ message: 'English is mandatory for JAMB' });
+        }
+        
+        // Count non-English subjects
+        const nonEnglishCount = lowerSubjects.filter(s => {
+          const isEnglish = s === 'english' || 
+                           s === 'english language' || 
+                           s === 'englishlanguage' ||
+                           s.startsWith('english');
+          return !isEnglish;
+        }).length;
+        
+        console.log('[CBT] JAMB validation - non-English subjects:', nonEnglishCount);
+        
+        if (nonEnglishCount !== 3) {
+          return res.status(400).json({ message: 'Select exactly 3 additional subjects for JAMB' });
+        }
+      } else if (t === 'waec' || t === 'neco') {
+        if (selectedSubjects.length < 1) {
+          return res.status(400).json({ message: 'Select at least 1 subject' });
+        }
+      }
+
+      // Build availability by scanning exams and checking for actual questions
+      const lowerSubs = selectedSubjects.map((s) => s.toLowerCase());
+      const availability: Record<string, number> = Object.fromEntries(lowerSubs.map((s) => [s, 0]));
+      let offset = 0;
+      let totalExamsScanned = 0;
+      let matchingExams: any[] = [];
+      
+      console.log('[CBT] Validating subjects:', { type: t, selectedSubjects: lowerSubs });
+      
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        totalExamsScanned += page.documents.length;
+        
+        for (const doc of page.documents as any[]) {
+          const docType = String((doc as any).type || '').toLowerCase();
+          if (docType !== t) continue;
+          const subj = String((doc as any).subject || '').toLowerCase();
+          
+          if (subj && lowerSubs.includes(subj)) {
+            matchingExams.push({ id: doc.$id, subject: subj, hasQuestions: false });
+            
+            // Check if this exam actually has questions
+            let hasQuestions = false;
+            if (Array.isArray((doc as any).questions) && (doc as any).questions.length > 0) {
+              hasQuestions = true;
+            } else {
+              // Check questions collection
+              const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+                Query.equal('examId', String(doc.$id)),
+                Query.limit(1)
+              ]);
+              hasQuestions = qRes.total > 0;
+            }
+            
+            if (hasQuestions) {
+              availability[subj] = (availability[subj] || 0) + 1;
+              matchingExams[matchingExams.length - 1].hasQuestions = true;
+            }
+          }
+        }
+        offset += page.documents.length;
+        if (offset >= (page.total || offset) || page.documents.length === 0) break;
+      }
+
+      console.log('[CBT] Validation results:', { 
+        totalExamsScanned, 
+        matchingExams: matchingExams.length,
+        availability,
+        examsDetail: matchingExams 
+      });
+
+      const insufficient = Object.entries(availability).filter(([, c]) => (c as number) === 0).map(([s]) => s);
+      if (insufficient.length > 0) {
+        return res.status(400).json({ 
+          message: `No questions found for: ${insufficient.join(', ')}. Available question sets: ${JSON.stringify(availability)}`,
+          insufficient, 
+          availability,
+          debug: { totalExamsScanned, matchingExams }
+        });
+      }
+
+      return res.json({ ok: true, availability });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to validate subjects' });
+    }
+  });
+
+  // Available subjects by exam type
+  app.get('/api/cbt/subjects/available', auth, async (req, res) => {
+    try {
+      const type = String(req.query.type || '').toLowerCase();
+      if (!type) return res.status(400).json({ message: 'type is required' });
+
+      console.log('[CBT] Fetching available subjects for type:', type);
+
+      // Derive from exams to ensure only subjects with questions appear (case-insensitive type)
+      let subjects: Set<string> = new Set();
+      let offset = 0;
+      let matchingExams = 0;
+      
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        page.documents.forEach((doc: any) => {
+          const docType = String(doc.type || '').toLowerCase();
+          if (docType === type && doc.subject) {
+            subjects.add(String(doc.subject));
+            matchingExams++;
+          }
+        });
+        offset += page.documents.length;
+        if (offset >= (page.total || offset) || page.documents.length === 0) break;
+      }
+
+      const subjectArray = Array.from(subjects).sort();
+      console.log('[CBT] Found subjects for', type, ':', { 
+        count: subjectArray.length, 
+        subjects: subjectArray,
+        matchingExams 
+      });
+
+      res.json({ subjects: subjectArray });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch subjects' });
+    }
+  });
+
+  // Autosave partial attempt payload
+  app.post('/api/cbt/attempts/autosave', auth, async (req, res) => {
+    try {
+      const user = await req.appwrite!.account.get();
+      const { attemptId, answers, timeSpent } = req.body as { attemptId?: string; answers?: any; timeSpent?: number };
+      if (!attemptId) return res.status(400).json({ message: 'attemptId is required' });
+      const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId));
+      if (attempt.studentId !== user.$id) return res.status(403).json({ message: 'Forbidden' });
+      const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId), {
+        answers: typeof answers === 'string' ? answers : JSON.stringify(answers ?? {}),
+        timeSpent: typeof timeSpent === 'number' ? timeSpent : attempt.timeSpent ?? 0,
+      });
+      res.json({ ok: true, attempt: updated });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to autosave attempt' });
+    }
+  });
+
+  // Attempt results with simple analytics
+  app.get('/api/cbt/attempts/:id/results', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const role = sessionUser?.prefs?.role;
+      const attemptId = String(req.params.id);
+      const attempt: any = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+
+      if (!(role === 'admin' || role === 'teacher' || attempt.studentId === sessionUser.$id)) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+
+      // Pull questions for exam
+      const examId = String(attempt.examId);
+      let questions: any[] = [];
+      let qOffset = 0;
+      while (true) {
+        const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+          Query.equal('examId', examId),
+          Query.limit(100),
+          Query.offset(qOffset),
+        ]);
+        questions.push(...qRes.documents);
+        qOffset += qRes.documents.length;
+        if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
+      }
+
+      const answers = typeof attempt.answers === 'string' ? JSON.parse(attempt.answers) : attempt.answers || {};
+      // Assume answers is an object mapping questionNumber -> selectedOption
+      let correct = 0;
+      const perQuestion = questions.map((q) => {
+        const selected = answers[String(q.questionNumber)] ?? answers[q.questionNumber] ?? answers[q.$id];
+        const isCorrect = selected != null && String(selected) === String(q.correctAnswer);
+        if (isCorrect) correct += 1;
+        return {
+          questionNumber: q.questionNumber,
+          selected,
+          correctAnswer: q.correctAnswer,
+          isCorrect,
+        };
+      });
+      const total = questions.length;
+      const score = correct; // simple score; refined grading can be added later
+      res.json({
+        summary: { total, correct, score, percent: total ? (correct / total) * 100 : 0 },
+        perQuestion,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch attempt results' });
+    }
+  });
+
+  // Basic class analytics (avg score across attempts for students in a class)
+  app.get('/api/cbt/analytics/class/:classId', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const role = sessionUser?.prefs?.role;
+      if (!(role === 'admin' || role === 'teacher')) {
+        return res.status(403).json({ message: 'Forbidden' });
+      }
+
+      const classId = String(req.params.classId);
+      // Get students in class
+      const students = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [
+        Query.equal('classId', classId),
+        Query.limit(100),
+      ]);
+      const studentIds = students.documents.map((s: any) => String(s.$id));
+      if (studentIds.length === 0) return res.json({ classId, averageScore: 0, attemptCount: 0 });
+
+      // Fetch attempts by studentId in chunks (Appwrite 'equal' supports array of values)
+      const attemptsRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
+        Query.equal('studentId', studentIds),
+        Query.limit(100),
+      ]);
+      const attempts = attemptsRes.documents as any[];
+      const attemptCount = attempts.length;
+      const totalScore = attempts.reduce((sum, a: any) => sum + (a.score || 0), 0);
+      const averageScore = attemptCount ? totalScore / attemptCount : 0;
+      res.json({ classId, averageScore, attemptCount });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to compute class analytics' });
+    }
+  });
+
   // DEBUG: Test Appwrite connectivity from backend
   app.get('/api/debug/appwrite', async (req, res) => {
     try {
@@ -424,6 +956,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
         errorMsg = String(error);
       }
       res.status(500).json({ success: false, error: errorMsg });
+    }
+  });
+
+  // DEBUG: List all exam types and subjects with question counts
+  app.get('/api/debug/exam-subjects', async (req, res) => {
+    try {
+      const examsByType: Record<string, any[]> = {};
+      let offset = 0;
+      
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        
+        for (const doc of page.documents as any[]) {
+          const type = String(doc.type || 'unknown').toLowerCase();
+          const subject = String(doc.subject || 'unknown');
+          
+          if (!examsByType[type]) examsByType[type] = [];
+          
+          // Check for questions
+          let questionCount = 0;
+          if (Array.isArray(doc.questions)) {
+            questionCount = doc.questions.length;
+          } else {
+            const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+              Query.equal('examId', String(doc.$id)),
+              Query.limit(1)
+            ]);
+            questionCount = qRes.total || 0;
+          }
+          
+          examsByType[type].push({
+            id: doc.$id,
+            title: doc.title,
+            subject,
+            questionCount,
+            hasQuestions: questionCount > 0
+          });
+        }
+        
+        offset += page.documents.length;
+        if (offset >= (page.total || offset) || page.documents.length === 0) break;
+      }
+      
+      // Summary
+      const summary: Record<string, any> = {};
+      for (const [type, exams] of Object.entries(examsByType)) {
+        const subjects = new Set(exams.map(e => e.subject.toLowerCase()));
+        const withQuestions = exams.filter(e => e.hasQuestions);
+        summary[type] = {
+          totalExams: exams.length,
+          uniqueSubjects: Array.from(subjects),
+          examsWithQuestions: withQuestions.length,
+          examsWithoutQuestions: exams.length - withQuestions.length
+        };
+      }
+      
+      res.json({ summary, details: examsByType });
+    } catch (error) {
+      console.error('Failed to analyze exam subjects:', error);
+      res.status(500).json({ error: String(error) });
     }
   });
 

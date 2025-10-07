@@ -25,6 +25,7 @@ const TeacherProfile = lazy(() => import("@/pages/teacher-profile"));
 const Exams = lazy(() => import("@/pages/exams"));
 const ExamTaking = lazy(() => import("@/pages/exam-taking"));
 const Payments = lazy(() => import("@/pages/payments"));
+const ExamResultsPage = lazy(() => import("@/pages/exam-results"));
 const Messages = lazy(() => import("@/pages/messages"));
 const Resources = lazy(() => import("@/pages/resources"));
 const Settings = lazy(() => import("@/pages/settings"));
@@ -133,6 +134,16 @@ function Router() {
             <Route path="/exams/:id/take">
               <RoleGuard allowedRoles={['admin', 'student']}>
                 <ExamTaking />
+              </RoleGuard>
+            </Route>
+            <Route path="/exams/practice/:type">
+              <RoleGuard allowedRoles={['admin', 'student']}>
+                <ExamTaking />
+              </RoleGuard>
+            </Route>
+            <Route path="/exams/attempts/:attemptId/results">
+              <RoleGuard allowedRoles={['admin', 'student', 'teacher']}>
+                <ExamResultsPage />
               </RoleGuard>
             </Route>
             <Route path="/progress"><Progress /></Route>

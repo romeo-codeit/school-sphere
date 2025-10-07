@@ -22,17 +22,24 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
 import { useExams } from "@/hooks/useExams";
+import { useStartAttempt, useAssignedExams } from "@/hooks/useCBT";
 import { useLocation } from "wouter";
 import { UploadExamForm } from "@/components/upload-exam-form";
 import { Loading } from "@/components/ui/loading";
 import { useQuery } from '@tanstack/react-query';
+import { SubjectSelectionDialog } from "@/components/exams/SubjectSelectionDialog";
+import { useToast } from "@/hooks/use-toast";
+import { AssignExamDialog } from "@/components/exams/AssignExamDialog";
+import { useAuth } from "@/hooks/useAuth";
 
 // Helper hook to fetch question count for an exam
 function useExamQuestionCount(examId: string) {
+  const { getJWT } = useAuth();
   return useQuery({
     queryKey: ['exam-questions-count', examId],
     queryFn: async () => {
-      const res = await fetch(`/api/cbt/exams/${examId}`);
+      const jwt = await getJWT();
+      const res = await fetch(`/api/cbt/exams/${examId}` , { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
       if (!res.ok) throw new Error('Failed to fetch exam');
       const data = await res.json();
       return Array.isArray(data.questions) ? data.questions.length : 0;
@@ -41,22 +48,35 @@ function useExamQuestionCount(examId: string) {
   });
 }
 
+// Small child component so we can use hooks per-row without breaking Rules of Hooks
+function ExamQuestionCount({ examId }: { examId: string }) {
+  const { data: count, isLoading } = useExamQuestionCount(examId);
+  if (isLoading) return <>…</>;
+  return <>{typeof count === 'number' ? count : '…'}</>;
+}
+
 // ExamPreviewDialog should only render the preview dialog
 function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: boolean, onOpenChange: (open: boolean) => void }) {
+  const { useExam } = useExams();
+  const { data: fullExam, isLoading } = useExam(open && exam?.$id ? String(exam.$id) : '');
   if (!exam) return null;
+  const title = fullExam?.title ?? exam.title;
+  const type = fullExam?.type ?? exam.type;
+  const subject = fullExam?.subject ?? exam.subject;
+  const duration = fullExam?.duration ?? exam.duration;
+  const qCount = Array.isArray(fullExam?.questions) ? fullExam.questions.length : undefined;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Exam Preview</DialogTitle>
         </DialogHeader>
-        {/* Render exam details here */}
         <div className="space-y-4">
-          <div className="font-bold text-lg">{exam.title}</div>
-          <div className="text-sm text-muted-foreground">Type: {exam.type}</div>
-          <div className="text-sm text-muted-foreground">Subject: {exam.subject}</div>
-          <div className="text-sm text-muted-foreground">Duration: {exam.duration} mins</div>
-          <div className="text-sm text-muted-foreground">Questions: {Array.isArray(exam.questions) ? exam.questions.length : 0}</div>
+          <div className="font-bold text-lg">{title}</div>
+          <div className="text-sm text-muted-foreground">Type: {type}</div>
+          <div className="text-sm text-muted-foreground">Subject: {subject}</div>
+          <div className="text-sm text-muted-foreground">Duration: {duration} mins</div>
+          <div className="text-sm text-muted-foreground">Questions: {isLoading ? '…' : (typeof qCount === 'number' ? qCount : '…')}</div>
         </div>
       </DialogContent>
     </Dialog>
@@ -65,20 +85,29 @@ function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: bool
 
 
 function ExamsPage() {
+  const { role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [isUploadFormOpen, setIsUploadFormOpen] = useState(false);
   const [selectedExamForPreview, setSelectedExamForPreview] = useState<any | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [subjectSelectionExam, setSubjectSelectionExam] = useState<any | null>(null);
+  const [assignExamId, setAssignExamId] = useState<string | null>(null);
   const [, navigate] = useLocation();
+  const { toast } = useToast();
+  const startAttemptMutation = useStartAttempt();
+  const { data: assignedData } = useAssignedExams();
 
   // Fetch ALL exams for table and stats (no questions, no type filter)
   const { exams: allExams, isLoading: isAllLoading } = useExams({ limit: 'all', withQuestions: false });
 
-  // Filter by search and type
+  // Filter by search and type (exclude jamb/waec/neco from school exams list)
   const filteredExams = (allExams || []).filter((exam: any) => {
-    const matchesSearch = exam.title.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = selectedType === "all" || exam.type === selectedType;
+    const examType = String(exam.type || '').toLowerCase();
+    // Hide standardized exams from school exams list
+    if (['jamb', 'waec', 'neco'].includes(examType)) return false;
+    const matchesSearch = String(exam.title || '').toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = selectedType === "all" || examType === selectedType;
     return matchesSearch && matchesType;
   });
 
@@ -90,8 +119,53 @@ function ExamsPage() {
   const canPrev = page > 0;
   const canNext = page < totalPages - 1;
 
-  const handleStartExam = (examId: string) => {
-  navigate(`/exams/${examId}/take`);
+  const handleStartExam = (exam: any) => {
+    const examType = String(exam.type || '').toLowerCase();
+    // For internal/school exams, start directly
+    startAttemptMutation.mutate(
+      { examId: exam.$id },
+      {
+        onSuccess: (attempt) => {
+          navigate(`/exams/${exam.$id}/take?attemptId=${attempt.$id}`);
+        },
+        onError: (err: any) => {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: err?.message || 'Failed to start exam',
+          });
+        },
+      }
+    );
+  };
+
+  const handleSubjectSelectionConfirm = async (selectedSubjects: string[]) => {
+    if (!subjectSelectionExam) return;
+    
+    // For practice hub sessions, we create a synthetic practice exam attempt
+    // The backend will handle generating questions from multiple subjects
+    const practiceType = subjectSelectionExam.type; // 'jamb' | 'waec' | 'neco'
+    
+    startAttemptMutation.mutate(
+      { 
+        examId: 'practice-' + practiceType, // Synthetic ID for practice sessions
+        subjects: selectedSubjects 
+      },
+      {
+        onSuccess: (attempt) => {
+          setSubjectSelectionExam(null);
+          // Navigate to a practice session route
+          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}`);
+        },
+        onError: (err: any) => {
+          toast({
+            variant: 'destructive',
+            title: 'Error',
+            description: err?.message || 'Failed to start practice session',
+          });
+        },
+      }
+    );
   };
 
   const handlePreviewExam = (exam: any) => {
@@ -101,76 +175,84 @@ function ExamsPage() {
 
   // Stats (always use allExams - all types, no filters)
   const examStats = {
-    jamb: (allExams || []).filter((e: any) => e.type === "jamb").length,
-    waec: (allExams || []).filter((e: any) => e.type === "waec").length,
-    neco: (allExams || []).filter((e: any) => e.type === "neco").length,
-    internal: (allExams || []).filter((e: any) => e.type === "internal").length,
+    jamb: (allExams || []).filter((e: any) => String(e.type || '').toLowerCase() === "jamb").length,
+    waec: (allExams || []).filter((e: any) => String(e.type || '').toLowerCase() === "waec").length,
+    neco: (allExams || []).filter((e: any) => String(e.type || '').toLowerCase() === "neco").length,
+    internal: (allExams || []).filter((e: any) => String(e.type || '').toLowerCase() === "internal").length,
   };
 
   return (
     <div className="space-y-6">
-      <TopNav title="Exams" subtitle="Manage examination questions and practice tests" showGoBackButton={true} />
+      <TopNav title="Exams" subtitle="Practice standardized tests or take school exams" showGoBackButton={true} />
       <div className="px-4 sm:px-6 lg:px-8 py-6">
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="text-primary text-xl sm:text-2xl" />
-              </div>
-              <h4 className="font-semibold text-foreground text-sm sm:text-base mb-2">JAMB Questions</h4>
-              <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-jamb-count">
-                {(allExams || []).filter((e: any) => e.type === "jamb").length}
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Available Sets</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="text-secondary text-xl sm:text-2xl" />
-              </div>
-              <h4 className="font-semibold text-foreground text-sm sm:text-base mb-2">WAEC Questions</h4>
-              <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-waec-count">
-                {(allExams || []).filter((e: any) => e.type === "waec").length}
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Available Sets</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="text-accent text-xl sm:text-2xl" />
-              </div>
-              <h4 className="font-semibold text-foreground text-sm sm:text-base mb-2">NECO Questions</h4>
-              <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-neco-count">
-                {(allExams || []).filter((e: any) => e.type === "neco").length}
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">Available Sets</p>
-            </CardContent>
-          </Card>
-          <Card className="hover:shadow-md transition-shadow">
-            <CardContent className="p-4 sm:p-6 text-center">
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="text-primary text-xl sm:text-2xl" />
-              </div>
-              <h4 className="font-semibold text-foreground text-sm sm:text-base mb-2">Internal Exams</h4>
-              <p className="text-xl sm:text-2xl font-bold text-foreground" data-testid="text-internal-count">
-                {(allExams || []).filter((e: any) => e.type === "internal").length}
-              </p>
-              <p className="text-xs sm:text-sm text-muted-foreground">School Tests</p>
-            </CardContent>
-          </Card>
-        </div>
+        {/* Practice Hub for JAMB/WAEC/NECO */}
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="text-lg sm:text-xl">Practice Hub</CardTitle>
+            <p className="text-sm text-muted-foreground">Select subjects and start practice sessions for standardized exams</p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card 
+                className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary"
+                onClick={() => setSubjectSelectionExam({ type: 'jamb', title: 'JAMB Practice' })}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-primary text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-lg mb-2">JAMB</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {examStats.jamb} question sets available
+                  </p>
+                  <Badge variant="outline" className="text-xs">4 subjects required</Badge>
+                </CardContent>
+              </Card>
+              <Card 
+                className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-secondary"
+                onClick={() => setSubjectSelectionExam({ type: 'waec', title: 'WAEC Practice' })}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-secondary text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-lg mb-2">WAEC</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {examStats.waec} question sets available
+                  </p>
+                  <Badge variant="outline" className="text-xs">Multi-subject</Badge>
+                </CardContent>
+              </Card>
+              <Card 
+                className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-accent"
+                onClick={() => setSubjectSelectionExam({ type: 'neco', title: 'NECO Practice' })}
+              >
+                <CardContent className="p-6 text-center">
+                  <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <FileText className="text-accent text-2xl" />
+                  </div>
+                  <h4 className="font-semibold text-lg mb-2">NECO</h4>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    {examStats.neco} question sets available
+                  </p>
+                  <Badge variant="outline" className="text-xs">Multi-subject</Badge>
+                </CardContent>
+              </Card>
+            </div>
+          </CardContent>
+        </Card>
 
+        {/* Internal Exams & Assigned Exams */}
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <CardTitle className="text-lg sm:text-xl">Examination Management</CardTitle>
-              <Button onClick={() => setIsUploadFormOpen(true)} data-testid="button-upload-exam" className="w-full sm:w-auto">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload Questions
-              </Button>
+              <CardTitle className="text-lg sm:text-xl">School Exams</CardTitle>
+              {(role === 'admin' || role === 'teacher') && (
+                <Button onClick={() => setIsUploadFormOpen(true)} data-testid="button-upload-exam" className="w-full sm:w-auto">
+                  <Upload className="w-4 h-4 mr-2" />
+                  Upload Questions
+                </Button>
+              )}
             </div>
           </CardHeader>
           <CardContent>
@@ -192,14 +274,44 @@ function ExamsPage() {
             <Tabs value={selectedType} onValueChange={setSelectedType} className="mb-6">
               <div className="overflow-x-auto">
                 <TabsList>
-                  <TabsTrigger value="all">All Exams</TabsTrigger>
-                  <TabsTrigger value="jamb">JAMB</TabsTrigger>
-                  <TabsTrigger value="waec">WAEC</TabsTrigger>
-                  <TabsTrigger value="neco">NECO</TabsTrigger>
+                  <TabsTrigger value="all">All School Exams</TabsTrigger>
+                  <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
                   <TabsTrigger value="internal">Internal</TabsTrigger>
                 </TabsList>
               </div>
             </Tabs>
+            {selectedType === 'assigned' && (
+              <Card className="mb-6">
+                <CardHeader>
+                  <CardTitle>Assigned Exams</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!assignedData ? (
+                    <div className="text-center py-8"><Loading text="Loading assigned exams..." /></div>
+                  ) : assignedData.exams.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">No assigned exams yet.</div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {assignedData.exams.map((exam: any) => (
+                        <Card key={exam.$id} className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="font-semibold text-base">{exam.title}</div>
+                              <div className="text-xs text-muted-foreground">{exam.subject}</div>
+                            </div>
+                            <Badge variant="outline" className="text-xs">{String(exam.type).toUpperCase()}</Badge>
+                          </div>
+                          <div className="text-sm mb-1"><span className="font-medium">Duration:</span> {exam.duration || 0} mins</div>
+                          <div className="flex gap-2 mt-2 justify-end">
+                            <Button size="sm" onClick={() => handleStartExam(exam)}><Play className="w-3 h-3 mr-1" />Start</Button>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
             {/* Exams List: Mobile Card view and Desktop Table view */}
             {isAllLoading ? (
@@ -225,11 +337,11 @@ function ExamsPage() {
                           </Badge>
                         </div>
                         <div className="text-sm mb-1"><span className="font-medium">Type:</span> {exam.type.toUpperCase()}</div>
-                        <div className="text-sm mb-1"><span className="font-medium">Questions:</span> {exam.questionCount ?? '...'}</div>
+                        <div className="text-sm mb-1"><span className="font-medium">Questions:</span> <ExamQuestionCount examId={exam.$id} /></div>
                         <div className="text-sm mb-1"><span className="font-medium">Duration:</span> {exam.duration || 0} mins</div>
                         <div className="flex gap-2 mt-2 justify-end">
                           <Button size="icon" variant="outline" onClick={() => handlePreviewExam(exam)} className="p-2"><FileText className="w-4 h-4" /></Button>
-                          <Button size="icon" onClick={() => handleStartExam(exam.$id)} className="p-2"><Play className="w-4 h-4" /></Button>
+                          <Button size="icon" onClick={() => handleStartExam(exam)} className="p-2"><Play className="w-4 h-4" /></Button>
                         </div>
                       </Card>
                     );
@@ -263,7 +375,7 @@ function ExamsPage() {
                               </Badge>
                             </TableCell>
                             <TableCell className="text-xs sm:text-sm">{exam.subject}</TableCell>
-                            <TableCell className="text-xs sm:text-sm">{exam.questionCount ?? '...'} questions</TableCell>
+                            <TableCell className="text-xs sm:text-sm"><ExamQuestionCount examId={exam.$id} /> questions</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-1 text-xs sm:text-sm">
                                 <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-muted-foreground" />
@@ -278,7 +390,10 @@ function ExamsPage() {
                             <TableCell>
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => handlePreviewExam(exam)}><FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Preview</Button>
-                                <Button size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => handleStartExam(exam.$id)}><Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Start</Button>
+                                {(role === 'admin' || role === 'teacher') && (
+                                  <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => setAssignExamId(exam.$id)}><Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Assign</Button>
+                                )}
+                                <Button size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => handleStartExam(exam)}><Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Start</Button>
                               </div>
                             </TableCell>
                           </TableRow>
@@ -306,6 +421,15 @@ function ExamsPage() {
           open={isPreviewDialogOpen}
           onOpenChange={setIsPreviewDialogOpen}
         />
+        <SubjectSelectionDialog
+          open={!!subjectSelectionExam}
+          onOpenChange={(open) => !open && setSubjectSelectionExam(null)}
+          examType={(subjectSelectionExam?.type || 'internal') as any}
+          onConfirm={handleSubjectSelectionConfirm}
+        />
+        {assignExamId && (
+          <AssignExamDialog examId={assignExamId} open={!!assignExamId} onOpenChange={(open) => !open && setAssignExamId(null)} />
+        )}
         <Dialog open={isUploadFormOpen} onOpenChange={setIsUploadFormOpen}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>

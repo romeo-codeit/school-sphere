@@ -37,7 +37,9 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       queryFn: async () => {
         if (!examId) return null;
         const jwt = await getJWT();
-        const response = await fetch(`${API_URL}/${examId}`, {
+        // Handle URLs with query params (for practice sessions)
+        const url = examId.includes('?') ? `${API_URL}/${examId}` : `${API_URL}/${examId}`;
+        const response = await fetch(url, {
           headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
         });
         if (!response.ok) {

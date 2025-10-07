@@ -128,6 +128,9 @@ const collections = [
         { id: 'subject', type: 'string', size: 255, required: true },
         { id: 'year', type: 'string', size: 10, required: true },
         { id: 'paper_type', type: 'string', size: 50, required: true },
+        // Phase 1: Role-based visibility and mode
+        { id: 'assignedTo', type: 'string', size: 255, required: false, array: true }, // IDs of classes or students
+        { id: 'mode', type: 'string', size: 50, required: false }, // 'practice' | 'exam'
         { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
@@ -158,6 +161,9 @@ const collections = [
         { id: 'totalQuestions', type: 'integer', required: false },
         { id: 'correctAnswers', type: 'integer', required: false },
         { id: 'timeSpent', type: 'integer', required: false },
+        // Phase 1: Subject selection tracking and analytics
+        { id: 'subjects', type: 'string', size: 255, required: false, array: true },
+        { id: 'timePerQuestion', type: 'integer', required: false },
         { id: 'completedAt', type: 'string', size: 255, required: false },
     ]
   },
@@ -508,6 +514,8 @@ async function seedExamsOnly() {
       subject: subject.replace(/_/g, ' '),
       year: exam_year,
       paper_type,
+      assignedTo: [],
+      mode: 'exam',
     };
     const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
     const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
@@ -653,6 +661,8 @@ async function seedDemoData() {
         subject: subject.replace(/_/g, ' '),
         year: exam_year,
         paper_type,
+        assignedTo: [],
+        mode: 'exam',
       };
       const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
       const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
@@ -903,9 +913,44 @@ async function seedDemoData() {
 async function main() {
   console.log('Starting exam-only seeding...');
   await createDatabaseIfNotExists();
+  // Ensure new attributes required by Phase 1 exist without dropping collections
+  await ensurePhase1Attributes();
   // Skip seedCollections() since collections already exist
   // await seedCollections();
   await seedExamsOnly();
 }
 
 main();
+
+// Ensures Phase 1 attributes exist on existing collections without destructive changes
+async function ensurePhase1Attributes() {
+  const dbId = APPWRITE_DATABASE_ID!;
+  console.log('Ensuring Phase 1 attributes exist...');
+  // Helper wrappers to create attributes if not exists (ignore 409 conflict)
+  async function safeCreateStringAttribute(collectionId: string, id: string, size = 255, required = false, array = false) {
+    try {
+      // @ts-ignore
+      await databases.createStringAttribute(dbId, collectionId, id, size, required, undefined, array);
+      console.log(`Created string attribute ${collectionId}.${id}`);
+    } catch (e: any) {
+      if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
+    }
+  }
+  async function safeCreateIntegerAttribute(collectionId: string, id: string, required = false, array = false) {
+    try {
+      // @ts-ignore
+      await databases.createIntegerAttribute(dbId, collectionId, id, required, undefined, undefined, array);
+      console.log(`Created integer attribute ${collectionId}.${id}`);
+    } catch (e: any) {
+      if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
+    }
+  }
+
+  // Exams: assignedTo (string[]), mode (string)
+  await safeCreateStringAttribute('exams', 'assignedTo', 255, false, true);
+  await safeCreateStringAttribute('exams', 'mode', 50, false, false);
+
+  // ExamAttempts: subjects (string[]), timePerQuestion (integer)
+  await safeCreateStringAttribute('examAttempts', 'subjects', 255, false, true);
+  await safeCreateIntegerAttribute('examAttempts', 'timePerQuestion', false, false);
+}
