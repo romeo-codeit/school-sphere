@@ -890,8 +890,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subjectMap = new Map<string, string>(); // normalizedKey -> display label
       const normalize = (s: string) => String(s || '').trim().toLowerCase();
       const normalizeKey = (s: string) => normalize(s).replace(/[^a-z]/g, '');
-      // Derive from exams
-      const normalize = (s: string) => String(s || '').trim().toLowerCase();
       const isEnglish = (s: string) => {
         const v = normalize(s);
         return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
