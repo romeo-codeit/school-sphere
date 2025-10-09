@@ -910,11 +910,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Available years by exam type and optional subject
+  // Available years by exam type and optional subjects (single or multiple)
   app.get('/api/cbt/years/available', auth, async (req, res) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      const subjectParam = req.query.subject ? String(req.query.subject) : undefined;
+      // Accept either multiple subject params (?subject=a&subject=b) or a CSV (?subjects=a,b)
+      const subjectParamsRaw = ([] as string[])
+        .concat((req.query.subject as any) || [])
+        .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
+      const subjectParams = subjectParamsRaw.map((s) => String(s)).filter(Boolean);
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       const normalize = (s: string) => String(s || '').trim().toLowerCase();
@@ -923,10 +927,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
       };
 
-      const subjectFilter = subjectParam ? normalize(subjectParam) : undefined;
-      const hasEnglishFilter = subjectFilter ? isEnglish(subjectFilter) : false;
+      // Build normalized subject filters; treat any English synonym as 'english'
+      let subjectFilters: string[] = subjectParams.map((s) => normalize(s));
+      subjectFilters = subjectFilters.map((s) => (isEnglish(s) ? 'english' : s));
+      // If no subject filters provided, we'll return union across all subjects
 
-      let years: Set<string> = new Set();
+      // Track years per subject for intersection
+      const subjectToYears = new Map<string, Set<string>>();
+      const addYear = (subjKey: string, year: string) => {
+        if (!subjectToYears.has(subjKey)) subjectToYears.set(subjKey, new Set());
+        subjectToYears.get(subjKey)!.add(year);
+      };
+
+      let allYears: Set<string> = new Set();
       let offset = 0;
       while (true) {
         const page = await databases.listDocuments(
@@ -937,20 +950,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
           if (docType !== type) continue;
-          const subj = normalize((doc as any).subject || '');
+          let subj = normalize((doc as any).subject || '');
+          subj = isEnglish(subj) ? 'english' : subj;
           const year = String((doc as any).year || '').trim();
           if (!year) continue;
-          if (subjectFilter) {
-            const matches = hasEnglishFilter ? isEnglish(subj) : subj === subjectFilter;
-            if (!matches) continue;
+          if (subjectFilters.length > 0) {
+            // Only include if this subject is among filters
+            if (subjectFilters.includes(subj)) {
+              addYear(subj, year);
+            }
+          } else {
+            // No filters: collect union
+            allYears.add(year);
           }
-          years.add(year);
         }
         offset += page.documents.length;
         if (offset >= (page.total || offset) || page.documents.length === 0) break;
       }
 
-      const items = Array.from(years).sort((a, b) => Number(b) - Number(a));
+      let items: string[] = [];
+      if (subjectFilters.length === 0) {
+        items = Array.from(allYears);
+      } else {
+        // Compute intersection across all filtered subjects
+        const yearSets = subjectFilters
+          .filter((s, idx) => subjectFilters.indexOf(s) === idx) // unique
+          .map((s) => subjectToYears.get(s) || new Set<string>());
+        if (yearSets.length === 0) {
+          items = [];
+        } else {
+          // Start with first set, intersect others
+          let intersection = new Set<string>(yearSets[0]);
+          for (let i = 1; i < yearSets.length; i++) {
+            const next = new Set<string>();
+            for (const y of intersection) {
+              if (yearSets[i].has(y)) next.add(y);
+            }
+            intersection = next;
+          }
+          items = Array.from(intersection);
+        }
+      }
+
+      items.sort((a, b) => Number(b) - Number(a));
       res.json({ years: items });
     } catch (error) {
       console.error(error);

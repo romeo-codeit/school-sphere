@@ -28,8 +28,9 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
   const [year, setYear] = useState<string>('');
 
   const { data: subjectsData, isLoading: loadingSubjects } = useAvailableSubjects(examType, open);
-  const primarySubject = selectedSubjects[0];
-  const { data: yearsData, isLoading: loadingYears } = useAvailableYears(examType, primarySubject, open && examType === 'jamb');
+  // For JAMB we want years available across all selected subjects (intersection)
+  const subjParam = selectedSubjects.join(',');
+  const { data: yearsData, isLoading: loadingYears } = useAvailableYears(examType, subjParam, open && examType === 'jamb');
   const validateMutation = useValidateSubjects();
 
   const available = subjectsData?.subjects || [];

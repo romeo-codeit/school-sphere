@@ -34,16 +34,16 @@ export function useAvailableSubjects(type?: string, enabled = true) {
   });
 }
 
-export function useAvailableYears(type?: string, subject?: string, enabled = true) {
+export function useAvailableYears(type?: string, subjectsCsv?: string, enabled = true) {
   const { getJWT } = useAuth();
   return useQuery({
-    queryKey: ['cbt-years-available', type, subject],
+    queryKey: ['cbt-years-available', type, subjectsCsv],
     enabled: !!type && enabled,
     queryFn: async () => {
       const jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
-      if (subject) params.set('subject', String(subject));
+      if (subjectsCsv) params.set('subjects', String(subjectsCsv));
       const res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
