@@ -679,36 +679,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Basic validation rules
       if (t === 'jamb') {
-        const lowerSubjects = selectedSubjects.map((s) => s.toLowerCase());
+        const normalize = (s: string) => String(s || '').trim().toLowerCase();
+        const isEnglish = (s: string) => {
+          const v = normalize(s);
+          return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+        };
+        const lowerSubjects = selectedSubjects.map((s) => normalize(s));
         console.log('[CBT] JAMB validation - original subjects:', selectedSubjects);
-        console.log('[CBT] JAMB validation - lowercase subjects:', lowerSubjects);
-        
-        // Check for English with flexible matching (handles "English Language", "EnglishLanguage", etc.)
-        const hasEnglish = lowerSubjects.some(s => 
-          s === 'english' || 
-          s === 'english language' || 
-          s === 'englishlanguage' ||
-          s.startsWith('english')
-        );
-        
+        console.log('[CBT] JAMB validation - normalized subjects:', lowerSubjects);
+
+        const hasEnglish = lowerSubjects.some(isEnglish);
         console.log('[CBT] JAMB validation - hasEnglish check result:', hasEnglish);
-        
         if (!hasEnglish) {
           console.log('[CBT] JAMB validation FAILED: English not found in', lowerSubjects);
           return res.status(400).json({ message: 'English is mandatory for JAMB' });
         }
-        
+
         // Count non-English subjects
-        const nonEnglishCount = lowerSubjects.filter(s => {
-          const isEnglish = s === 'english' || 
-                           s === 'english language' || 
-                           s === 'englishlanguage' ||
-                           s.startsWith('english');
-          return !isEnglish;
-        }).length;
-        
+        const nonEnglishCount = lowerSubjects.filter((s) => !isEnglish(s)).length;
         console.log('[CBT] JAMB validation - non-English subjects:', nonEnglishCount);
-        
         if (nonEnglishCount !== 3) {
           return res.status(400).json({ message: 'Select exactly 3 additional subjects for JAMB' });
         }
@@ -719,8 +708,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Build availability by scanning exams and checking for actual questions
-      const lowerSubs = selectedSubjects.map((s) => s.toLowerCase());
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const isEnglish = (s: string) => {
+        const v = normalize(s);
+        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      };
+      const lowerSubs = selectedSubjects.map((s) => normalize(s));
       const availability: Record<string, number> = Object.fromEntries(lowerSubs.map((s) => [s, 0]));
+      const englishSelectedKey = lowerSubs.find(isEnglish) || null;
       let offset = 0;
       let totalExamsScanned = 0;
       let matchingExams: any[] = [];
@@ -736,13 +731,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         totalExamsScanned += page.documents.length;
         
         for (const doc of page.documents as any[]) {
-          const docType = String((doc as any).type || '').toLowerCase();
+          const docType = normalize((doc as any).type || '');
           if (docType !== t) continue;
-          const subj = String((doc as any).subject || '').toLowerCase();
-          
-          if (subj && lowerSubs.includes(subj)) {
+          const subj = normalize((doc as any).subject || '');
+
+          let matches = false;
+          let keyForIncrement: string | null = null;
+          if (isEnglish(subj)) {
+            // Treat any English synonym as a match if user selected any English variant
+            matches = englishSelectedKey != null;
+            keyForIncrement = englishSelectedKey;
+          } else if (subj && lowerSubs.includes(subj)) {
+            matches = true;
+            keyForIncrement = subj;
+          }
+
+          if (matches) {
             matchingExams.push({ id: doc.$id, subject: subj, hasQuestions: false });
-            
+
             // Check if this exam actually has questions
             let hasQuestions = false;
             if (Array.isArray((doc as any).questions) && (doc as any).questions.length > 0) {
@@ -755,9 +761,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
               ]);
               hasQuestions = qRes.total > 0;
             }
-            
-            if (hasQuestions) {
-              availability[subj] = (availability[subj] || 0) + 1;
+
+            if (hasQuestions && keyForIncrement) {
+              availability[keyForIncrement] = (availability[keyForIncrement] || 0) + 1;
               matchingExams[matchingExams.length - 1].hasQuestions = true;
             }
           }
@@ -800,6 +806,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Derive from exams to ensure only subjects with questions appear (case-insensitive type)
       let subjects: Set<string> = new Set();
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const isEnglish = (s: string) => {
+        const v = normalize(s);
+        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      };
       let offset = 0;
       let matchingExams = 0;
       
@@ -812,7 +823,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page.documents.forEach((doc: any) => {
           const docType = String(doc.type || '').toLowerCase();
           if (docType === type && doc.subject) {
-            subjects.add(String(doc.subject));
+            const subjRaw = String(doc.subject);
+            const subj = isEnglish(subjRaw) ? 'English' : subjRaw;
+            subjects.add(subj);
             matchingExams++;
           }
         });
