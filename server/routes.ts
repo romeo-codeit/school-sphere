@@ -378,9 +378,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
         const yearParam = req.query.year ? String(req.query.year) : undefined;
         const normalize = (s: string) => String(s || '').trim().toLowerCase();
-        const isEnglish = (s: string) => {
-          const v = normalize(s);
-          return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+        const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+        const canonicalSubject = (s: string) => {
+          const k = normalizeKey(s);
+          if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+          if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+          return k;
         };
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
         
@@ -398,7 +401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             for (const exam of examResults.documents) {
               const examType = normalize((exam as any).type || '');
               const examSubjectRaw = String((exam as any).subject || '');
-              const examSubject = normalize(examSubjectRaw);
+              const examSubject = canonicalSubject(examSubjectRaw);
               const examYear = String((exam as any).year || '');
               
               // For JAMB, require matching year (when provided)
@@ -406,7 +409,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 continue;
               }
               // Subject match (treat English synonyms as equivalent)
-              const subjectMatches = isEnglish(examSubject) ? selectedSubjects.some(isEnglish) : (examSubject === normalize(subject));
+              const subjectMatches = (() => {
+                const selectedKeys = selectedSubjects.map((s) => canonicalSubject(s));
+                const examKey = examSubject; // already canonical
+                return selectedKeys.includes(examKey);
+              })();
               if (examType === type && subjectMatches) {
                 // Get questions from this exam
                 const pushMapped = (arr: any[]) => {
@@ -420,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       correctAnswer: correct,
                       explanation: (q as any).explanation ?? undefined,
                       imageUrl: (q as any).imageUrl ?? (q as any).image ?? undefined,
-                      subject: isEnglish(examSubjectRaw) ? 'English' : (exam as any).subject,
+                      subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
                     };
                     questions.push(mapped);
                   }
@@ -732,13 +739,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Validate subject selection before starting an exam session
   app.post('/api/cbt/exams/validate-subjects', auth, async (req, res) => {
     try {
-      const { type, selectedSubjects } = req.body as { type?: string; selectedSubjects?: string[] };
+      const { type, selectedSubjects, year } = req.body as { type?: string; selectedSubjects?: string[]; year?: string };
       if (!type || !Array.isArray(selectedSubjects)) {
         return res.status(400).json({ message: 'type and selectedSubjects are required' });
       }
       const t = String(type).toLowerCase();
       
-      console.log('[CBT] Received validation request:', { type: t, selectedSubjects });
+      console.log('[CBT] Received validation request:', { type: t, selectedSubjects, year });
 
       // Basic validation rules
       if (t === 'jamb') {
@@ -772,11 +779,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Build availability by scanning exams and checking for actual questions
       const normalize = (s: string) => String(s || '').trim().toLowerCase();
-      const isEnglish = (s: string) => {
-        const v = normalize(s);
-        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+      const canonicalSubject = (s: string) => {
+        const k = normalizeKey(s);
+        if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+        if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+        return k;
       };
-      const lowerSubs = selectedSubjects.map((s) => normalize(s));
+      const isEnglish = (s: string) => canonicalSubject(s) === 'english';
+      const lowerSubs = selectedSubjects.map((s) => canonicalSubject(s));
       const availability: Record<string, number> = Object.fromEntries(lowerSubs.map((s) => [s, 0]));
       const englishSelectedKey = lowerSubs.find(isEnglish) || null;
       let offset = 0;
@@ -796,7 +807,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
           if (docType !== t) continue;
-          const subj = normalize((doc as any).subject || '');
+          
+          // Filter by year if specified
+          if (year) {
+            const docYear = String((doc as any).year || '').trim();
+            if (docYear !== year) continue;
+          }
+          
+          const subj = canonicalSubject((doc as any).subject || '');
 
           let matches = false;
           let keyForIncrement: string | null = null;
@@ -922,14 +940,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       const normalize = (s: string) => String(s || '').trim().toLowerCase();
-      const isEnglish = (s: string) => {
-        const v = normalize(s);
-        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+      const canonicalSubject = (s: string) => {
+        const k = normalizeKey(s);
+        if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+        if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+        return k;
       };
 
       // Build normalized subject filters; treat any English synonym as 'english'
-      let subjectFilters: string[] = subjectParams.map((s) => normalize(s));
-      subjectFilters = subjectFilters.map((s) => (isEnglish(s) ? 'english' : s));
+  let subjectFilters: string[] = subjectParams.map((s) => canonicalSubject(s));
       // If no subject filters provided, we'll return union across all subjects
 
       // Track years per subject for intersection
@@ -950,8 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
           if (docType !== type) continue;
-          let subj = normalize((doc as any).subject || '');
-          subj = isEnglish(subj) ? 'english' : subj;
+          let subj = canonicalSubject((doc as any).subject || '');
           const year = String((doc as any).year || '').trim();
           if (!year) continue;
           if (subjectFilters.length > 0) {
@@ -972,24 +991,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (subjectFilters.length === 0) {
         items = Array.from(allYears);
       } else {
-        // Compute intersection across all filtered subjects
-        const yearSets = subjectFilters
+        // Compute UNION across all filtered subjects (show years where ANY subject has exams)
+        const union = new Set<string>();
+        subjectFilters
           .filter((s, idx) => subjectFilters.indexOf(s) === idx) // unique
-          .map((s) => subjectToYears.get(s) || new Set<string>());
-        if (yearSets.length === 0) {
-          items = [];
-        } else {
-          // Start with first set, intersect others
-          let intersection = new Set<string>(yearSets[0]);
-          for (let i = 1; i < yearSets.length; i++) {
-            const next = new Set<string>();
-            for (const y of intersection) {
-              if (yearSets[i].has(y)) next.add(y);
+          .forEach(s => {
+            const yearSet = subjectToYears.get(s);
+            if (yearSet) {
+              yearSet.forEach(y => union.add(y));
             }
-            intersection = next;
-          }
-          items = Array.from(intersection);
-        }
+          });
+        items = Array.from(union);
       }
 
       items.sort((a, b) => Number(b) - Number(a));

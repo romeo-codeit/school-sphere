@@ -56,7 +56,7 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
 export function useValidateSubjects() {
   const { getJWT } = useAuth();
   return useMutation({
-    mutationFn: async (payload: { type: string; selectedSubjects: string[] }) => {
+    mutationFn: async (payload: { type: string; selectedSubjects: string[]; year?: string }) => {
       const jwt = await getJWT();
       const res = await fetch(`${API_BASE}/exams/validate-subjects`, {
         method: 'POST',

@@ -10,9 +10,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { SubjectSelector } from './SubjectSelector';
 import { useAvailableSubjects, useAvailableYears, useValidateSubjects } from '@/hooks/useCBT';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Calendar } from 'lucide-react';
 
 export type SubjectSelectionDialogProps = {
   open: boolean;
@@ -83,10 +91,17 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
 
   const handleConfirm = async () => {
     setError('');
-    console.log('[SubjectSelectionDialog] Confirming with:', { examType, selectedSubjects });
+    
+    // Validate year selection for standardized exams
+    if (['jamb', 'waec', 'neco'].includes(examType) && !year) {
+      setError('Please select an exam year');
+      return;
+    }
+    
+    console.log('[SubjectSelectionDialog] Confirming with:', { examType, selectedSubjects, year });
     try {
-      await validateMutation.mutateAsync({ type: examType, selectedSubjects });
-      onConfirm(selectedSubjects, { year: examType === 'jamb' ? (year || undefined) : undefined });
+      await validateMutation.mutateAsync({ type: examType, selectedSubjects, year });
+      onConfirm(selectedSubjects, { year });
       onOpenChange(false);
     } catch (err: any) {
       console.error('Subject validation error:', err);
@@ -105,6 +120,7 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
 
   const handleCancel = () => {
     setSelectedSubjects([]);
+    setYear('');
     setError('');
     onOpenChange(false);
   };
@@ -140,34 +156,52 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
               : 'Select one or more subjects to include in your exam session.'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-4">
-          {examType === 'jamb' && (
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-muted-foreground">Year</label>
+        <div className="space-y-6 py-4">
+          {/* Year Selection - Only for standardized exams */}
+          {['jamb', 'waec', 'neco'].includes(examType) && (
+            <div className="space-y-2">
+              <Label htmlFor="year-select" className="flex items-center gap-2 text-sm font-medium">
+                <Calendar className="w-4 h-4" />
+                Select Exam Year
+                {selectedSubjects.length > 0 && (
+                  <span className="text-xs text-muted-foreground">
+                    (years available for any selected subject)
+                  </span>
+                )}
+              </Label>
               {loadingYears ? (
-                <div className="text-xs text-muted-foreground">Loading years…</div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading available years...
+                </div>
               ) : yearsData?.years?.length ? (
-                <select
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className="border rounded px-2 py-1 text-sm"
-                >
-                  <option value="">Select year</option>
-                  {yearsData.years.map((y) => (
-                    <option value={y} key={y}>{y}</option>
-                  ))}
-                </select>
+                <Select value={year} onValueChange={setYear}>
+                  <SelectTrigger id="year-select" className="w-full sm:w-48">
+                    <SelectValue placeholder="Choose exam year..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {yearsData.years
+                      .sort((a, b) => parseInt(b) - parseInt(a)) // Sort descending (newest first)
+                      .map((y) => (
+                        <SelectItem key={y} value={y}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              ) : selectedSubjects.length === 0 ? (
+                <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border">
+                  Select subjects first to see available years
+                </div>
               ) : (
-                <input
-                  type="text"
-                  placeholder="e.g. 2021"
-                  value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  className="border rounded px-2 py-1 text-sm w-28"
-                />
+                <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border">
+                  No years available for the selected subjects combination
+                </div>
               )}
             </div>
           )}
+
+          {/* Subject Selection */}
           {loadingSubjects ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
@@ -179,19 +213,33 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
               <AlertDescription>No subjects available for this exam type.</AlertDescription>
             </Alert>
           ) : (
-            <>
-              <SubjectSelector
-                type={examType}
-                available={available}
-                value={selectedSubjects}
-                onChange={setSelectedSubjects}
-              />
-              {/* Debug: Show selected subjects */}
-              <div className="text-xs text-muted-foreground p-2 bg-muted/30 rounded">
-                <strong>Currently selected ({selectedSubjects.length}):</strong> {selectedSubjects.join(', ') || 'None'}
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Select Subjects</Label>
+                <SubjectSelector
+                  type={examType}
+                  available={available}
+                  value={selectedSubjects}
+                  onChange={setSelectedSubjects}
+                />
               </div>
-            </>
+              
+              {/* Selection Summary */}
+              <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-md border">
+                <div className="flex items-center justify-between">
+                  <span>
+                    <strong>Selected ({selectedSubjects.length}):</strong> {selectedSubjects.join(', ') || 'None'}
+                  </span>
+                  {examType === 'jamb' && (
+                    <Badge variant={selectedSubjects.length === 4 ? 'primary' : 'secondary'} className="text-xs">
+                      {selectedSubjects.length}/4 required
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            </div>
           )}
+
           {error && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
