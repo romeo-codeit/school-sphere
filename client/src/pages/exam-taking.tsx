@@ -487,6 +487,15 @@ export default function ExamTaking() {
   const currentQuestion = questions[currentQuestionIndex];
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
+  const subjectsInExam = Array.from(new Set((questions || []).map((q: any) => String(q.subject || '').trim()).filter(Boolean)));
+  const [activeSubject, setActiveSubject] = useState<string | null>(null);
+  useEffect(() => {
+    if (subjectsInExam.length > 0 && !activeSubject) {
+      setActiveSubject(subjectsInExam[0]);
+    }
+  }, [subjectsInExam, activeSubject]);
+  const filteredQuestions = activeSubject ? questions.filter((q: any) => String(q.subject || '') === activeSubject) : questions;
+  const currentFilteredQuestion = filteredQuestions[currentQuestionIndex] || null;
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -579,13 +588,35 @@ export default function ExamTaking() {
           </div>
         )}
         <div className="max-w-3xl mx-auto">
+          {/* Subject Switcher (JAMB) */}
+          {practiceType === 'jamb' && subjectsInExam.length > 0 && (
+            <Card className="mb-4">
+              <CardContent className="p-3">
+                <div className="flex flex-wrap gap-2">
+                  {subjectsInExam.map((subj) => (
+                    <button
+                      key={subj}
+                      onClick={() => { setActiveSubject(subj); setCurrentQuestionIndex(0); }}
+                      className={cn(
+                        "px-3 py-1 rounded border text-sm",
+                        activeSubject === subj ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/40 border-border"
+                      )}
+                    >
+                      {subj}
+                    </button>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Question Display - Single column CBT layout */}
           <div>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>
-                    Question {currentQuestionIndex + 1} of {questions.length}
+                    Question {currentQuestionIndex + 1} of {filteredQuestions.length}
                   </CardTitle>
                   <Button
                     variant="outline"
@@ -604,9 +635,9 @@ export default function ExamTaking() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
-                {currentQuestion ? (
+                {currentFilteredQuestion ? (
                   <>
-                    <div className="prose max-w-none text-base leading-relaxed whitespace-pre-wrap">{currentQuestion.question}</div>
+                    <div className="prose max-w-none text-base leading-relaxed whitespace-pre-wrap">{currentFilteredQuestion.question}</div>
 
                     <RadioGroup
                       value={answers[currentQuestionIndex] || ""}
@@ -614,7 +645,7 @@ export default function ExamTaking() {
                       className="space-y-3"
                       aria-label={`Answer options for question ${currentQuestionIndex + 1}`}
                     >
-                      {currentQuestion.options?.map((option: string, i: number) => (
+                      {currentFilteredQuestion.options?.map((option: string, i: number) => (
                         <div
                           key={i}
                           className={cn(
@@ -655,7 +686,7 @@ export default function ExamTaking() {
                       </Button>
                       <Button
                         onClick={handleNext}
-                        disabled={currentQuestionIndex === questions.length - 1}
+                        disabled={currentQuestionIndex === filteredQuestions.length - 1}
                         className="flex-1 sm:flex-none touch-manipulation"
                         aria-label="Go to next question"
                       >

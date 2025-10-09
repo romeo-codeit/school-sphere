@@ -910,6 +910,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Available years by exam type and optional subject
+  app.get('/api/cbt/years/available', auth, async (req, res) => {
+    try {
+      const type = String(req.query.type || '').toLowerCase();
+      const subjectParam = req.query.subject ? String(req.query.subject) : undefined;
+      if (!type) return res.status(400).json({ message: 'type is required' });
+
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const isEnglish = (s: string) => {
+        const v = normalize(s);
+        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      };
+
+      const subjectFilter = subjectParam ? normalize(subjectParam) : undefined;
+      const hasEnglishFilter = subjectFilter ? isEnglish(subjectFilter) : false;
+
+      let years: Set<string> = new Set();
+      let offset = 0;
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        for (const doc of page.documents as any[]) {
+          const docType = normalize((doc as any).type || '');
+          if (docType !== type) continue;
+          const subj = normalize((doc as any).subject || '');
+          const year = String((doc as any).year || '').trim();
+          if (!year) continue;
+          if (subjectFilter) {
+            const matches = hasEnglishFilter ? isEnglish(subj) : subj === subjectFilter;
+            if (!matches) continue;
+          }
+          years.add(year);
+        }
+        offset += page.documents.length;
+        if (offset >= (page.total || offset) || page.documents.length === 0) break;
+      }
+
+      const items = Array.from(years).sort((a, b) => Number(b) - Number(a));
+      res.json({ years: items });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch years' });
+    }
+  });
+
   // Autosave partial attempt payload
   app.post('/api/cbt/attempts/autosave', auth, async (req, res) => {
     try {

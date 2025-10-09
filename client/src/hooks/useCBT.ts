@@ -34,6 +34,25 @@ export function useAvailableSubjects(type?: string, enabled = true) {
   });
 }
 
+export function useAvailableYears(type?: string, subject?: string, enabled = true) {
+  const { getJWT } = useAuth();
+  return useQuery({
+    queryKey: ['cbt-years-available', type, subject],
+    enabled: !!type && enabled,
+    queryFn: async () => {
+      const jwt = await getJWT();
+      const params = new URLSearchParams();
+      if (type) params.set('type', String(type));
+      if (subject) params.set('subject', String(subject));
+      const res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to fetch available years');
+      return (await res.json()) as { years: string[] };
+    },
+  });
+}
+
 export function useValidateSubjects() {
   const { getJWT } = useAuth();
   return useMutation({

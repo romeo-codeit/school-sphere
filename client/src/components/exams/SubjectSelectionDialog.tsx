@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SubjectSelector } from './SubjectSelector';
-import { useAvailableSubjects, useValidateSubjects } from '@/hooks/useCBT';
+import { useAvailableSubjects, useAvailableYears, useValidateSubjects } from '@/hooks/useCBT';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 export type SubjectSelectionDialogProps = {
@@ -28,6 +28,8 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
   const [year, setYear] = useState<string>('');
 
   const { data: subjectsData, isLoading: loadingSubjects } = useAvailableSubjects(examType, open);
+  const primarySubject = selectedSubjects[0];
+  const { data: yearsData, isLoading: loadingYears } = useAvailableYears(examType, primarySubject, open && examType === 'jamb');
   const validateMutation = useValidateSubjects();
 
   const available = subjectsData?.subjects || [];
@@ -141,13 +143,28 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
           {examType === 'jamb' && (
             <div className="flex items-center gap-2">
               <label className="text-sm text-muted-foreground">Year</label>
-              <input
-                type="text"
-                placeholder="e.g. 2021"
-                value={year}
-                onChange={(e) => setYear(e.target.value)}
-                className="border rounded px-2 py-1 text-sm w-28"
-              />
+              {loadingYears ? (
+                <div className="text-xs text-muted-foreground">Loading years…</div>
+              ) : yearsData?.years?.length ? (
+                <select
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm"
+                >
+                  <option value="">Select year</option>
+                  {yearsData.years.map((y) => (
+                    <option value={y} key={y}>{y}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  placeholder="e.g. 2021"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                  className="border rounded px-2 py-1 text-sm w-28"
+                />
+              )}
             </div>
           )}
           {loadingSubjects ? (
