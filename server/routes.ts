@@ -404,8 +404,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
               const examSubject = canonicalSubject(examSubjectRaw);
               const examYear = String((exam as any).year || '');
               
-              // For JAMB, require matching year (when provided)
-              if (type === 'jamb' && yearParam && String(examYear) !== String(yearParam)) {
+              // If a year was provided, require matching year (applies to all types)
+              if (yearParam && String(examYear) !== String(yearParam)) {
                 continue;
               }
               // Subject match (treat English synonyms as equivalent)

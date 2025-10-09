@@ -177,7 +177,7 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
               ) : yearsData?.years?.length ? (
                 <Select value={year} onValueChange={setYear}>
                   <SelectTrigger id="year-select" className="w-full sm:w-48">
-                    <SelectValue placeholder="Choose exam year..." />
+                  <SelectValue placeholder="Any year" />
                   </SelectTrigger>
                   <SelectContent>
                     {yearsData.years
