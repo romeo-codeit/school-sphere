@@ -139,7 +139,7 @@ function ExamsPage() {
     );
   };
 
-  const handleSubjectSelectionConfirm = async (selectedSubjects: string[]) => {
+  const handleSubjectSelectionConfirm = async (selectedSubjects: string[], extras?: { year?: string }) => {
     if (!subjectSelectionExam) return;
     
     // For practice hub sessions, we create a synthetic practice exam attempt
@@ -155,7 +155,8 @@ function ExamsPage() {
         onSuccess: (attempt) => {
           setSubjectSelectionExam(null);
           // Navigate to a practice session route
-          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}`);
+          const yearQuery = extras?.year ? `&year=${encodeURIComponent(extras.year)}` : '';
+          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}${yearQuery}`);
         },
         onError: (err: any) => {
           toast({

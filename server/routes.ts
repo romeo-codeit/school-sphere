@@ -361,7 +361,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get a single exam (with questions)
+  // Get a single exam (with questions) or a synthetic practice exam
   app.get('/api/cbt/exams/:id', auth, async (req, res) => {
     try {
       const examId = String(req.params.id || '').trim();
@@ -376,10 +376,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (examId.startsWith('practice-')) {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
+        const yearParam = req.query.year ? String(req.query.year) : undefined;
+        const normalize = (s: string) => String(s || '').trim().toLowerCase();
+        const isEnglish = (s: string) => {
+          const v = normalize(s);
+          return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+        };
+        const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
         
         // Fetch questions from multiple exams matching type and subjects
         let questions: any[] = [];
-        for (const subject of subjects) {
+        for (const subject of selectedSubjects) {
           let offset = 0;
           while (true) {
             const examResults = await databases.listDocuments(
@@ -389,13 +396,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             );
             
             for (const exam of examResults.documents) {
-              const examType = String((exam as any).type || '').toLowerCase();
-              const examSubject = String((exam as any).subject || '').toLowerCase();
+              const examType = normalize((exam as any).type || '');
+              const examSubjectRaw = String((exam as any).subject || '');
+              const examSubject = normalize(examSubjectRaw);
+              const examYear = String((exam as any).year || '');
               
-              if (examType === type && examSubject === subject.toLowerCase()) {
+              // For JAMB, require matching year (when provided)
+              if (type === 'jamb' && yearParam && String(examYear) !== String(yearParam)) {
+                continue;
+              }
+              // Subject match (treat English synonyms as equivalent)
+              const subjectMatches = isEnglish(examSubject) ? selectedSubjects.some(isEnglish) : (examSubject === normalize(subject));
+              if (examType === type && subjectMatches) {
                 // Get questions from this exam
-                if (Array.isArray((exam as any).questions)) {
-                  questions.push(...(exam as any).questions);
+                const pushMapped = (arr: any[]) => {
+                  for (const q of arr) {
+                    const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
+                    const opts = (q as any).options ?? [];
+                    const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+                    const mapped = {
+                      question: text,
+                      options: opts,
+                      correctAnswer: correct,
+                      explanation: (q as any).explanation ?? undefined,
+                      imageUrl: (q as any).imageUrl ?? (q as any).image ?? undefined,
+                      subject: isEnglish(examSubjectRaw) ? 'English' : (exam as any).subject,
+                    };
+                    questions.push(mapped);
+                  }
+                };
+                if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
+                  pushMapped((exam as any).questions);
                 } else {
                   // Fetch from questions collection
                   let qOffset = 0;
@@ -405,7 +436,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                       Query.limit(100),
                       Query.offset(qOffset),
                     ]);
-                    questions.push(...qRes.documents);
+                    pushMapped(qRes.documents as any[]);
                     qOffset += qRes.documents.length;
                     if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
                   }
@@ -417,17 +448,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (offset >= (examResults.total || offset) || examResults.documents.length === 0) break;
           }
         }
-        
+        // For WAEC/NECO practice: sample 50 random questions across selected subjects
+        const sample = <T,>(arr: T[], n: number): T[] => {
+          if (arr.length <= n) return arr;
+          const out: T[] = [];
+          const used = new Set<number>();
+          while (out.length < n) {
+            const idx = Math.floor(Math.random() * arr.length);
+            if (!used.has(idx)) { used.add(idx); out.push(arr[idx]); }
+          }
+          return out;
+        };
+
+        let finalQuestions = questions;
+        if (type === 'waec' || type === 'neco') {
+          finalQuestions = sample(questions, 50);
+        }
+
+        // Fixed durations by type
+        const durationMinutes = type === 'jamb' ? 120 : (type === 'waec' || type === 'neco') ? 90 : 60;
+        const titleSuffix = yearParam && type === 'jamb' ? `${subjects.join(', ')} - ${yearParam}` : subjects.join(', ');
+
         // Return synthetic practice exam
         return res.json({
           $id: examId,
-          title: `${type.toUpperCase()} Practice - ${subjects.join(', ')}`,
+          title: `${type.toUpperCase()} Practice - ${titleSuffix}`,
           type,
           subject: subjects.join(', '),
-          duration: Math.max(60, questions.length * 2), // 2 minutes per question, minimum 60
-          questions,
-          questionCount: questions.length,
+          duration: durationMinutes,
+          questions: finalQuestions,
+          questionCount: finalQuestions.length,
           isPractice: true,
+          selectedSubjects,
+          year: yearParam,
         });
       }
 
@@ -445,12 +498,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch the exam document
       const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
 
-      // Prefer embedded questions if present on the exam document (legacy/imported data)
-      let questions: any[] = Array.isArray((exam as any).questions) ? (exam as any).questions : [];
+      // Unify question shape and include subject for UI filtering
+      const mapQuestion = (q: any, subject: string) => ({
+        question: q?.question ?? q?.questionText ?? q?.text ?? '',
+        options: q?.options ?? [],
+        correctAnswer: q?.correctAnswer ?? q?.answer ?? '',
+        explanation: q?.explanation ?? undefined,
+        imageUrl: q?.imageUrl ?? q?.image ?? undefined,
+        subject,
+      });
 
-      if (!Array.isArray(questions) || questions.length === 0) {
+      // Prefer embedded questions if present on the exam document (legacy/imported data)
+      let questions: any[] = [];
+      if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
+        questions = (exam as any).questions.map((q: any) => mapQuestion(q, String((exam as any).subject || '')));
+      } else {
         // Otherwise fetch from the separate questions collection (normalized data)
-        questions = [];
         let qOffset = 0;
         while (true) {
           const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
@@ -458,7 +521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             Query.limit(100),
             Query.offset(qOffset),
           ]);
-          questions.push(...qRes.documents);
+          questions.push(...(qRes.documents as any[]).map((q: any) => mapQuestion(q, String((exam as any).subject || ''))));
           qOffset += qRes.documents.length;
           if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
         }

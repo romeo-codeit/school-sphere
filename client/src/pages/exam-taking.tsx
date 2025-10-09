@@ -37,12 +37,13 @@ export default function ExamTaking() {
   const practiceType = params.type; // Will be set for practice routes
   const [searchParams] = useState(() => new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
   const subjects = searchParams.get('subjects')?.split(',') || [];
+  const year = searchParams.get('year') || undefined;
   
   const { useExam } = useExams();
   // For practice sessions, pass subjects to fetch the right questions
   const examFetchId = practiceType ? `practice-${practiceType}` : (examId || '');
   const examUrl = practiceType && subjects.length > 0 
-    ? `${examFetchId}?subjects=${subjects.join(',')}` 
+    ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}` 
     : examFetchId;
   const { data: exam, isLoading: isLoadingExam } = useExam(examUrl);
   
@@ -107,7 +108,7 @@ export default function ExamTaking() {
         }
       }
     } catch {}
-    setTimeLeft(exam.duration * 60); // Convert minutes to seconds
+    setTimeLeft(Math.max(1, Math.floor(Number(exam.duration) || 0) * 60)); // Convert minutes to seconds, guard
   }, [exam, timeLeft, attemptId, examId]);
 
   useEffect(() => {
@@ -577,61 +578,9 @@ export default function ExamTaking() {
             <span className="font-medium">⏰ 10 minutes remaining.</span> Please review your answers and manage your time.
           </div>
         )}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Question Navigator - Mobile: Bottom, Desktop: Side */}
-          <div className="lg:col-span-1 order-2 lg:order-1">
-            <Card className="sticky top-24">
-              <CardHeader>
-                <CardTitle className="text-base">Question Navigator</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-5 gap-2" role="navigation" aria-label="Question navigation">
-                  {questions.map((_, index) => {
-                    const isAnswered = answers.hasOwnProperty(index);
-                    const isMarked = markedForReview.has(index);
-                    const isCurrent = index === currentQuestionIndex;
-
-                    return (
-                      <button
-                        key={index}
-                        onClick={() => goToQuestion(index)}
-                        className={cn(
-                          "relative w-10 h-10 rounded-md flex items-center justify-center text-sm font-medium transition-all touch-manipulation",
-                          isCurrent && "ring-2 ring-primary ring-offset-2",
-                          isAnswered && !isCurrent && "bg-primary text-primary-foreground",
-                          !isAnswered && !isCurrent && "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                        )}
-                        aria-label={`Question ${index + 1}${isAnswered ? ', answered' : ''}${isMarked ? ', marked for review' : ''}${isCurrent ? ', current' : ''}`}
-                        aria-current={isCurrent ? 'step' : undefined}
-                      >
-                        {index + 1}
-                        {isMarked && (
-                          <Flag className="w-3 h-3 absolute -top-1 -right-1 text-destructive fill-destructive" aria-hidden="true" />
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="mt-4 space-y-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-primary rounded"></div>
-                    <span>Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 bg-secondary rounded"></div>
-                    <span>Not Answered</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Flag className="w-4 h-4 text-destructive fill-destructive" />
-                    <span>Marked for Review</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Question Display */}
-          <div className="lg:col-span-3 order-1 lg:order-2">
+        <div className="max-w-3xl mx-auto">
+          {/* Question Display - Single column CBT layout */}
+          <div>
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -657,9 +606,7 @@ export default function ExamTaking() {
               <CardContent className="space-y-6">
                 {currentQuestion ? (
                   <>
-                    <div className="prose max-w-none">
-                      <p className="text-base leading-relaxed">{currentQuestion.question}</p>
-                    </div>
+                    <div className="prose max-w-none text-base leading-relaxed whitespace-pre-wrap">{currentQuestion.question}</div>
 
                     <RadioGroup
                       value={answers[currentQuestionIndex] || ""}

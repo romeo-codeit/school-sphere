@@ -18,13 +18,14 @@ export type SubjectSelectionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   examType: 'jamb' | 'waec' | 'neco' | 'internal';
-  onConfirm: (selectedSubjects: string[]) => void;
+  onConfirm: (selectedSubjects: string[], extras?: { year?: string }) => void;
 };
 
 export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm }: SubjectSelectionDialogProps) {
   const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
   const [error, setError] = useState<string>('');
   const [initialized, setInitialized] = useState(false);
+  const [year, setYear] = useState<string>('');
 
   const { data: subjectsData, isLoading: loadingSubjects } = useAvailableSubjects(examType, open);
   const validateMutation = useValidateSubjects();
@@ -82,7 +83,7 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
     console.log('[SubjectSelectionDialog] Confirming with:', { examType, selectedSubjects });
     try {
       await validateMutation.mutateAsync({ type: examType, selectedSubjects });
-      onConfirm(selectedSubjects);
+      onConfirm(selectedSubjects, { year: examType === 'jamb' ? (year || undefined) : undefined });
       onOpenChange(false);
     } catch (err: any) {
       console.error('Subject validation error:', err);
@@ -137,6 +138,18 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4">
+          {examType === 'jamb' && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-muted-foreground">Year</label>
+              <input
+                type="text"
+                placeholder="e.g. 2021"
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+                className="border rounded px-2 py-1 text-sm w-28"
+              />
+            </div>
+          )}
           {loadingSubjects ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
