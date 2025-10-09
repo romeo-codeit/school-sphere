@@ -885,8 +885,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       console.log('[CBT] Fetching available subjects for type:', type);
 
-      // Derive from exams to ensure only subjects with questions appear (case-insensitive type)
-      let subjects: Set<string> = new Set();
+      // Derive from exams to ensure only subjects that exist appear (case-insensitive type),
+      // and collapse duplicates like "Agricultural Science" vs "AgriculturalScience"
+      const subjectMap = new Map<string, string>(); // normalizedKey -> display label
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z]/g, '');
+      // Derive from exams
       const normalize = (s: string) => String(s || '').trim().toLowerCase();
       const isEnglish = (s: string) => {
         const v = normalize(s);
@@ -905,8 +909,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const docType = String(doc.type || '').toLowerCase();
           if (docType === type && doc.subject) {
             const subjRaw = String(doc.subject);
-            const subj = isEnglish(subjRaw) ? 'English' : subjRaw;
-            subjects.add(subj);
+            const key = isEnglish(subjRaw) ? 'english' : normalizeKey(subjRaw);
+            const display = key === 'english' ? 'English' : subjRaw;
+            if (!subjectMap.has(key)) subjectMap.set(key, display);
             matchingExams++;
           }
         });
@@ -914,7 +919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (offset >= (page.total || offset) || page.documents.length === 0) break;
       }
 
-      const subjectArray = Array.from(subjects).sort();
+      const subjectArray = Array.from(subjectMap.values()).sort();
       console.log('[CBT] Found subjects for', type, ':', { 
         count: subjectArray.length, 
         subjects: subjectArray,
