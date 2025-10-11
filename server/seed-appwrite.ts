@@ -663,73 +663,8 @@ async function seedDemoData() {
     await delay(100);
   }
   console.log('Teachers seeded.');
-
-    // Seed exams
-  const examsCollection = await databases.listDocuments(dbId, 'exams');
-    if (examsCollection.total > 0) {
-      console.log('Emptying exams collection...');
-      for (const exam of examsCollection.documents) {
-        await databases.deleteDocument(dbId, 'exams', exam.$id);
-        await delay(10);
-      }
-      console.log('Exams collection emptied.');
-    }
-    // Empty questions collection
-    const questionsCollection = await databases.listDocuments(dbId, 'questions');
-    if (questionsCollection.total > 0) {
-      console.log('Emptying questions collection...');
-      for (const question of questionsCollection.documents) {
-        await databases.deleteDocument(dbId, 'questions', question.$id);
-        await delay(10);
-      }
-      console.log('Questions collection emptied.');
-    }
-    console.log('Seeding exams from JSON files...');
-    const assetsPath = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
-    const files = fs.readdirSync(assetsPath).filter(f => f.endsWith('.json') && !f.includes('practical')).slice(0, 5); // Test with first 5 files
-    for (const file of files) {
-      const filePath = path.join(assetsPath, file);
-      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      const parts = file.replace('.json', '').split('_');
-      const exam_type = parts[0];
-      const subject = parts.slice(1, -2).join('_');
-      const exam_year = parts[parts.length - 2];
-      const paper_type = parts[parts.length - 1];
-      const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
-      const exam = {
-        title,
-        type: exam_type.toLowerCase(),
-        subject: subject.replace(/_/g, ' '),
-        year: exam_year,
-        paper_type,
-        assignedTo: [],
-        mode: 'exam',
-      };
-      const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
-      const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
-      console.log(`Created exam: ${title}`);
-
-      // Seed questions
-      for (let i = 0; i < data.length; i++) {
-        const q = data[i];
-        const question = {
-          examId: examDoc.$id,
-          questionNumber: parseInt(q.number) || (i + 1),
-          questionText: q.text,
-          options: Object.values(q.options || {}),
-          correctAnswer: q.correct_answer,
-          explanation: q.explanation,
-          imageUrl: q.image,
-          answerUrl: q.answer_url,
-          section: q.section,
-          instructions: q.instructions,
-        };
-        await databases.createDocument(dbId, 'questions', ID.unique(), question);
-      }
-      console.log(`Seeded ${data.length} questions for ${title}`);
-      await delay(10);
-    }
-    console.log('Exams and questions seeded.');
+  // IMPORTANT: Do NOT touch exams or questions in this seeding flow
+  console.log('Skipping exams/questions seeding: existing data will be preserved.');
 
   const seededStudents = await databases.listDocuments(dbId, 'students');
   const seededExams = await databases.listDocuments(dbId, 'exams');
@@ -989,13 +924,17 @@ async function seedDemoData() {
 }
 
 async function main() {
-  console.log('Starting exam-only seeding...');
+  console.log('Starting database setup and attribute updates...');
   await createDatabaseIfNotExists();
   // Ensure new attributes required by Phase 1 exist without dropping collections
   await ensurePhase1Attributes();
-  // Skip seedCollections() since collections already exist
-  // await seedCollections();
-  await seedExamsOnly();
+  // Ensure collections and attributes exist (non-destructive)
+  await seedCollections();
+  // Seed users, classes, students, teachers, payments, attendance, messages, etc.
+  await seedDemoUsers();
+  await seedDemoData();
+  // Explicitly skip all exams/questions seeding paths
+  console.log('Done. Exams and questions collections were not modified.');
 }
 
 main();
@@ -1008,7 +947,7 @@ async function ensurePhase1Attributes() {
   async function safeCreateStringAttribute(collectionId: string, id: string, size = 255, required = false, array = false) {
     try {
       // @ts-ignore
-      await databases.createStringAttribute(dbId, collectionId, id, size, required, undefined, array);
+      await databases.createStringAttribute(dbId, collectionId, id, size, required, array);
       console.log(`Created string attribute ${collectionId}.${id}`);
     } catch (e: any) {
       if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
@@ -1017,7 +956,7 @@ async function ensurePhase1Attributes() {
   async function safeCreateIntegerAttribute(collectionId: string, id: string, required = false, array = false) {
     try {
       // @ts-ignore
-      await databases.createIntegerAttribute(dbId, collectionId, id, required, undefined, undefined, array);
+      await databases.createIntegerAttribute(dbId, collectionId, id, required, array);
       console.log(`Created integer attribute ${collectionId}.${id}`);
     } catch (e: any) {
       if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
