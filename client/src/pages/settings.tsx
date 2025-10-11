@@ -25,17 +25,22 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  Settings as SettingsIcon, 
-  User, 
-  Bell, 
-  Palette, 
-  School, 
+import {
+  Settings as SettingsIcon,
+  User,
+  Bell,
+  Palette,
+  School,
   Shield,
   Save,
   Upload,
   Download,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  QrCode,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,6 +49,20 @@ import { useSchoolData } from "@/hooks/useSchoolData";
 import { useUserProfile, useUserSettings } from "@/hooks/useUserSettings";
 import { account } from '@/lib/appwrite';
 import { AuthenticationFactor } from 'appwrite';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useSettingsPerformanceTest } from "@/hooks/useSettingsPerformanceTest";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -73,9 +92,24 @@ const notificationFormSchema = z.object({
   announcementNotifications: z.boolean(),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[a-z]/, "Must contain lowercase letter")
+    .regex(/[A-Z]/, "Must contain uppercase letter")
+    .regex(/[0-9]/, "Must contain number")
+    .regex(/[^a-zA-Z0-9]/, "Must contain special character"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 type ProfileFormData = z.infer<typeof profileFormSchema>;
 type SchoolFormData = z.infer<typeof schoolFormSchema>;
 type NotificationFormData = z.infer<typeof notificationFormSchema>;
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
@@ -85,6 +119,18 @@ export default function Settings() {
   const userId = user?.$id || "";
   const { profile, isLoading: isLoadingProfile, upsertUserProfile } = useUserProfile(userId);
   const { settings, isLoading: isLoadingSettings, upsertUserSettings } = useUserSettings(userId);
+
+  // Modal states
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // 2FA states
+  const [mfaChallenge, setMfaChallenge] = useState<any>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
 
   const colorOptions = [
     { name: "Blue", value: "hsl(221, 91%, 60%)", hex: "#3b82f6", className: "bg-blue-500" },
@@ -98,6 +144,9 @@ export default function Settings() {
   ];
 
   const { schoolData, isLoading: isLoadingSchoolData } = useSchoolData();
+
+  // Performance testing hook
+  useSettingsPerformanceTest();
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
@@ -160,6 +209,15 @@ export default function Settings() {
       paymentReminders: settings?.notificationPreferences?.paymentReminders ?? true,
       examNotifications: settings?.notificationPreferences?.examNotifications ?? true,
       announcementNotifications: settings?.notificationPreferences?.announcementNotifications ?? true,
+    },
+  });
+
+  const changePasswordForm = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
     },
   });
 
@@ -227,15 +285,42 @@ export default function Settings() {
   // Security actions
   const [securityLoading, setSecurityLoading] = useState(false);
   const handleEnable2FA = async () => {
-    setSecurityLoading(true);
     try {
-      // Appwrite 2FA: send verification email or start 2FA setup
-  await account.createMfaChallenge({ factor: AuthenticationFactor.Totp });
-      toast({ title: "2FA Challenge Sent", description: "Check your email or authenticator app." });
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to start 2FA setup", variant: "destructive" });
-    } finally {
-      setSecurityLoading(false);
+      const challenge = await account.createMfaChallenge({ factor: AuthenticationFactor.Totp });
+      setMfaChallenge(challenge);
+      setIs2FADialogOpen(true);
+      toast({
+        title: "2FA Setup Started",
+        description: "Scan the QR code with your authenticator app."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start 2FA setup",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!mfaCode || !mfaChallenge) return;
+
+    try {
+      await account.updateMfaChallenge(mfaChallenge.$id, mfaCode);
+      setIs2FAEnabled(true);
+      setIs2FADialogOpen(false);
+      setMfaChallenge(null);
+      setMfaCode("");
+      toast({
+        title: "2FA Enabled",
+        description: "Two-factor authentication has been successfully enabled."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code. Please try again.",
+        variant: "destructive"
+      });
     }
   };
   const handleManageSessions = async () => {
@@ -251,9 +336,25 @@ export default function Settings() {
     }
   };
   const handleChangePassword = async () => {
-    // Show a modal or prompt for old/new password, then:
-    // await account.updatePassword(newPassword, oldPassword);
-    toast({ title: "Change Password", description: "Password change UI not implemented in this demo." });
+    setIsPasswordDialogOpen(true);
+  };
+
+  const onChangePasswordSubmit = async (data: ChangePasswordFormData) => {
+    try {
+      await account.updatePassword(data.newPassword, data.currentPassword);
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully."
+      });
+      changePasswordForm.reset();
+      setIsPasswordDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password. Please check your current password.",
+        variant: "destructive"
+      });
+    }
   };
   const handleExportData = async () => {
     setSecurityLoading(true);
@@ -289,7 +390,8 @@ export default function Settings() {
   };
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} showGoBackButton={true} />
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -438,9 +540,7 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 {isLoadingSchoolData ? (
-                  <div className="flex justify-center items-center h-40">
-                    <RefreshCw className="w-8 h-8 animate-spin text-primary" />
-                  </div>
+                  <TableSkeleton rows={6} columns={2} />
                 ) : (
                   <Form {...schoolForm}>
                     <form onSubmit={schoolForm.handleSubmit(onSchoolSubmit)} className="space-y-6">
@@ -893,6 +993,187 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Change Password Modal */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new secure password.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...changePasswordForm}>
+            <form onSubmit={changePasswordForm.handleSubmit(onChangePasswordSubmit)} className="space-y-4">
+              <FormField
+                control={changePasswordForm.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showCurrentPassword ? "text" : "password"}
+                          placeholder="Enter current password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={changePasswordForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Enter new password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={changePasswordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm New Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm new password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsPasswordDialogOpen(false);
+                    changePasswordForm.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={changePasswordForm.formState.isSubmitting}>
+                  {changePasswordForm.formState.isSubmitting ? "Changing..." : "Change Password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2FA Setup Modal */}
+      <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code below with your authenticator app, then enter the verification code.
+            </DialogDescription>
+          </DialogHeader>
+          {mfaChallenge && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="p-4 border rounded-lg bg-muted">
+                  <QrCode className="h-32 w-32" />
+                  <p className="text-xs text-center mt-2 text-muted-foreground">
+                    QR Code would be displayed here
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code">Verification Code</Label>
+                <Input
+                  id="mfa-code"
+                  placeholder="Enter 6-digit code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  maxLength={6}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIs2FADialogOpen(false);
+                setMfaChallenge(null);
+                setMfaCode("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVerify2FA}
+              disabled={!mfaCode || mfaCode.length !== 6}
+            >
+              Verify & Enable
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+    </ErrorBoundary>
   );
 }

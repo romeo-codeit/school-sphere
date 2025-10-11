@@ -9,12 +9,16 @@ import { databases } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { TeacherDashboardSkeleton } from "@/components/skeletons/teacher-dashboard-skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useTeacherDashboardPerformanceTest } from "@/hooks/useTeacherDashboardPerformanceTest";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
 function TeacherDashboard() {
   const { user } = useAuth();
   const [, setLocation] = useLocation();
+
+  // Performance testing hook
+  useTeacherDashboardPerformanceTest();
 
   const { data: teacherDetails, isLoading: isLoadingTeacher, error: teacherError } = useQuery({
     queryKey: ['teacherDetails', user?.$id],

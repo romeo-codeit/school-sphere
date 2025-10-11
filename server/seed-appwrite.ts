@@ -15,7 +15,7 @@ const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
 const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY;
 const APPWRITE_DATABASE_ID = process.env.VITE_APPWRITE_DATABASE_ID;
-const APPWRITE_DATABASE_NAME = "EduManageDB";
+const APPWRITE_DATABASE_NAME = "OhmanFoundationDB";
 
 if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY || !APPWRITE_DATABASE_ID) {
   throw new Error("Missing Appwrite environment variables. Please check your .env file.");
@@ -518,6 +518,16 @@ async function seedExamsOnly() {
       mode: 'exam',
     };
     const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');
+
+    // Check if exam already exists to prevent duplication
+    const existingExams = await databases.listDocuments(dbId, 'exams', [
+      Query.equal('title', title)
+    ]);
+    if (existingExams.total > 0) {
+      console.log(`Exam already exists: ${title}, skipping...`);
+      continue;
+    }
+
     const examDoc = await databases.createDocument(dbId, 'exams', ID.unique(), { ...exam, search });
     console.log(`Created exam: ${title}`);
 
@@ -568,60 +578,91 @@ async function seedDemoData() {
     const teacherUserId = teacherUserList.users[0].$id;
     const adminUserId = adminUserList.users[0].$id;
 
-    // Seed classes
+    // Seed classes (force reseed)
   const dbId = APPWRITE_DATABASE_ID!;
   const classesCollection = await databases.listDocuments(dbId, 'classes');
-    if (classesCollection.total === 0) {
-        console.log('Seeding classes...');
-        const classData = [
-            { name: 'SS1 Science', teacherId: teacherUserId },
-            { name: 'SS2 Arts', teacherId: teacherUserId },
-        ];
-        for (const c of classData) {
-            await databases.createDocument(dbId, 'classes', ID.unique(), c);
-            await delay(100);
-        }
-        console.log('Classes seeded.');
+  if (classesCollection.total > 0) {
+    console.log('Clearing existing classes...');
+    for (const cls of classesCollection.documents) {
+      await databases.deleteDocument(dbId, 'classes', cls.$id);
+      await delay(10);
     }
+  }
+  console.log('Seeding classes...');
+  const classData = [
+    { name: 'JSS 1', teacherId: teacherUserId },
+    { name: 'JSS 2', teacherId: teacherUserId },
+    { name: 'JSS 3', teacherId: teacherUserId },
+    { name: 'SS 1 Science', teacherId: teacherUserId },
+    { name: 'SS 1 Arts', teacherId: teacherUserId },
+    { name: 'SS 1 Commercial', teacherId: teacherUserId },
+    { name: 'SS 2 Science', teacherId: teacherUserId },
+    { name: 'SS 2 Arts', teacherId: teacherUserId },
+    { name: 'SS 2 Commercial', teacherId: teacherUserId },
+    { name: 'SS 3 Science', teacherId: teacherUserId },
+    { name: 'SS 3 Arts', teacherId: teacherUserId },
+    { name: 'SS 3 Commercial', teacherId: teacherUserId },
+  ];
+  for (const c of classData) {
+    await databases.createDocument(dbId, 'classes', ID.unique(), c);
+    await delay(100);
+  }
+  console.log('Classes seeded.');
   const seededClasses = await databases.listDocuments(dbId, 'classes');
   const class1Id = seededClasses.documents[0].$id;
   const class2Id = seededClasses.documents[1].$id;
 
-    // Seed students
+    // Seed students (force reseed)
   const studentsCollection = await databases.listDocuments(dbId, 'students');
-    if (studentsCollection.total === 0) {
-    console.log('Seeding students...');
-    const studentData = [
-      { userId: studentUserId, studentId: 'S001', firstName: 'John', lastName: 'Doe', email: 'john.doe@example.com', classId: class1Id, status: 'active', gender: 'male' },
-      { userId: ID.unique(), studentId: 'S002', firstName: 'Jane', lastName: 'Smith', email: 'jane.smith@example.com', classId: class1Id, status: 'active', gender: 'female' },
-      { userId: ID.unique(), studentId: 'S003', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', classId: class1Id, status: 'active', gender: 'male' },
-      { userId: ID.unique(), studentId: 'S004', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', classId: class2Id, status: 'active', gender: 'female' },
-      { userId: ID.unique(), studentId: 'S005', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', classId: class2Id, status: 'active', gender: 'male' },
-    ];
-    for (const student of studentData) {
-      const search = [student.firstName, student.lastName, student.email, student.studentId, student.classId, student.status, student.gender].filter(Boolean).join(' ');
-      await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
-      await delay(100);
+  if (studentsCollection.total > 0) {
+    console.log('Clearing existing students...');
+    for (const student of studentsCollection.documents) {
+      await databases.deleteDocument(dbId, 'students', student.$id);
+      await delay(10);
     }
-    console.log('Students seeded.');
-    }
+  }
+  console.log('Seeding students...');
+  const studentData = [
+    { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
+    { userId: ID.unique(), studentId: 'S002', firstName: 'Aisha', lastName: 'Bello', email: 'aisha.bello@school.ng', classId: class1Id, status: 'active', gender: 'female', parentName: 'Mr. Bello', parentPhone: '08021234567', parentEmail: 'mr.bello@school.ng' },
+    { userId: ID.unique(), studentId: 'S003', firstName: 'Emeka', lastName: 'Nwosu', email: 'emeka.nwosu@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Nwosu', parentPhone: '08011234567', parentEmail: 'mrs.nwosu@school.ng' },
+    { userId: ID.unique(), studentId: 'S004', firstName: 'Ngozi', lastName: 'Eze', email: 'ngozi.eze@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Eze', parentPhone: '08041234567', parentEmail: 'mr.eze@school.ng' },
+    { userId: ID.unique(), studentId: 'S005', firstName: 'Tunde', lastName: 'Adebayo', email: 'tunde.adebayo@school.ng', classId: class2Id, status: 'active', gender: 'male', parentName: 'Mrs. Adebayo', parentPhone: '08051234567', parentEmail: 'mrs.adebayo@school.ng' },
+    { userId: ID.unique(), studentId: 'S006', firstName: 'Fatima', lastName: 'Abubakar', email: 'fatima.abubakar@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Abubakar', parentPhone: '08061234567', parentEmail: 'mr.abubakar@school.ng' },
+    { userId: ID.unique(), studentId: 'S007', firstName: 'Ifeanyi', lastName: 'Uche', email: 'ifeanyi.uche@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Uche', parentPhone: '08071234567', parentEmail: 'mrs.uche@school.ng' },
+    { userId: ID.unique(), studentId: 'S008', firstName: 'Blessing', lastName: 'Ogunleye', email: 'blessing.ogunleye@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Ogunleye', parentPhone: '08081234567', parentEmail: 'mr.ogunleye@school.ng' },
+    { userId: ID.unique(), studentId: 'S009', firstName: 'Samuel', lastName: 'Ojo', email: 'samuel.ojo@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Ojo', parentPhone: '08091234567', parentEmail: 'mrs.ojo@school.ng' },
+  ];
+  for (const student of studentData) {
+    const search = [student.firstName, student.lastName, student.email, student.studentId, student.classId, student.status, student.gender].filter(Boolean).join(' ');
+    await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
+    await delay(100);
+  }
+  console.log('Students seeded.');
 
-    // Seed teachers
+    // Seed teachers (force reseed)
   const teachersCollection = await databases.listDocuments(dbId, 'teachers');
-    if (teachersCollection.total === 0) {
-    console.log('Seeding teachers...');
-    const teacherData = [
-      { userId: teacherUserId, employeeId: 'T001', firstName: 'Peter', lastName: 'Jones', email: 'peter.jones@example.com', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
-      { userId: ID.unique(), employeeId: 'T002', firstName: 'Mary', lastName: 'Williams', email: 'mary.williams@example.com', subjects: ['English', 'History'], status: 'active', gender: 'female', classIds: [] },
-      { userId: ID.unique(), employeeId: 'T003', firstName: 'David', lastName: 'Brown', email: 'david.brown@example.com', subjects: ['Biology', 'Chemistry'], status: 'active', gender: 'male', classIds: [] },
-    ];
-    for (const teacher of teacherData) {
-      const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
-      await databases.createDocument(dbId, 'teachers', ID.unique(), { ...teacher, search });
-      await delay(100);
+  if (teachersCollection.total > 0) {
+    console.log('Clearing existing teachers...');
+    for (const teacher of teachersCollection.documents) {
+      await databases.deleteDocument(dbId, 'teachers', teacher.$id);
+      await delay(10);
     }
-    console.log('Teachers seeded.');
-    }
+  }
+  console.log('Seeding teachers...');
+  const teacherData = [
+    { userId: teacherUserId, employeeId: 'T001', firstName: 'Olufemi', lastName: 'Adeyemi', email: 'olufemi.adeyemi@school.ng', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
+    { userId: ID.unique(), employeeId: 'T002', firstName: 'Grace', lastName: 'Nnamdi', email: 'grace.nnamdi@school.ng', subjects: ['English Language', 'Literature in English'], status: 'active', gender: 'female', classIds: [class2Id] },
+    { userId: ID.unique(), employeeId: 'T003', firstName: 'Musa', lastName: 'Ibrahim', email: 'musa.ibrahim@school.ng', subjects: ['Biology', 'Chemistry'], status: 'active', gender: 'male', classIds: [class1Id] },
+    { userId: ID.unique(), employeeId: 'T004', firstName: 'Chiamaka', lastName: 'Okeke', email: 'chiamaka.okeke@school.ng', subjects: ['Civic Education', 'Government'], status: 'active', gender: 'female', classIds: [class2Id] },
+    { userId: ID.unique(), employeeId: 'T005', firstName: 'Babatunde', lastName: 'Ogun', email: 'babatunde.ogun@school.ng', subjects: ['Economics', 'Commerce'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
+  ];
+  for (const teacher of teacherData) {
+    const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
+    await databases.createDocument(dbId, 'teachers', ID.unique(), { ...teacher, search });
+    await delay(100);
+  }
+  console.log('Teachers seeded.');
 
     // Seed exams
   const examsCollection = await databases.listDocuments(dbId, 'exams');
@@ -811,25 +852,62 @@ async function seedDemoData() {
         console.log('Grades seeded.');
     }
 
-  // Seed subjects
+  // Seed subjects (force reseed with Nigerian secondary school subjects)
   const subjectsCollection = await databases.listDocuments(dbId, 'subjects');
-  if (subjectsCollection.total === 0) {
-    console.log('Seeding subjects...');
-    const subjectData = [
-      { name: 'Mathematics', description: 'Mathematics for all classes' },
-      { name: 'English', description: 'English Language' },
-      { name: 'Biology', description: 'Biology for science students' },
-      { name: 'Chemistry', description: 'Chemistry for science students' },
-      { name: 'Physics', description: 'Physics for science students' },
-      { name: 'History', description: 'History for arts students' },
-    ];
-    for (const subject of subjectData) {
-      const search = [subject.name, subject.description].filter(Boolean).join(' ');
-      await databases.createDocument(dbId, 'subjects', ID.unique(), { ...subject, search });
-      await delay(100);
+  if (subjectsCollection.total > 0) {
+    console.log('Clearing existing subjects...');
+    for (const subject of subjectsCollection.documents) {
+      await databases.deleteDocument(dbId, 'subjects', subject.$id);
+      await delay(10);
     }
-    console.log('Subjects seeded.');
   }
+  console.log('Seeding subjects...');
+  const subjectData = [
+    // Core subjects (JSS & SS)
+    { name: 'Mathematics', description: 'Mathematics for all classes' },
+    { name: 'English Language', description: 'English Language for all classes' },
+    { name: 'Civic Education', description: 'Civic Education' },
+    { name: 'Basic Science', description: 'Basic Science for JSS' },
+    { name: 'Basic Technology', description: 'Basic Technology for JSS' },
+    
+    // Sciences
+    { name: 'Biology', description: 'Biology for science students' },
+    { name: 'Chemistry', description: 'Chemistry for science students' },
+    { name: 'Physics', description: 'Physics for science students' },
+    { name: 'Agricultural Science', description: 'Agricultural Science' },
+    { name: 'Further Mathematics', description: 'Further Mathematics for science students' },
+    
+    // Arts
+    { name: 'Literature in English', description: 'Literature in English for arts students' },
+    { name: 'Government', description: 'Government for arts and commercial students' },
+    { name: 'History', description: 'History for arts students' },
+    { name: 'Christian Religious Studies', description: 'CRS' },
+    { name: 'Islamic Religious Studies', description: 'IRS' },
+    { name: 'Geography', description: 'Geography' },
+    
+    // Commercial
+    { name: 'Economics', description: 'Economics for arts and commercial students' },
+    { name: 'Commerce', description: 'Commerce for commercial students' },
+    { name: 'Accounting', description: 'Accounting for commercial students' },
+    { name: 'Financial Accounting', description: 'Financial Accounting' },
+    
+    // General/Vocational
+    { name: 'Computer Studies', description: 'Computer Studies' },
+    { name: 'Home Economics', description: 'Home Economics' },
+    { name: 'Physical and Health Education', description: 'PHE' },
+    { name: 'Music', description: 'Music' },
+    { name: 'Fine Arts', description: 'Fine Arts and Visual Arts' },
+    { name: 'French', description: 'French Language' },
+    { name: 'Yoruba', description: 'Yoruba Language' },
+    { name: 'Igbo', description: 'Igbo Language' },
+    { name: 'Hausa', description: 'Hausa Language' },
+  ];
+  for (const subject of subjectData) {
+    const search = [subject.name, subject.description].filter(Boolean).join(' ');
+    await databases.createDocument(dbId, 'subjects', ID.unique(), { ...subject, search });
+    await delay(100);
+  }
+  console.log('Subjects seeded.');
 
     // Seed video meetings
   const videoMeetingsCollection = await databases.listDocuments(dbId, 'videoMeetings');

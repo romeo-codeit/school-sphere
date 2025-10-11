@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { TopNav } from '@/components/top-nav';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,9 @@ import { useQuery } from '@tanstack/react-query';
 import { getAllClasses } from '@/lib/api/attendance';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useVideoConferencingPerformanceTest, logVideoConferencingPerformanceMetrics } from '@/hooks/useVideoConferencingPerformanceTest';
 
 const generateRoomId = () => `OhmanFoundations-Meeting-${Math.random().toString(36).substr(2, 9)}`;
 
@@ -47,6 +50,33 @@ export default function VideoConferencing() {
       queryFn: getAllClasses,
       enabled: hasPermission('videoConferencing', 'create'),
   });
+
+  const { testPerformance, clearCache } = useVideoConferencingPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logVideoConferencingPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).videoConferencingPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📹 Video Conferencing Performance Testing available in console:');
+      console.log('  window.videoConferencingPerfTest.testPerformance() - Run performance test');
+      console.log('  window.videoConferencingPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
 
   const getUserClass = () => {
     if (!user || !students) return null;
@@ -167,7 +197,8 @@ export default function VideoConferencing() {
   return (
     <div className="space-y-6">
       <TopNav title="Video Conferencing" subtitle="Join or create video meetings" showGoBackButton={true} />
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <ErrorBoundary>
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
         <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -177,33 +208,55 @@ export default function VideoConferencing() {
                   <DialogTrigger asChild>
                     <Button className="w-full sm:w-auto"><PlusCircle className="w-4 h-4 mr-2" />Create Meeting</Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>Create New Meeting</DialogTitle>
-                      <DialogDescription>Enter a topic for your new meeting room.</DialogDescription>
+                      <DialogTitle className="text-xl sm:text-2xl">Create New Meeting</DialogTitle>
+                      <DialogDescription className="text-sm text-muted-foreground mt-2">
+                        Set up a new video conference room for your class or team
+                      </DialogDescription>
                     </DialogHeader>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-6">
                         <div>
-                            <Label htmlFor="topic" className="block mb-1">Topic</Label>
-                            <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Weekly Staff Meeting" className="w-full" />
+                            <Label htmlFor="topic" className="block mb-2 text-sm font-medium">Topic</Label>
+                            <Input id="topic" value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Weekly Staff Meeting" className="w-full h-10" />
                         </div>
                         <div>
-                            <Label htmlFor="class" className="block mb-1">Class (Optional)</Label>
+                            <Label htmlFor="class" className="block mb-2 text-sm font-medium">Class (Optional)</Label>
                             <Select onValueChange={setSelectedClass} value={selectedClass}>
-                                <SelectTrigger className="w-full"><SelectValue placeholder="Select a class" /></SelectTrigger>
+                                <SelectTrigger className="w-full h-10"><SelectValue placeholder="Select a class" /></SelectTrigger>
                                 <SelectContent>{classes?.map((c: any) => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
                             </Select>
                         </div>
                     </div>
-                    <DialogFooter><Button onClick={handleCreateMeeting} disabled={!topic} className="w-full sm:w-auto">Create</Button></DialogFooter>
+                    <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t">
+                      <Button variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                      <Button onClick={handleCreateMeeting} disabled={!topic} className="w-full sm:w-auto">
+                        <Video className="w-4 h-4 mr-2" />
+                        Create Meeting
+                      </Button>
+                    </DialogFooter>
                   </DialogContent>
                 </Dialog>
               )}
             </div>
           </CardHeader>
           <CardContent>
-            {isLoading ? <p>Loading meetings...</p> :
-             filteredMeetings && filteredMeetings.length > 0 ? (
+            {isLoading ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...Array(6)].map((_, i) => (
+                  <Card key={i} className="animate-pulse">
+                    <CardHeader>
+                      <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="h-4 bg-gray-200 rounded w-full mb-4"></div>
+                      <div className="h-10 bg-gray-200 rounded w-full"></div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : filteredMeetings && filteredMeetings.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredMeetings.map((meeting: any) => (
                   <Card key={meeting.$id} className={cn(!meeting.isActive && "bg-muted/50")}>...
@@ -250,6 +303,7 @@ export default function VideoConferencing() {
           </CardContent>
         </Card>
       </div>
+      </ErrorBoundary>
     </div>
   );
 }

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -23,6 +23,9 @@ import { useClasses } from "@/hooks/useClasses";
 import { getStudentByUserId, getStudentByParentEmail } from "@/lib/api/students";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useResourcesPerformanceTest } from "@/hooks/useResourcesPerformanceTest";
 
 const resourceFormSchema = z.object({
   title: z.string().min(1, "Title is required."),
@@ -53,6 +56,9 @@ export default function Resources() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [studentProfile, setStudentProfile] = useState<any | null>(null);
   const isMobile = useIsMobile();
+
+  // Performance testing hook
+  useResourcesPerformanceTest();
 
   useEffect(() => {
     const fetchStudentProfile = async () => {
@@ -198,7 +204,8 @@ export default function Resources() {
   };
 
   return (
-    <div className="space-y-4 md:space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-4 md:space-y-6">
       <TopNav title="Resources" subtitle="Educational materials and study resources" showGoBackButton={true} />
       <div className="px-4 sm:px-6 lg:px-8">
         <Card>
@@ -219,7 +226,7 @@ export default function Resources() {
               </div>
             </div>
 
-            {isLoading ? <div className="text-center py-8">Loading...</div> :
+            {isLoading ? <TableSkeleton rows={8} columns={4} /> :
              filteredResources.length === 0 ? <div className="text-center py-8 text-muted-foreground">No resources found.</div> :
              (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
@@ -257,10 +264,17 @@ export default function Resources() {
       </div>
 
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>{editingResource ? "Edit Resource" : "Upload New Resource"}</DialogTitle></DialogHeader>
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-4">
+            <DialogTitle className="text-xl sm:text-2xl">{editingResource ? "Edit Resource" : "Upload New Resource"}</DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-2">
+              {editingResource ? "Update resource information and file" : "Add a new learning resource for students"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="overflow-y-auto px-6 flex-1">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel className="block mb-1">Title</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>)}/>
               <FormField control={form.control} name="description" render={({ field }) => (<FormItem><FormLabel className="block mb-1">Description</FormLabel><FormControl><Textarea {...field} rows={3} className="w-full" /></FormControl><FormMessage /></FormItem>)}/>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -295,12 +309,16 @@ export default function Resources() {
                 </FormControl>
                 <FormMessage />
               </FormItem>
-              <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 gap-2 sm:gap-0">
+              <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setIsFormOpen(false)} className="w-full sm:w-auto">Cancel</Button>
-                <Button type="submit" className="w-full sm:w-auto">Submit</Button>
+                <Button type="submit" className="w-full sm:w-auto">
+                  <Upload className="w-4 h-4 mr-2" />
+                  {editingResource ? "Update Resource" : "Upload Resource"}
+                </Button>
               </DialogFooter>
             </form>
           </Form>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -311,5 +329,6 @@ export default function Resources() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </ErrorBoundary>
   );
 }

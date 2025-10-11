@@ -53,6 +53,32 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
   });
 }
 
+export function useYearAvailability(type?: string, subjectsCsv?: string, enabled = true) {
+  const { getJWT } = useAuth();
+  return useQuery({
+    queryKey: ['cbt-years-availability', type, subjectsCsv],
+    enabled: !!type && !!subjectsCsv && enabled,
+    queryFn: async () => {
+      const jwt = await getJWT();
+      const params = new URLSearchParams();
+      if (type) params.set('type', String(type));
+      if (subjectsCsv) params.set('subjects', String(subjectsCsv));
+      const res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to fetch year availability');
+      return (await res.json()) as { 
+        availability: Array<{
+          year: string;
+          subjects: string[];
+          availableCount: number;
+          totalCount: number;
+        }>
+      };
+    },
+  });
+}
+
 export function useValidateSubjects() {
   const { getJWT } = useAuth();
   return useMutation({
@@ -68,7 +94,14 @@ export function useValidateSubjects() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Subject validation failed');
-      return data as { ok: true; availability: Record<string, number> };
+      return data as { 
+        ok: true; 
+        availability: Record<string, number>;
+        available: number;
+        total: number;
+        insufficient?: string[];
+        message?: string;
+      };
     },
   });
 }

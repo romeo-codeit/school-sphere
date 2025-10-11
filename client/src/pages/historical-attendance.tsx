@@ -7,6 +7,10 @@ import { useClasses } from "@/hooks/useClasses";
 import { useToast } from "@/hooks/use-toast";
 import { databases } from '@/lib/appwrite';
 import { useAuth } from '@/hooks/useAuth';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
+import React from "react";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -17,6 +21,33 @@ export default function HistoricalAttendance() {
   const [records, setRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+
+  const { testPerformance, clearCache } = useAttendancePerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logAttendancePerformanceMetrics(metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).historicalAttendancePerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📈 Historical Attendance Performance Testing available in console:');
+      console.log('  window.historicalAttendancePerfTest.testPerformance() - Run performance test');
+      console.log('  window.historicalAttendancePerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
 
   const fetchAttendance = async (classId: string) => {
     setLoading(true);
@@ -38,7 +69,8 @@ export default function HistoricalAttendance() {
     <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       <TopNav title="Historical Attendance" subtitle="View past attendance records for your classes" showGoBackButton={true} />
       <div className="py-6">
-        <Card>
+        <ErrorBoundary>
+          <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <CardTitle className="text-lg sm:text-xl">Select Class</CardTitle>
@@ -54,7 +86,7 @@ export default function HistoricalAttendance() {
             </div>
           </CardHeader>
           <CardContent className="pt-6">
-            {loading ? <p className="text-center py-4">Loading attendance records...</p> :
+            {loading ? <TableSkeleton columns={5} rows={5} /> :
               !selectedClassId ? <p className="text-center text-muted-foreground py-8">Please select a class to view attendance records.</p> :
               records.length === 0 ? <p className="text-center text-muted-foreground py-8">No attendance records found for this class.</p> :
               <>
@@ -116,6 +148,7 @@ export default function HistoricalAttendance() {
               </>}
           </CardContent>
         </Card>
+        </ErrorBoundary>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { TeacherForm } from "@/components/teacher-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,12 +28,14 @@ import { useTeachers } from "@/hooks/useTeachers";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Loading } from "@/components/ui/loading";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useTeachersPerformanceTest, logTeachersPerformanceMetrics } from '@/hooks/useTeachersPerformanceTest';
 
 export default function Teachers() {
   // Handler to view teacher details
   const handleViewTeacher = (teacherId: string) => {
-    setSelectedTeacher(teachers?.find((t: any) => t.$id === teacherId) || null);
-    setIsFormOpen(true);
+    setLocation(`/teachers/${teacherId}`);
   };
 
   // Handler to edit teacher
@@ -72,6 +74,33 @@ export default function Teachers() {
   const debouncedSearchQuery = useDebounce(searchQuery, 500);
   const [, setLocation] = useLocation();
 
+  const { testPerformance, clearCache } = useTeachersPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logTeachersPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).teachersPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('👨‍🏫 Teachers Performance Testing available in console:');
+      console.log('  window.teachersPerfTest.testPerformance() - Run performance test');
+      console.log('  window.teachersPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
+
   const { teachers, total, isLoading, deleteTeacher } = useTeachers({
       page: currentPage,
       limit: 10,
@@ -85,7 +114,8 @@ export default function Teachers() {
       <TopNav title="Teachers" subtitle="Manage teacher records and information" showGoBackButton={true} />
       <div className="space-y-6 px-4 sm:px-6 lg:px-8">
         <div className="py-4">
-          <Card>
+          <ErrorBoundary>
+            <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <CardTitle className="text-lg sm:text-xl lg:text-2xl">Teacher Management</CardTitle>
@@ -102,9 +132,7 @@ export default function Teachers() {
                 </div>
               </div>
               {isLoading ? (
-                <div className="py-8 flex justify-center items-center">
-                  <Loading text="Loading teachers..." size="md" />
-                </div>
+                <TableSkeleton columns={4} rows={5} />
               ) : !teachers || teachers.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No teachers found." : "No teachers have been added."}</div>
               ) : (
@@ -195,6 +223,7 @@ export default function Teachers() {
               )}
             </CardContent>
           </Card>
+          </ErrorBoundary>
         </div>
 
         <TeacherForm open={isFormOpen} onOpenChange={setIsFormOpen} teacher={selectedTeacher} />

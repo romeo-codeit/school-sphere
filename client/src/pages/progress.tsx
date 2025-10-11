@@ -18,6 +18,10 @@ import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Grade, Attendance, ExamAttempt, Exam } from "../../../shared/schema";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useProgressPerformanceTest, logProgressPerformanceMetrics } from '@/hooks/useProgressPerformanceTest';
+import React from "react";
 
 export function GradesChart({ grades }: { grades: Grade[] }) {
   const data = useMemo(() => {
@@ -125,6 +129,33 @@ export default function Progress() {
   const [studentIdForRole, setStudentIdForRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
 
+  const { testPerformance, clearCache } = useProgressPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logProgressPerformanceMetrics(metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).progressPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📊 Progress Page Performance Testing available in console:');
+      console.log('  window.progressPerfTest.testPerformance() - Run performance test');
+      console.log('  window.progressPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
+
   useEffect(() => {
     const fetchStudentForRole = async () => {
       if (!user) return;
@@ -167,6 +198,7 @@ export default function Progress() {
       <TopNav title="Progress" subtitle="Track student progress and performance" showGoBackButton={true} />
 
       <div className="px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        <ErrorBoundary>
         {(role === 'admin' || role === 'teacher') && (
           <Card>
             <CardHeader>
@@ -224,7 +256,7 @@ export default function Progress() {
                 <CardTitle className="text-lg sm:text-xl">Grades</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingGrades ? <p>Loading grades...</p> : <GradesChart grades={grades || []} />}
+                {isLoadingGrades ? <div className="h-64 bg-muted rounded animate-pulse" /> : <GradesChart grades={grades || []} />}
               </CardContent>
             </Card>
 
@@ -233,7 +265,7 @@ export default function Progress() {
                 <CardTitle className="text-lg sm:text-xl">Attendance Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingAttendance ? <p>Loading attendance...</p> : <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
+                {isLoadingAttendance ? <TableSkeleton columns={2} rows={2} /> : <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
                   date: a.date ? new Date(a.date) : new Date(),
                   id: a.$id,
                   createdAt: a.createdAt ? new Date(a.createdAt) : null,
@@ -251,7 +283,7 @@ export default function Progress() {
                 <CardTitle className="text-lg sm:text-xl">Exam Attempts</CardTitle>
               </CardHeader>
               <CardContent>
-                {isLoadingExamAttempts || isLoadingExams ? <p>Loading exam attempts...</p> : <ExamAttemptsTable examAttempts={examAttempts || []} exams={exams || []} />}
+                {isLoadingExamAttempts || isLoadingExams ? <TableSkeleton columns={4} rows={3} /> : <ExamAttemptsTable examAttempts={examAttempts || []} exams={exams || []} />}
               </CardContent>
             </Card>
           </div>
@@ -260,6 +292,7 @@ export default function Progress() {
             <p>Please select a student to view their progress.</p>
           </div>
         )}
+        </ErrorBoundary>
       </div>
     </div>
   );

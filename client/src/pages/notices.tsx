@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/button";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useNoticesPerformanceTest } from "@/hooks/useNoticesPerformanceTest";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -19,6 +22,9 @@ export default function NoticesPage() {
       return res.documents;
     },
   });
+
+  // Performance testing hook
+  useNoticesPerformanceTest();
 
   const [showModal, setShowModal] = useState(false);
   const [newNotice, setNewNotice] = useState({ activity: "", date: "", category: "General" });
@@ -99,7 +105,8 @@ export default function NoticesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
+    <ErrorBoundary>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20">
       <TopNav title="Notice Board" subtitle="Stay updated with school announcements and events" showGoBackButton />
       
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
@@ -197,22 +204,7 @@ export default function NoticesPage() {
 
         {/* Content Section */}
         {isLoading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader className="space-y-2">
-                  <div className="h-4 bg-muted rounded w-3/4"></div>
-                  <div className="h-3 bg-muted rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-3 bg-muted rounded"></div>
-                    <div className="h-3 bg-muted rounded w-5/6"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <TableSkeleton rows={6} columns={3} />
         ) : error ? (
           <Card className="border-destructive">
             <CardContent className="pt-6">
@@ -283,5 +275,6 @@ export default function NoticesPage() {
         )}
       </div>
     </div>
+    </ErrorBoundary>
   );
 }

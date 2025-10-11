@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useLocation } from "wouter";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,13 +15,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExams } from "@/hooks/useExams";
 import { useExamAttempts } from "@/hooks/useExamAttempts";
 import { useAutosaveAttempt } from "@/hooks/useCBT";
 import { useToast } from "@/hooks/use-toast";
 import { Clock, Flag, ArrowLeft, ArrowRight, Send, ShieldAlert, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ExamTakingSkeleton } from "@/components/skeletons/exam-taking-skeleton";
 
 interface Question {
   question: string;
@@ -29,6 +30,7 @@ interface Question {
   correctAnswer: string;
   marks?: number;
   explanation?: string;
+  imageUrl?: string;
 }
 
 export default function ExamTaking() {
@@ -38,12 +40,18 @@ export default function ExamTaking() {
   const [searchParams] = useState(() => new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
   const subjects = searchParams.get('subjects')?.split(',') || [];
   const year = searchParams.get('year') || undefined;
-  
+
+  // Progressive loading state
+  const [loadedQuestions, setLoadedQuestions] = useState<any[]>([]);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreQuestions, setHasMoreQuestions] = useState(true);
+  const QUESTIONS_BATCH_SIZE = 20; // Load 20 questions at a time
+
   const { useExam } = useExams();
   // For practice sessions, pass subjects to fetch the right questions
   const examFetchId = practiceType ? `practice-${practiceType}` : (examId || '');
-  const examUrl = practiceType && subjects.length > 0 
-    ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}` 
+  const examUrl = practiceType && subjects.length > 0
+    ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}`
     : examFetchId;
   const { data: exam, isLoading: isLoadingExam } = useExam(examUrl);
   
@@ -57,6 +65,7 @@ export default function ExamTaking() {
   const [markedForReview, setMarkedForReview] = useState<Set<number>>(new Set());
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
+  const [showExitDialog, setShowExitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Phase 3: Security & Fullscreen
   const [isFullscreenDialogOpen, setIsFullscreenDialogOpen] = useState(false);
@@ -75,6 +84,56 @@ export default function ExamTaking() {
   const [retryDelay, setRetryDelay] = useState<number>(5000); // start 5s, max 2m
   const retryTimeoutRef = useRef<number | null>(null);
   const isSavingRef = useRef<boolean>(false);
+
+  // Progressive loading: Initialize loaded questions when exam loads
+  useEffect(() => {
+    if (exam?.questions && exam.questions.length > 0) {
+      const initialBatch = exam.questions.slice(0, QUESTIONS_BATCH_SIZE);
+      setLoadedQuestions(initialBatch);
+      setHasMoreQuestions(exam.questions.length > QUESTIONS_BATCH_SIZE);
+    }
+  }, [exam]);
+
+  // Function to load more questions progressively
+  const loadMoreQuestions = useCallback(async () => {
+    if (!exam?.questions || isLoadingMore || !hasMoreQuestions) return;
+
+    setIsLoadingMore(true);
+
+    // Simulate async loading (in real implementation, this could fetch from server)
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    const currentLoaded = loadedQuestions.length;
+    const nextBatch = exam.questions.slice(currentLoaded, currentLoaded + QUESTIONS_BATCH_SIZE);
+
+    setLoadedQuestions(prev => [...prev, ...nextBatch]);
+    setHasMoreQuestions(currentLoaded + nextBatch.length < exam.questions.length);
+    setIsLoadingMore(false);
+  }, [exam, loadedQuestions.length, isLoadingMore, hasMoreQuestions]);
+
+  // Auto-load more questions when approaching the end of current batch
+  useEffect(() => {
+    if (!exam?.questions || !hasMoreQuestions || isLoadingMore) return;
+
+    const remainingInBatch = loadedQuestions.length - currentQuestionIndex;
+    if (remainingInBatch <= 5) { // Load more when 5 or fewer questions remain
+      loadMoreQuestions();
+    }
+  }, [currentQuestionIndex, loadedQuestions.length, hasMoreQuestions, isLoadingMore, loadMoreQuestions, exam]);
+
+  // Subject filtering state - must be declared before any conditional returns
+  const [activeSubject, setActiveSubject] = useState<string | null>(null);
+
+  // Calculate subjects in exam - safe to do early since it handles undefined/empty
+  const questions: Question[] = loadedQuestions;
+  const subjectsInExam = Array.from(new Set(questions.map((q: any) => String(q.subject || '').trim()).filter(Boolean)));
+
+  // Set initial active subject if not already set - must be at top level
+  useEffect(() => {
+    if (subjectsInExam.length > 0 && !activeSubject) {
+      setActiveSubject(subjectsInExam[0]);
+    }
+  }, [subjectsInExam.join(','), activeSubject]); // Use join to avoid array reference changes
 
   // Read attemptId from URL if present (so we don't create a new attempt)
   useEffect(() => {
@@ -171,8 +230,13 @@ export default function ExamTaking() {
   };
 
   const handleNext = () => {
-    if (exam && currentQuestionIndex < exam.questions.length - 1) {
+    if (currentQuestionIndex < loadedQuestions.length - 1) {
       setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else if (hasMoreQuestions && !isLoadingMore) {
+      // Load more questions if we're at the end of current batch
+      loadMoreQuestions().then(() => {
+        setCurrentQuestionIndex(currentQuestionIndex + 1);
+      });
     }
   };
 
@@ -450,14 +514,7 @@ export default function ExamTaking() {
   }, [attemptId, answers, timeLeft, isOffline, storageKey, autosaveMutation, exam?.duration]);
 
   if (isLoadingExam) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading exam...</p>
-        </div>
-      </div>
-    );
+    return <ExamTakingSkeleton />;
   }
 
   if (!exam) {
@@ -471,8 +528,8 @@ export default function ExamTaking() {
       </div>
     );
   }
-
-  const questions: Question[] = exam.questions || [];
+  
+  // Questions are already defined at the top, now we can safely use them
   if (questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -484,23 +541,19 @@ export default function ExamTaking() {
       </div>
     );
   }
+  
   const currentQuestion = questions[currentQuestionIndex];
   const answeredCount = Object.keys(answers).length;
   const progress = (answeredCount / questions.length) * 100;
-  const subjectsInExam = Array.from(new Set((questions || []).map((q: any) => String(q.subject || '').trim()).filter(Boolean)));
-  const [activeSubject, setActiveSubject] = useState<string | null>(null);
-  useEffect(() => {
-    if (subjectsInExam.length > 0 && !activeSubject) {
-      setActiveSubject(subjectsInExam[0]);
-    }
-  }, [subjectsInExam, activeSubject]);
+  
   const filteredQuestions = activeSubject ? questions.filter((q: any) => String(q.subject || '') === activeSubject) : questions;
   const currentFilteredQuestion = filteredQuestions[currentQuestionIndex] || null;
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -538,14 +591,24 @@ export default function ExamTaking() {
                 Offline: answers saved locally, timer paused.
               </div>
             )}
-            <Button
-              onClick={() => setShowSubmitDialog(true)}
-              className="w-full sm:w-auto"
-              variant="default"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              Submit Exam
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setShowExitDialog(true)}
+                className="w-full sm:w-auto"
+                variant="outline"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Exit Exam
+              </Button>
+              <Button
+                onClick={() => setShowSubmitDialog(true)}
+                className="w-full sm:w-auto"
+                variant="default"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                Submit Exam
+              </Button>
+            </div>
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -616,7 +679,7 @@ export default function ExamTaking() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>
-                    Question {currentQuestionIndex + 1} of {filteredQuestions.length}
+                    Question {currentQuestionIndex + 1} of {exam?.questionCount || filteredQuestions.length}
                   </CardTitle>
                   <Button
                     variant="outline"
@@ -637,7 +700,23 @@ export default function ExamTaking() {
               <CardContent className="space-y-6">
                 {currentFilteredQuestion ? (
                   <>
-                    <div className="prose max-w-none text-base leading-relaxed whitespace-pre-wrap">{currentFilteredQuestion.question}</div>
+                    <div className="text-lg leading-relaxed whitespace-pre-wrap font-medium text-foreground">{currentFilteredQuestion.question}</div>
+
+                    {/* Question Image */}
+                    {currentFilteredQuestion.imageUrl && (
+                      <div className="my-4 flex justify-center">
+                        <img
+                          src={currentFilteredQuestion.imageUrl}
+                          alt="Question illustration"
+                          className="max-w-full max-h-64 object-contain rounded-lg border shadow-sm"
+                          loading="lazy"
+                          onError={(e) => {
+                            console.warn('Failed to load question image:', currentFilteredQuestion.imageUrl);
+                            e.currentTarget.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
 
                     <RadioGroup
                       value={answers[currentQuestionIndex] || ""}
@@ -664,7 +743,7 @@ export default function ExamTaking() {
                           <RadioGroupItem value={option} id={`option-${i}`} className="mt-1" aria-label={`Option ${i + 1}`} />
                           <Label
                             htmlFor={`option-${i}`}
-                            className="flex-1 cursor-pointer text-sm sm:text-base leading-relaxed"
+                            className="flex-1 cursor-pointer text-base leading-relaxed text-foreground"
                           >
                             {option}
                           </Label>
@@ -686,12 +765,21 @@ export default function ExamTaking() {
                       </Button>
                       <Button
                         onClick={handleNext}
-                        disabled={currentQuestionIndex === filteredQuestions.length - 1}
+                        disabled={currentQuestionIndex === filteredQuestions.length - 1 && !hasMoreQuestions}
                         className="flex-1 sm:flex-none touch-manipulation"
                         aria-label="Go to next question"
                       >
-                        <span className="hidden sm:inline">Next</span>
-                        <ArrowRight className="w-4 h-4 sm:ml-2" />
+                        {isLoadingMore ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                            <span className="hidden sm:inline">Loading...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="hidden sm:inline">Next</span>
+                            <ArrowRight className="w-4 h-4 sm:ml-2" />
+                          </>
+                        )}
                       </Button>
                     </div>
                   </>
@@ -737,6 +825,36 @@ export default function ExamTaking() {
             </Button>
             <Button onClick={handleSubmitConfirmed} disabled={isSubmitting}>
               {isSubmitting ? "Submitting..." : "Submit Exam"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Exit Exam Dialog */}
+      <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Exit Exam?</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to exit the exam? Your progress will be saved, but you may lose remaining time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-2">
+            <div className="flex justify-between text-sm">
+              <span>Progress:</span>
+              <span className="font-semibold">{answeredCount} / {questions.length} answered</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span>Time Remaining:</span>
+              <span className="font-semibold">{formatTime(timeLeft || 0)}</span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowExitDialog(false)}>
+              Continue Exam
+            </Button>
+            <Button variant="destructive" onClick={() => setLocation('/exams')}>
+              Exit Exam
             </Button>
           </DialogFooter>
         </DialogContent>

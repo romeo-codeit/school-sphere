@@ -17,6 +17,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -48,11 +49,18 @@ import {
   CheckCircle,
   Clock,
   Download,
-  Eye
+  Eye,
+  Users,
+  Settings,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { usePayments } from "@/hooks/usePayments";
 import { useStudents } from "@/hooks/useStudents";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { usePaymentsPerformanceTest, logPaymentsPerformanceMetrics } from '@/hooks/usePaymentsPerformanceTest';
+import React from "react";
 
 const paymentFormSchema = z.object({
   studentId: z.string(),
@@ -64,18 +72,72 @@ const paymentFormSchema = z.object({
   academicYear: z.string(),
 });
 
+const bulkPaymentFormSchema = z.object({
+  fees: z.array(z.object({
+    purpose: z.string(),
+    amount: z.string(),
+    dueDate: z.string(),
+    term: z.string(),
+  })),
+  academicYear: z.string(),
+  applyToAllStudents: z.boolean(),
+});
+
 type PaymentFormData = z.infer<typeof paymentFormSchema>;
+type BulkPaymentFormData = z.infer<typeof bulkPaymentFormSchema>;
 
 export default function Payments() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("all");
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [isBulkFormOpen, setIsBulkFormOpen] = useState(false);
+  const [isGeneratingPayments, setIsGeneratingPayments] = useState(false);
   const { toast } = useToast();
 
   const { payments, isLoading, createPayment } = usePayments();
   const { students } = useStudents();
 
-  const form = useForm<PaymentFormData>({
+  const { testPerformance, clearCache } = usePaymentsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logPaymentsPerformanceMetrics(metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).paymentsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('💰 Payments Page Performance Testing available in console:');
+      console.log('  window.paymentsPerfTest.testPerformance() - Run performance test');
+      console.log('  window.paymentsPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
+
+  const bulkForm = useForm<BulkPaymentFormData>({
+    resolver: zodResolver(bulkPaymentFormSchema),
+    defaultValues: {
+      fees: [
+        { purpose: "First Term School Fee", amount: "", dueDate: "", term: "First Term" },
+        { purpose: "Second Term School Fee", amount: "", dueDate: "", term: "Second Term" },
+        { purpose: "Third Term School Fee", amount: "", dueDate: "", term: "Third Term" },
+      ],
+      academicYear: "2024/2025",
+      applyToAllStudents: true,
+    },
+  });
+
+  const singleForm = useForm<PaymentFormData>({
     resolver: zodResolver(paymentFormSchema),
     defaultValues: {
       amount: "",
@@ -114,7 +176,7 @@ export default function Payments() {
         description: "Payment record created successfully",
       });
       setIsFormOpen(false);
-      form.reset();
+      singleForm.reset();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -124,11 +186,77 @@ export default function Payments() {
     }
   };
 
+  const addFeeRow = () => {
+    const currentFees = bulkForm.getValues("fees");
+    bulkForm.setValue("fees", [
+      ...currentFees,
+      { purpose: "", amount: "", dueDate: "", term: "First Term" }
+    ]);
+  };
+
+  const removeFeeRow = (index: number) => {
+    const currentFees = bulkForm.getValues("fees");
+    if (currentFees.length > 1) {
+      bulkForm.setValue("fees", currentFees.filter((_, i) => i !== index));
+    }
+  };
+
+  const onBulkSubmit = async (data: BulkPaymentFormData) => {
+    if (!students || students.length === 0) {
+      toast({
+        title: "Error",
+        description: "No students found to create payments for",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingPayments(true);
+    try {
+      let createdCount = 0;
+      const totalPayments = data.fees.length * students.length;
+
+      // Create payments for each fee for each student
+      for (const fee of data.fees) {
+        for (const student of students) {
+          const paymentData = {
+            studentId: student.$id,
+            amount: parseFloat(fee.amount),
+            purpose: fee.purpose,
+            dueDate: fee.dueDate,
+            status: "pending",
+            term: fee.term,
+            academicYear: data.academicYear,
+          };
+
+          await createPayment(paymentData);
+          createdCount++;
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Created ${createdCount} payment records for ${students.length} students`,
+      });
+      setIsBulkFormOpen(false);
+      bulkForm.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create bulk payment records",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingPayments(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <TopNav title="Payments" subtitle="Track and manage student fee payments" showGoBackButton={true} />
       
       <div className="px-4 sm:px-6 lg:px-8 py-6">
+        <ErrorBoundary>
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="hover:shadow-md transition-shadow">
@@ -212,22 +340,180 @@ export default function Payments() {
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <CardTitle className="text-lg sm:text-xl">Payment Management</CardTitle>
+              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                <Dialog open={isBulkFormOpen} onOpenChange={setIsBulkFormOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" className="w-full sm:w-auto">
+                      <Users className="w-4 h-4 mr-2" />
+                      Bulk Create Payments
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="px-6 pt-6 pb-4">
+                      <DialogTitle className="text-xl sm:text-2xl">Create Payment Records for All Students</DialogTitle>
+                      <DialogDescription className="text-sm text-muted-foreground mt-2">
+                        Set up fee structures that will be applied to all students
+                      </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="overflow-y-auto px-6 flex-1">
+                      <Form {...bulkForm}>
+                        <form onSubmit={bulkForm.handleSubmit(onBulkSubmit)} className="space-y-6 pb-6">
+                        <FormField
+                          control={bulkForm.control}
+                          name="academicYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Academic Year</FormLabel>
+                              <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select academic year" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="2024/2025">2024/2025</SelectItem>
+                                  <SelectItem value="2025/2026">2025/2026</SelectItem>
+                                  <SelectItem value="2026/2027">2026/2027</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between">
+                            <FormLabel>Fee Structure</FormLabel>
+                            <Button type="button" variant="outline" size="sm" onClick={addFeeRow}>
+                              <Plus className="w-4 h-4 mr-1" />
+                              Add Fee
+                            </Button>
+                          </div>
+                          {bulkForm.watch("fees").map((_, index) => (
+                            <div key={index} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 border rounded-lg relative bg-card/50">
+                              <FormField
+                                control={bulkForm.control}
+                                name={`fees.${index}.purpose`}
+                                render={({ field }) => (
+                                  <FormItem className="sm:col-span-2 lg:col-span-1">
+                                    <FormLabel className="text-xs sm:text-sm">Purpose</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} placeholder="e.g., First Term School Fee" className="h-9" />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={bulkForm.control}
+                                name={`fees.${index}.amount`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs sm:text-sm">Amount (₦)</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} type="number" placeholder="50000" className="h-9" />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={bulkForm.control}
+                                name={`fees.${index}.dueDate`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs sm:text-sm">Due Date</FormLabel>
+                                    <FormControl>
+                                      <Input {...field} type="date" className="h-9" />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <div className="flex gap-2 sm:col-span-2 lg:col-span-1">
+                                <FormField
+                                  control={bulkForm.control}
+                                  name={`fees.${index}.term`}
+                                  render={({ field }) => (
+                                    <FormItem className="flex-1">
+                                      <FormLabel className="text-xs sm:text-sm">Term</FormLabel>
+                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                          <SelectTrigger className="h-9">
+                                            <SelectValue />
+                                          </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                          <SelectItem value="First Term">First Term</SelectItem>
+                                          <SelectItem value="Second Term">Second Term</SelectItem>
+                                          <SelectItem value="Third Term">Third Term</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                {bulkForm.watch("fees").length > 1 && (
+                                  <Button
+                                    type="button"
+                                    variant="destructive"
+                                    size="sm"
+                                    onClick={() => removeFeeRow(index)}
+                                    className="self-end h-9 px-3"
+                                    title="Remove this fee"
+                                  >
+                                    <AlertTriangle className="w-4 h-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 pt-4 border-t">
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            This will create <span className="font-semibold">{bulkForm.watch("fees").length}</span> payment records for each of the <span className="font-semibold">{students?.length || 0}</span> students 
+                            (<span className="font-semibold text-primary">{(bulkForm.watch("fees").length * (students?.length || 0))} total records</span>)
+                          </p>
+                          <Button type="submit" disabled={isGeneratingPayments} className="w-full sm:w-auto">
+                            {isGeneratingPayments ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Creating...
+                              </>
+                            ) : (
+                              "Create All Payments"
+                            )}
+                          </Button>
+                        </div>
+                      </form>
+                    </Form>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
               <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-                <DialogTrigger asChild>
-                  <Button data-testid="button-add-payment" className="w-full sm:w-auto">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Payment
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-lg">
-                  <DialogHeader>
-                    <DialogTitle>Add New Payment Record</DialogTitle>
+                  <DialogTrigger asChild>
+                    <Button data-testid="button-add-payment" className="w-full sm:w-auto">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Add Payment
+                    </Button>
+                  </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+                  <DialogHeader className="px-6 pt-6 pb-4">
+                    <DialogTitle className="text-xl sm:text-2xl">Add New Payment Record</DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground mt-2">
+                      Create a payment record for a specific student
+                    </DialogDescription>
                   </DialogHeader>
                   
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                  <div className="overflow-y-auto px-6 flex-1">
+                    <Form {...singleForm}>
+                      <form onSubmit={singleForm.handleSubmit(onSubmit)} className="space-y-6 pb-6">
                       <FormField
-                        control={form.control}
+                        control={singleForm.control}
                         name="studentId"
                         render={({ field }) => (
                           <FormItem>
@@ -253,7 +539,7 @@ export default function Payments() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
-                          control={form.control}
+                          control={singleForm.control}
                           name="amount"
                           render={({ field }) => (
                             <FormItem>
@@ -267,7 +553,7 @@ export default function Payments() {
                         />
                         
                         <FormField
-                          control={form.control}
+                          control={singleForm.control}
                           name="dueDate"
                           render={({ field }) => (
                             <FormItem>
@@ -282,7 +568,7 @@ export default function Payments() {
                       </div>
 
                       <FormField
-                        control={form.control}
+                        control={singleForm.control}
                         name="purpose"
                         render={({ field }) => (
                           <FormItem>
@@ -297,7 +583,7 @@ export default function Payments() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <FormField
-                          control={form.control}
+                          control={singleForm.control}
                           name="term"
                           render={({ field }) => (
                             <FormItem>
@@ -320,7 +606,7 @@ export default function Payments() {
                         />
                         
                         <FormField
-                          control={form.control}
+                          control={singleForm.control}
                           name="academicYear"
                           render={({ field }) => (
                             <FormItem>
@@ -344,6 +630,7 @@ export default function Payments() {
                       </div>
                     </form>
                   </Form>
+                  </div>
                 </DialogContent>
               </Dialog>
             </div>
@@ -384,7 +671,7 @@ export default function Payments() {
 
             {/* Payments Table */}
             {isLoading ? (
-              <div className="text-center py-8">Loading payments...</div>
+              <TableSkeleton columns={7} rows={5} />
             ) : filteredPayments.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 {searchQuery ? "No payments found matching your search." : "No payments found."}
@@ -479,6 +766,7 @@ export default function Payments() {
             )}
           </CardContent>
         </Card>
+        </ErrorBoundary>
       </div>
     </div>
   );

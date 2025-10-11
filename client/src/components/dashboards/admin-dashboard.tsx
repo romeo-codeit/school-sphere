@@ -39,6 +39,7 @@ const RoundedBar = (props: any) => {
 import { AdminDashboardSkeleton } from "@/components/skeletons/admin-dashboard-skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TriangleAlert } from "lucide-react";
+import { useAdminDashboardPerformanceTest } from "@/hooks/useAdminDashboardPerformanceTest";
 
 export function AdminDashboard() {
   const { user } = useAuth();
@@ -49,6 +50,9 @@ export function AdminDashboard() {
   const { attendance, isLoading: attendanceLoading, error: attendanceError } = useAttendance();
   const { activities: recentActivities, isLoading: activitiesLoading, error: activitiesError } = useActivities();
   const { notices, isLoading: noticesLoading, error: noticesError } = useNotices(5);
+
+  // Performance testing hook
+  useAdminDashboardPerformanceTest();
   const [, setLocation] = useLocation();
   const [chartData, setChartData] = useState<any[]>([]);
 

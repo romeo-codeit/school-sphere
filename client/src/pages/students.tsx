@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { StudentForm } from "@/components/student-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +29,9 @@ import { useClasses } from "@/hooks/useClasses";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Loading } from "@/components/ui/loading";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useStudentsPerformanceTest, logStudentsPerformanceMetrics } from '@/hooks/useStudentsPerformanceTest';
 
 export default function Students() {
   // Page title and subtitle
@@ -47,6 +50,33 @@ export default function Students() {
   const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
 
   const [, setLocation] = useLocation();
+
+  const { testPerformance, clearCache } = useStudentsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logStudentsPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).studentsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('👥 Students Performance Testing available in console:');
+      console.log('  window.studentsPerfTest.testPerformance() - Run performance test');
+      console.log('  window.studentsPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
 
   // Fetch students
   const {
@@ -98,7 +128,8 @@ export default function Students() {
       <TopNav title={pageTitle} subtitle={pageSubtitle} showGoBackButton={true} />
       <div className="space-y-6 px-4 sm:px-6 lg:px-8">
         <div className="py-4">
-          <Card>
+          <ErrorBoundary>
+            <Card>
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <CardTitle className="text-lg sm:text-xl lg:text-2xl">Student Management</CardTitle>
@@ -122,8 +153,10 @@ export default function Students() {
                 </div>
               </div>
               {isLoading ? (
-                <div className="py-8 flex justify-center items-center">
-                  <Loading text="Loading students..." size="md" />
+                <TableSkeleton columns={5} rows={5} />
+              ) : error ? (
+                <div className="text-center py-8 text-red-500">
+                  Error loading students: {error.message}
                 </div>
               ) : !students || students.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No students found." : "No students have been added."}</div>
@@ -217,6 +250,7 @@ export default function Students() {
               )}
             </CardContent>
           </Card>
+          </ErrorBoundary>
         </div>
         <StudentForm open={isFormOpen} onOpenChange={setIsFormOpen} student={selectedStudent} />
         <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

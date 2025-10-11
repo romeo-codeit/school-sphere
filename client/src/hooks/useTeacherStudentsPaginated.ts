@@ -1,0 +1,33 @@
+import { useQuery } from '@tanstack/react-query';
+
+interface TeacherStudentsFilters {
+  limit?: number;
+  offset?: number;
+  enabled?: boolean;
+}
+
+export function useTeacherStudentsPaginated(filters: TeacherStudentsFilters = {}) {
+  const { limit = 50, offset = 0, enabled = true } = filters;
+
+  const { data, isLoading, error, refetch } = useQuery({
+    queryKey: ['teacher-students-paginated', limit, offset],
+    queryFn: async () => {
+      const response = await fetch(`/api/teacher/students?limit=${limit}&offset=${offset}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch teacher students');
+      }
+      return await response.json();
+    },
+    enabled,
+  });
+
+  return {
+    students: data?.documents || [],
+    total: data?.total || 0,
+    limit: data?.limit || limit,
+    offset: data?.offset || offset,
+    isLoading,
+    error,
+    refetch,
+  };
+}

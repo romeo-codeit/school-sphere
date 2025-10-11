@@ -32,6 +32,7 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
   });
 
   const useExam = (examId: string) => {
+    const isPracticeExam = examId?.startsWith('practice-');
     return useQuery({
       queryKey: ['cbt-exams', examId],
       queryFn: async () => {
@@ -48,6 +49,15 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
         return await response.json();
       },
       enabled: !!examId,
+      // Optimize caching for practice exams (generated on server)
+      staleTime: isPracticeExam ? 5 * 60 * 1000 : 30 * 1000, // 5 minutes for practice, 30s for regular
+      gcTime: isPracticeExam ? 10 * 60 * 1000 : 5 * 60 * 1000, // 10 minutes for practice, 5 minutes for regular
+      refetchOnWindowFocus: !isPracticeExam, // Don't refetch practice exams on focus
+      retry: (failureCount, error) => {
+        // Retry up to 2 times for practice exams, 3 for regular
+        const maxRetries = isPracticeExam ? 2 : 3;
+        return failureCount < maxRetries;
+      },
     });
   };
 

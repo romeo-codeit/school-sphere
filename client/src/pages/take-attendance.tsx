@@ -21,6 +21,10 @@ import { useClasses } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useToast } from "@/hooks/use-toast";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
+import React from "react";
 
 export default function TakeAttendance() {
   const { classes, isLoading: classesLoading } = useClasses();
@@ -29,6 +33,33 @@ export default function TakeAttendance() {
   const { createAttendance } = useAttendance();
   const { toast } = useToast();
   const [attendance, setAttendance] = useState<{ [studentId: string]: string }>({});
+
+  const { testPerformance, clearCache } = useAttendancePerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logAttendancePerformanceMetrics(metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).takeAttendancePerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📝 Take Attendance Performance Testing available in console:');
+      console.log('  window.takeAttendancePerfTest.testPerformance() - Run performance test');
+      console.log('  window.takeAttendancePerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
 
   const handleStatusChange = (studentId: string, status: string) => {
     setAttendance(prev => ({ ...prev, [studentId]: status }));
@@ -69,7 +100,8 @@ export default function TakeAttendance() {
     <div className="space-y-6 px-4 sm:px-6 lg:px-8">
   <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
       <div className="py-6">
-        <Card>
+        <ErrorBoundary>
+          <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <CardTitle className="text-lg sm:text-xl">Select Class</CardTitle>
@@ -86,7 +118,7 @@ export default function TakeAttendance() {
           </CardHeader>
           <CardContent>
             {selectedClassId ?
-             (studentsLoading ? <p className="text-center py-4">Loading students...</p> :
+             (studentsLoading ? <TableSkeleton columns={2} rows={5} /> :
               <>
                 {/* Mobile: Card view */}
                 <div className="grid grid-cols-1 gap-4 sm:hidden">
@@ -148,6 +180,7 @@ export default function TakeAttendance() {
             }
           </CardContent>
         </Card>
+        </ErrorBoundary>
       </div>
     </div>
   );

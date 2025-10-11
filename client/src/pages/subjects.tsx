@@ -1,4 +1,5 @@
 import { useState } from "react";
+import React from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useForm } from "react-hook-form";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { useSubjectsPerformanceTest, logSubjectsPerformanceMetrics } from '@/hooks/useSubjectsPerformanceTest';
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -119,6 +122,33 @@ export default function SubjectsPage() {
   const { subjects, isLoading, error, deleteSubject } = useSubjects();
   const { toast } = useToast();
 
+  const { testPerformance, clearCache } = useSubjectsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logSubjectsPerformanceMetrics(metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).subjectsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📚 Subjects Page Performance Testing available in console:');
+      console.log('  window.subjectsPerfTest.testPerformance() - Run performance test');
+      console.log('  window.subjectsPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
+
   const handleEdit = (subject: any) => {
     setSelectedSubject(subject);
     setIsFormOpen(true);
@@ -155,81 +185,83 @@ export default function SubjectsPage() {
       <TopNav title="Subjects" subtitle="Manage subjects and curriculum" showGoBackButton={true} />
       <div className="space-y-6 px-4 sm:px-6 lg:px-8">
         <div className="py-4">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <CardTitle className="text-lg sm:text-xl lg:text-2xl">Subject Management</CardTitle>
-                <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto"><UserPlus className="w-4 h-4 mr-2" /> Add Subject</Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? <TableSkeleton columns={3} rows={5} /> : error ? (
-                <div className="text-center py-8 text-destructive">Error loading subjects</div>
-              ) : (
-                <>
-                  {/* Mobile: Card view */}
-                  <div className="grid grid-cols-1 gap-4 sm:hidden">
-                    {subjects && subjects.map((subject: any) => (
-                      <Card key={subject.$id} className="p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <div>
-                            <div className="font-semibold text-base">{subject.name}</div>
-                            <div className="text-xs text-muted-foreground">{subject.description}</div>
+          <ErrorBoundary>
+            <Card>
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <CardTitle className="text-lg sm:text-xl lg:text-2xl">Subject Management</CardTitle>
+                  <Button onClick={() => setIsFormOpen(true)} className="w-full sm:w-auto"><UserPlus className="w-4 h-4 mr-2" /> Add Subject</Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {isLoading ? <TableSkeleton columns={3} rows={5} /> : error ? (
+                  <div className="text-center py-8 text-destructive">Error loading subjects</div>
+                ) : (
+                  <>
+                    {/* Mobile: Card view */}
+                    <div className="grid grid-cols-1 gap-4 sm:hidden">
+                      {subjects && subjects.map((subject: any) => (
+                        <Card key={subject.$id} className="p-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <div>
+                              <div className="font-semibold text-base">{subject.name}</div>
+                              <div className="text-xs text-muted-foreground">{subject.description}</div>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2 mt-2 justify-end">
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon" variant="outline" onClick={() => setSelectedSubject(subject)}><Edit /></Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Edit</p></TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="icon" variant="destructive" onClick={() => { setSubjectToDelete(subject.$id); setIsDeleteDialogOpen(true); }}><Trash2 /></Button>
-                              </TooltipTrigger>
-                              <TooltipContent><p>Delete</p></TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                  {/* Desktop: Table view */}
-                  <div className="rounded-md border overflow-x-auto hidden sm:block">
-                    <Table className="min-w-[700px] text-xs sm:text-sm lg:text-base">
-                      <TableHeader>
-                        <TableRow><TableHead>Subject</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {subjects && subjects.map((subject: any) => (
-                          <TableRow key={subject.$id}>
-                            <TableCell>
-                              <div className="font-medium text-sm sm:text-base">{subject.name}</div>
-                              <div className="text-xs sm:text-sm text-muted-foreground">{subject.description}</div>
-                            </TableCell>
-                            <TableCell>{subject.description}</TableCell>
-                            <TableCell className="text-right">
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                  <DropdownMenuItem onClick={() => setSelectedSubject(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => { setSubjectToDelete(subject.$id); setIsDeleteDialogOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
+                          <div className="flex gap-2 mt-2 justify-end">
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="icon" variant="outline" onClick={() => setSelectedSubject(subject)}><Edit /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Edit</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="icon" variant="destructive" onClick={() => { setSubjectToDelete(subject.$id); setIsDeleteDialogOpen(true); }}><Trash2 /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Delete</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                    {/* Desktop: Table view */}
+                    <div className="rounded-md border overflow-x-auto hidden sm:block">
+                      <Table className="min-w-[700px] text-xs sm:text-sm lg:text-base">
+                        <TableHeader>
+                          <TableRow><TableHead>Subject</TableHead><TableHead>Description</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {subjects && subjects.map((subject: any) => (
+                            <TableRow key={subject.$id}>
+                              <TableCell>
+                                <div className="font-medium text-sm sm:text-base">{subject.name}</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">{subject.description}</div>
+                              </TableCell>
+                              <TableCell>{subject.description}</TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => setSelectedSubject(subject)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => { setSubjectToDelete(subject.$id); setIsDeleteDialogOpen(true); }} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </ErrorBoundary>
         </div>
         <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
           <DialogContent>

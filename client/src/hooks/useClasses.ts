@@ -6,16 +6,20 @@ import { Query } from 'appwrite';
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const CLASSES_COLLECTION_ID = 'classes';
 
-export function useClasses() {
+export function useClasses(teacherId?: string) {
   const { user, role } = useAuth();
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['classes', role],
+    queryKey: ['classes', role, teacherId],
     queryFn: async () => {
       if (!user) return [];
 
       const queries = [];
-      if (role === 'teacher') {
+      // If teacherId is provided, get classes for that specific teacher
+      // Otherwise, filter based on current user's role
+      if (teacherId) {
+        queries.push(Query.equal('teacherId', teacherId));
+      } else if (role === 'teacher') {
         queries.push(Query.equal('teacherId', user.$id));
       }
 

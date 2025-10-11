@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Check, ChevronsUpDown } from 'lucide-react';
+import { Check, ChevronsUpDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStudents } from '@/hooks/useStudents';
 import { useClasses } from '@/hooks/useClasses';
@@ -55,14 +55,14 @@ export function AssignExamDialog({ examId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Assign Exam</DialogTitle>
-          <DialogDescription>
-            Enter comma-separated IDs to assign this exam to classes and/or specific students.
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-4">
+          <DialogTitle className="text-xl sm:text-2xl">Assign Exam</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-2">
+            Select classes and students to assign this exam. You can choose multiple options.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
+        <div className="space-y-6 px-6 flex-1 overflow-y-auto py-4">
           <div>
             <div className="text-sm font-medium mb-1">Assign to Classes</div>
             <Popover open={classOpen} onOpenChange={setClassOpen}>
@@ -153,9 +153,18 @@ export function AssignExamDialog({ examId, open, onOpenChange }: Props) {
             )}
           </div>
         </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>Cancel</Button>
-          <Button onClick={onAssign} disabled={isSubmitting}>{isSubmitting ? 'Assigning…' : 'Assign'}</Button>
+        <DialogFooter className="px-6 pb-6 pt-4 border-t flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting} className="w-full sm:w-auto">Cancel</Button>
+          <Button onClick={onAssign} disabled={isSubmitting} className="w-full sm:w-auto">
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                Assigning...
+              </>
+            ) : (
+              'Assign Exam'
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

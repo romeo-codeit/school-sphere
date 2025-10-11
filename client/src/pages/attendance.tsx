@@ -12,6 +12,9 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight } from 'lucide-react';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
 
 const StudentAttendanceView: React.FC = () => {
     const { user } = useAuth();
@@ -19,6 +22,33 @@ const StudentAttendanceView: React.FC = () => {
     const [studentHistory, setStudentHistory] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { toast } = useToast();
+
+    const { testPerformance, clearCache } = useAttendancePerformanceTest();
+
+    // Performance test handlers (only used in development)
+    const handlePerformanceTest = async () => {
+      const metrics = await testPerformance();
+      if (metrics) {
+        logAttendancePerformanceMetrics(metrics);
+      }
+    };
+
+    const handleClearCache = () => {
+      clearCache();
+    };
+
+    // Make performance testing available in development console
+    React.useEffect(() => {
+      if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+        (window as any).attendancePerfTest = {
+          testPerformance: handlePerformanceTest,
+          clearCache: handleClearCache,
+        };
+        console.log('📊 Attendance Performance Testing available in console:');
+        console.log('  window.attendancePerfTest.testPerformance() - Run performance test');
+        console.log('  window.attendancePerfTest.clearCache() - Clear cache and reload');
+      }
+    }, []);
 
     useEffect(() => {
         const fetchStudentData = async () => {
@@ -51,10 +81,11 @@ const StudentAttendanceView: React.FC = () => {
         <TopNav title="My Attendance" subtitle="View your personal attendance history" showGoBackButton={true} />
         <div className="space-y-6">
           <div className="py-6">
-            <Card>
-              <CardHeader><CardTitle className="text-lg sm:text-xl">Attendance History</CardTitle></CardHeader>
-              <CardContent>
-                {isLoading ? <p className="text-center py-4">Loading your attendance history...</p> :
+            <ErrorBoundary>
+              <Card>
+                <CardHeader><CardTitle className="text-lg sm:text-xl">Attendance History</CardTitle></CardHeader>
+                <CardContent>
+                {isLoading ? <TableSkeleton columns={2} rows={5} /> :
                   studentHistory.length === 0 ? <p className="text-center py-4 text-muted-foreground">No attendance records found.</p> :
                   <>
                     {/* Mobile: Card view */}
@@ -98,6 +129,7 @@ const StudentAttendanceView: React.FC = () => {
                 }
               </CardContent>
             </Card>
+            </ErrorBoundary>
           </div>
         </div>
       </>

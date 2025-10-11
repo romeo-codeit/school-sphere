@@ -9,12 +9,42 @@ import {
 } from 'recharts';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
 
 const AttendanceReports: React.FC = () => {
     const { toast } = useToast();
     const [records, setRecords] = useState<any[]>([]);
     const [classes, setClasses] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const { testPerformance, clearCache } = useAttendancePerformanceTest();
+
+    // Performance test handlers (only used in development)
+    const handlePerformanceTest = async () => {
+      const metrics = await testPerformance();
+      if (metrics) {
+        logAttendancePerformanceMetrics(metrics);
+      }
+    };
+
+    const handleClearCache = () => {
+      clearCache();
+    };
+
+    // Make performance testing available in development console
+    React.useEffect(() => {
+      if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+        (window as any).attendanceReportsPerfTest = {
+          testPerformance: handlePerformanceTest,
+          clearCache: handleClearCache,
+        };
+        console.log('📊 Attendance Reports Performance Testing available in console:');
+        console.log('  window.attendanceReportsPerfTest.testPerformance() - Run performance test');
+        console.log('  window.attendanceReportsPerfTest.clearCache() - Clear cache and reload');
+      }
+    }, []);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -93,6 +123,7 @@ const AttendanceReports: React.FC = () => {
         return (
             <div className="space-y-6">
             <TopNav title="Attendance Reports" subtitle="School-wide attendance analytics" showGoBackButton={true} />
+            <ErrorBoundary>
             <div className="px-4 sm:px-6 lg:px-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
                 <Card>
                     <CardHeader>
@@ -198,6 +229,7 @@ const AttendanceReports: React.FC = () => {
                     </CardContent>
                 </Card>
             </div>
+            </ErrorBoundary>
         </div>
         );
     } catch (err) {

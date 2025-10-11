@@ -10,6 +10,7 @@ import { databases } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { StudentParentDashboardSkeleton } from "@/components/skeletons/student-parent-dashboard-skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useStudentParentDashboardPerformanceTest } from "@/hooks/useStudentParentDashboardPerformanceTest";
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -17,6 +18,9 @@ function StudentParentDashboard() {
   const { user } = useAuth();
   const { role } = useRole();
   const [, setLocation] = useLocation();
+
+  // Performance testing hook
+  useStudentParentDashboardPerformanceTest();
 
   const { data: student, isLoading: isLoadingStudent, error: studentError } = useQuery({
     queryKey: ['studentProfileForDashboard', user?.$id, role],

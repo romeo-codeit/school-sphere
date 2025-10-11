@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,9 @@ import { SubjectSelectionDialog } from "@/components/exams/SubjectSelectionDialo
 import { useToast } from "@/hooks/use-toast";
 import { AssignExamDialog } from "@/components/exams/AssignExamDialog";
 import { useAuth } from "@/hooks/useAuth";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useExamsPerformanceTest, logExamsPerformanceMetrics } from '@/hooks/useExamsPerformanceTest';
 
 // Helper hook to fetch question count for an exam
 function useExamQuestionCount(examId: string) {
@@ -67,16 +70,35 @@ function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: bool
   const qCount = Array.isArray(fullExam?.questions) ? fullExam.questions.length : undefined;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Exam Preview</DialogTitle>
+          <DialogTitle className="text-xl sm:text-2xl">Exam Preview</DialogTitle>
+          <DialogDescription className="text-sm text-muted-foreground mt-2">
+            Review exam details before taking or managing
+          </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="font-bold text-lg">{title}</div>
-          <div className="text-sm text-muted-foreground">Type: {type}</div>
-          <div className="text-sm text-muted-foreground">Subject: {subject}</div>
-          <div className="text-sm text-muted-foreground">Duration: {duration} mins</div>
-          <div className="text-sm text-muted-foreground">Questions: {isLoading ? '…' : (typeof qCount === 'number' ? qCount : '…')}</div>
+        <div className="space-y-4 py-4">
+          <div>
+            <h3 className="font-semibold text-lg mb-2">{title}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Type:</span>
+                <Badge variant="outline">{type}</Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Subject:</span>
+                <Badge variant="secondary">{subject}</Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Duration:</span>
+                <span className="text-sm font-semibold">{duration} minutes</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-muted-foreground">Questions:</span>
+                <span className="text-sm font-semibold">{isLoading ? '…' : (typeof qCount === 'number' ? qCount : '…')}</span>
+              </div>
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -118,6 +140,33 @@ function ExamsPage() {
   const totalPages = Math.ceil(filteredExams.length / PAGE_SIZE);
   const canPrev = page > 0;
   const canNext = page < totalPages - 1;
+
+  const { testPerformance, clearCache } = useExamsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logExamsPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).examsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('📝 Exams Performance Testing available in console:');
+      console.log('  window.examsPerfTest.testPerformance() - Run performance test');
+      console.log('  window.examsPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
 
   const handleStartExam = (exam: any) => {
     const examType = String(exam.type || '').toLowerCase();
@@ -185,7 +234,8 @@ function ExamsPage() {
   return (
     <div className="space-y-6">
       <TopNav title="Exams" subtitle="Practice standardized tests or take school exams" showGoBackButton={true} />
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <ErrorBoundary>
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
         {/* Practice Hub for JAMB/WAEC/NECO */}
         <Card className="mb-8">
           <CardHeader>
@@ -316,7 +366,7 @@ function ExamsPage() {
 
             {/* Exams List: Mobile Card view and Desktop Table view */}
             {isAllLoading ? (
-              <div className="text-center py-8"><Loading text="Loading exams..." /></div>
+              <TableSkeleton columns={5} rows={5} />
             ) : paginatedExams.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 {searchQuery ? "No exams found matching your search." : "No exams available."}
@@ -442,7 +492,8 @@ function ExamsPage() {
             <UploadExamForm onFinished={() => setIsUploadFormOpen(false)} />
           </DialogContent>
         </Dialog>
-      </div>
+        </div>
+      </ErrorBoundary>
     </div>
   );
 }

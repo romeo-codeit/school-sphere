@@ -16,7 +16,6 @@ import {
   ChevronLeft,
   ChevronRight
 } from "lucide-react";
-import { Logo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/hooks/useRole";

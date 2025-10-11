@@ -8,6 +8,200 @@ const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
 const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY;
 const APPWRITE_DATABASE_ID = process.env.VITE_APPWRITE_DATABASE_ID;
 
+// CDN Configuration for static assets
+const CDN_BASE_URL = process.env.CDN_BASE_URL || process.env.VITE_APPWRITE_ENDPOINT?.replace('/v1', '') || '';
+const USE_CDN = process.env.USE_CDN === 'true' || !!CDN_BASE_URL;
+
+// Helper function to convert Appwrite storage URLs to CDN URLs
+function toCDNUrl(url: string | undefined): string | undefined {
+  if (!url || !USE_CDN) return url;
+
+  // Convert Appwrite storage URLs to CDN URLs
+  if (url.includes('/storage/buckets/') && url.includes('/files/') && url.includes('/view')) {
+    // Extract bucket, file ID, and any query params
+    const storageMatch = url.match(/\/storage\/buckets\/([^\/]+)\/files\/([^\/]+)\/view(\?.*)?$/);
+    if (storageMatch) {
+      const [, bucketId, fileId, query] = storageMatch;
+      return `${CDN_BASE_URL}/storage/buckets/${bucketId}/files/${fileId}/view${query || ''}`;
+    }
+  }
+
+  return url;
+}
+
+// Simple in-memory cache for practice exams (TTL: 30 minutes)
+interface CacheEntry {
+  data: any;
+  timestamp: number;
+  ttl: number;
+}
+
+const practiceExamCache = new Map<string, CacheEntry>();
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+function getCacheKey(type: string, subjects: string[], year?: string): string {
+  return `${type}:${subjects.sort().join(',')}:${year || 'all'}`;
+}
+
+function getCachedExam(cacheKey: string): any | null {
+  const entry = practiceExamCache.get(cacheKey);
+  if (!entry) return null;
+
+  if (Date.now() - entry.timestamp > entry.ttl) {
+    practiceExamCache.delete(cacheKey);
+    return null;
+  }
+
+  return entry.data;
+}
+
+function setCachedExam(cacheKey: string, data: any, ttl: number = CACHE_TTL): void {
+  practiceExamCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+    ttl
+  });
+
+  // Log cache size for monitoring
+  if (practiceExamCache.size > 50) {
+    console.warn(`[CACHE] Practice exam cache size: ${practiceExamCache.size} entries`);
+  }
+}
+
+// Periodic cache cleanup to prevent memory leaks
+setInterval(() => {
+  const now = Date.now();
+  let cleaned = 0;
+
+  practiceExamCache.forEach((entry, key) => {
+    if (now - entry.timestamp > entry.ttl) {
+      practiceExamCache.delete(key);
+      cleaned++;
+    }
+  });
+
+  if (cleaned > 0) {
+    console.log(`[CACHE] Cleaned up ${cleaned} expired practice exam cache entries`);
+  }
+}, 5 * 60 * 1000); // Run cleanup every 5 minutes
+
+// Optimized function to fetch questions for practice exams
+async function fetchPracticeExamQuestions(type: string, selectedSubjects: string[], yearParam?: string): Promise<any[]> {
+  const normalize = (s: string) => String(s || '').trim().toLowerCase();
+  const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+  const canonicalSubject = (s: string) => {
+    const k = normalizeKey(s);
+    if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+    if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+    return k;
+  };
+
+  const canonicalSelectedSubjects = selectedSubjects.map(s => canonicalSubject(s));
+  const allQuestions: any[] = [];
+
+  // Build database queries for better performance
+  const examQueries = [Query.equal('type', type)];
+
+  // Add year filter if specified
+  if (yearParam) {
+    examQueries.push(Query.equal('year', yearParam));
+  }
+
+  // Fetch all exams matching the type and year criteria
+  let examOffset = 0;
+  const matchingExams: any[] = [];
+
+  while (true) {
+    const examResults = await databases.listDocuments(
+      APPWRITE_DATABASE_ID!,
+      'exams',
+      [...examQueries, Query.limit(100), Query.offset(examOffset)]
+    );
+
+    if (examResults.documents.length === 0) break;
+
+    // Filter exams by subject in memory (since Appwrite doesn't support complex subject filtering)
+    for (const exam of examResults.documents) {
+      const examSubjectRaw = String((exam as any).subject || '');
+      const examSubject = canonicalSubject(examSubjectRaw);
+
+      if (canonicalSelectedSubjects.includes(examSubject)) {
+        matchingExams.push(exam);
+      }
+    }
+
+    examOffset += examResults.documents.length;
+    if (examOffset >= (examResults.total || examOffset)) break;
+  }
+
+  // Now fetch questions for all matching exams in parallel
+  const questionPromises = matchingExams.map(async (exam) => {
+    const questions: any[] = [];
+
+    // Check if exam has embedded questions
+    if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
+      const examSubjectRaw = String((exam as any).subject || '');
+      for (const q of (exam as any).questions) {
+        const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
+        const opts = (q as any).options ?? [];
+        const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+        const mapped = {
+          question: text,
+          options: opts,
+          correctAnswer: correct,
+          explanation: (q as any).explanation ?? undefined,
+          imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
+          subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
+        };
+        questions.push(mapped);
+      }
+    } else {
+      // Fetch from questions collection
+      let qOffset = 0;
+      while (true) {
+        const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+          Query.equal('examId', String(exam.$id)),
+          Query.limit(100),
+          Query.offset(qOffset),
+        ]);
+
+        if (qRes.documents.length === 0) break;
+
+        const examSubjectRaw = String((exam as any).subject || '');
+        for (const q of qRes.documents) {
+          const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
+          const opts = (q as any).options ?? [];
+          const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+          const mapped = {
+            question: text,
+            options: opts,
+            correctAnswer: correct,
+            explanation: (q as any).explanation ?? undefined,
+            imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
+            subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
+          };
+          questions.push(mapped);
+        }
+
+        qOffset += qRes.documents.length;
+        if (qOffset >= (qRes.total || qOffset)) break;
+      }
+    }
+
+    return questions;
+  });
+
+  // Wait for all question fetching to complete
+  const questionArrays = await Promise.all(questionPromises);
+
+  // Flatten all questions into a single array
+  for (const questionArray of questionArrays) {
+    allQuestions.push(...questionArray);
+  }
+
+  return allQuestions;
+}
+
 if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY || !APPWRITE_DATABASE_ID) {
   throw new Error("Missing Appwrite environment variables. Please check your .env file.");
 }
@@ -99,6 +293,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Failed to fetch teacher classes' });
+    }
+  });
+
+  app.get('/api/teacher/students', auth, async (req, res) => {
+    try {
+      if (!req.appwrite) {
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
+      const user = await req.appwrite.account.get();
+      if (!user?.$id) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+
+      // Get teacher record
+      const teacher = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachers', [Query.equal('userId', String(user.$id))]);
+      if (teacher.documents.length === 0) {
+        return res.status(404).json({ message: 'Teacher not found' });
+      }
+
+      const teacherId = String(teacher.documents[0].$id);
+
+      // Get all classes taught by this teacher
+      const teacherClasses = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachersToClasses', [Query.equal('teacherId', teacherId)]);
+      const classIds = teacherClasses.documents.map((doc) => String(doc.classId));
+
+      if (classIds.length === 0) {
+        return res.json({ documents: [], total: 0 });
+      }
+
+      // Get pagination parameters
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 100); // Max 100 per page
+      const offset = Math.max(0, parseInt(req.query.offset as string) || 0);
+
+      // Get students with pagination
+      const students = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'students',
+        [
+          Query.equal('classId', classIds),
+          Query.limit(limit),
+          Query.offset(offset),
+          Query.orderAsc('firstName')
+        ]
+      );
+
+      res.json({
+        documents: students.documents,
+        total: students.total,
+        limit,
+        offset
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch teacher students' });
     }
   });
 
@@ -377,85 +625,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
         const yearParam = req.query.year ? String(req.query.year) : undefined;
-        const normalize = (s: string) => String(s || '').trim().toLowerCase();
-        const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
-        const canonicalSubject = (s: string) => {
-          const k = normalizeKey(s);
-          if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
-          if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
-          return k;
-        };
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
-        
-        // Fetch questions from multiple exams matching type and subjects
-        let questions: any[] = [];
-        for (const subject of selectedSubjects) {
-          let offset = 0;
-          while (true) {
-            const examResults = await databases.listDocuments(
-              APPWRITE_DATABASE_ID!,
-              'exams',
-              [Query.limit(100), Query.offset(offset)]
-            );
-            
-            for (const exam of examResults.documents) {
-              const examType = normalize((exam as any).type || '');
-              const examSubjectRaw = String((exam as any).subject || '');
-              const examSubject = canonicalSubject(examSubjectRaw);
-              const examYear = String((exam as any).year || '');
-              
-              // If a year was provided, require matching year (applies to all types)
-              if (yearParam && String(examYear) !== String(yearParam)) {
-                continue;
-              }
-              // Subject match (treat English synonyms as equivalent)
-              const subjectMatches = (() => {
-                const selectedKeys = selectedSubjects.map((s) => canonicalSubject(s));
-                const examKey = examSubject; // already canonical
-                return selectedKeys.includes(examKey);
-              })();
-              if (examType === type && subjectMatches) {
-                // Get questions from this exam
-                const pushMapped = (arr: any[]) => {
-                  for (const q of arr) {
-                    const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
-                    const opts = (q as any).options ?? [];
-                    const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
-                    const mapped = {
-                      question: text,
-                      options: opts,
-                      correctAnswer: correct,
-                      explanation: (q as any).explanation ?? undefined,
-                      imageUrl: (q as any).imageUrl ?? (q as any).image ?? undefined,
-                      subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
-                    };
-                    questions.push(mapped);
-                  }
-                };
-                if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
-                  pushMapped((exam as any).questions);
-                } else {
-                  // Fetch from questions collection
-                  let qOffset = 0;
-                  while (true) {
-                    const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-                      Query.equal('examId', String(exam.$id)),
-                      Query.limit(100),
-                      Query.offset(qOffset),
-                    ]);
-                    pushMapped(qRes.documents as any[]);
-                    qOffset += qRes.documents.length;
-                    if (qOffset >= (qRes.total || qOffset) || qRes.documents.length === 0) break;
-                  }
-                }
-              }
-            }
-            
-            offset += examResults.documents.length;
-            if (offset >= (examResults.total || offset) || examResults.documents.length === 0) break;
-          }
+
+        if (selectedSubjects.length === 0) {
+          return res.status(400).json({ message: 'At least one subject must be selected for practice exams' });
         }
-        // For WAEC/NECO practice: sample 50 random questions across selected subjects
+
+        // Check cache first
+        const cacheKey = getCacheKey(type, selectedSubjects, yearParam);
+        const cachedExam = getCachedExam(cacheKey);
+
+        if (cachedExam) {
+          console.log('[CBT] Serving cached practice exam:', cacheKey);
+          return res.json(cachedExam);
+        }
+
+        console.log('[CBT] Generating new practice exam:', { type, subjects: selectedSubjects, year: yearParam });
+
+        // Fetch questions using optimized function
+        const questions = await fetchPracticeExamQuestions(type, selectedSubjects, yearParam);
+
+        if (questions.length === 0) {
+          return res.status(404).json({ message: 'No questions found for the selected subjects and criteria' });
+        }
+
+        // Sample questions for practice mode - limit to reasonable amounts
         const sample = <T,>(arr: T[], n: number): T[] => {
           if (arr.length <= n) return arr;
           const out: T[] = [];
@@ -468,7 +662,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         let finalQuestions = questions;
-        if (type === 'waec' || type === 'neco') {
+
+        // JAMB: ~12-13 questions per subject (4 subjects = ~50 total, similar to real exam)
+        if (type === 'jamb') {
+          const questionsPerSubject = 12; // ~50 total for 4 subjects
+          const questionsBySubject = new Map<string, any[]>();
+
+          // Group by subject
+          for (const q of questions) {
+            const subj = String(q.subject || 'Unknown');
+            if (!questionsBySubject.has(subj)) {
+              questionsBySubject.set(subj, []);
+            }
+            questionsBySubject.get(subj)!.push(q);
+          }
+
+          // Sample from each subject
+          finalQuestions = [];
+          Array.from(questionsBySubject.entries()).forEach(([, subjectQuestions]) => {
+            finalQuestions.push(...sample(subjectQuestions, questionsPerSubject));
+          });
+        }
+        // WAEC/NECO: 50 random questions across selected subjects
+        else if (type === 'waec' || type === 'neco') {
           finalQuestions = sample(questions, 50);
         }
 
@@ -476,8 +692,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const durationMinutes = type === 'jamb' ? 120 : (type === 'waec' || type === 'neco') ? 90 : 60;
         const titleSuffix = yearParam && type === 'jamb' ? `${subjects.join(', ')} - ${yearParam}` : subjects.join(', ');
 
-        // Return synthetic practice exam
-        return res.json({
+        const practiceExam = {
           $id: examId,
           title: `${type.toUpperCase()} Practice - ${titleSuffix}`,
           type,
@@ -488,7 +703,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPractice: true,
           selectedSubjects,
           year: yearParam,
-        });
+        };
+
+        // Cache the result
+        setCachedExam(cacheKey, practiceExam);
+
+        return res.json(practiceExam);
       }
 
       // Debug: If ?debug=1, fetch only one exam, no questions
@@ -511,7 +731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         options: q?.options ?? [],
         correctAnswer: q?.correctAnswer ?? q?.answer ?? '',
         explanation: q?.explanation ?? undefined,
-        imageUrl: q?.imageUrl ?? q?.image ?? undefined,
+        imageUrl: toCDNUrl(q?.imageUrl ?? q?.image),
         subject,
       });
 
@@ -860,17 +1080,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         examsDetail: matchingExams 
       });
 
+      // Instead of rejecting, return what's available
       const insufficient = Object.entries(availability).filter(([, c]) => (c as number) === 0).map(([s]) => s);
-      if (insufficient.length > 0) {
+      const available = Object.entries(availability).filter(([, c]) => (c as number) > 0).map(([s]) => s);
+      
+      if (available.length === 0) {
+        // No subjects have data at all
         return res.status(400).json({ 
-          message: `No questions found for: ${insufficient.join(', ')}. Available question sets: ${JSON.stringify(availability)}`,
+          message: `No questions found for any selected subject${year ? ` in year ${year}` : ''}. Try selecting a different year or subjects.`,
           insufficient, 
           availability,
           debug: { totalExamsScanned, matchingExams }
         });
       }
 
-      return res.json({ ok: true, availability });
+      // Success - return what will be included
+      return res.json({ 
+        ok: true, 
+        availability,
+        available: available.length,
+        total: Object.keys(availability).length,
+        insufficient: insufficient.length > 0 ? insufficient : undefined,
+        message: insufficient.length > 0 
+          ? `${available.length} of ${Object.keys(availability).length} subjects available. Subjects without data: ${insufficient.join(', ')}`
+          : `All ${available.length} subjects available`
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Failed to validate subjects' });
@@ -1012,6 +1246,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Failed to fetch years' });
+    }
+  });
+
+  // Get year availability per subject - shows which subjects have data for which years
+  app.get('/api/cbt/years/availability', auth, async (req, res) => {
+    try {
+      const type = String(req.query.type || '').toLowerCase();
+      const subjectParamsRaw = ([] as string[])
+        .concat((req.query.subject as any) || [])
+        .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
+      const subjectParams = subjectParamsRaw.map((s) => String(s)).filter(Boolean);
+      if (!type) return res.status(400).json({ message: 'type is required' });
+      if (subjectParams.length === 0) return res.status(400).json({ message: 'subjects are required' });
+
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+      const canonicalSubject = (s: string) => {
+        const k = normalizeKey(s);
+        if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+        if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+        return k;
+      };
+
+      const subjectFilters = subjectParams.map((s) => canonicalSubject(s));
+      
+      // Map: year -> subjects available in that year
+      const yearToSubjects = new Map<string, Set<string>>();
+      
+      let offset = 0;
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        for (const doc of page.documents as any[]) {
+          const docType = normalize((doc as any).type || '');
+          if (docType !== type) continue;
+          
+          const subj = canonicalSubject((doc as any).subject || '');
+          const year = String((doc as any).year || '').trim();
+          
+          if (!year || !subjectFilters.includes(subj)) continue;
+          
+          if (!yearToSubjects.has(year)) {
+            yearToSubjects.set(year, new Set());
+          }
+          yearToSubjects.get(year)!.add(subj);
+        }
+        offset += page.documents.length;
+        if (offset >= (page.total || offset) || page.documents.length === 0) break;
+      }
+
+      // Convert to response format: { year: string, subjects: string[], availableCount: number }[]
+      const availability = Array.from(yearToSubjects.entries())
+        .map(([year, subjects]) => ({
+          year,
+          subjects: Array.from(subjects),
+          availableCount: subjects.size,
+          totalCount: subjectFilters.length
+        }))
+        .sort((a, b) => Number(b.year) - Number(a.year));
+
+      res.json({ availability });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch year availability' });
     }
   });
 

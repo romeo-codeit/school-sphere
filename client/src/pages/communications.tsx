@@ -1,10 +1,10 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useConversations, useChat, useUsers, useForum } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
-import { PlusCircle, Send, MessageSquare, ArrowLeft, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Send, MessageSquare, MessageCircle, ArrowLeft, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,6 +17,9 @@ import { cn } from "@/lib/utils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatDistanceToNow } from "date-fns";
 import { useIsMobile } from "@/hooks/use-mobile";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useCommunicationsPerformanceTest, logCommunicationsPerformanceMetrics } from '@/hooks/useCommunicationsPerformanceTest';
 
 // --- FORUM COMPONENTS ---
 
@@ -43,10 +46,20 @@ function EditPostDialog({ post, onUpdate }: { post: any, onUpdate: () => void })
             <DialogTrigger asChild>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
             </DialogTrigger>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Edit Post</DialogTitle></DialogHeader>
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={5} />
-                <DialogFooter><Button onClick={handleUpdate}>Save Changes</Button></DialogFooter>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle className="text-xl sm:text-2xl">Edit Post</DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground mt-2">
+                    Update your announcement or post
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="py-4">
+                  <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} className="min-h-[150px]" placeholder="Write your message here..." />
+                </div>
+                <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                  <Button variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                  <Button onClick={handleUpdate} className="w-full sm:w-auto">Save Changes</Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -144,7 +157,18 @@ function ForumList({ onSelectThread }: { onSelectThread: (thread: any) => void }
     <Card>
       <CardHeader><CardTitle>Forum</CardTitle></CardHeader>
       <CardContent>
-        {isLoadingThreads ? <p>Loading threads...</p> :
+        {isLoadingThreads ? (
+          <div className="space-y-4">
+            {[...Array(3)].map((_, i) => (
+              <Card key={i} className="animate-pulse">
+                <CardHeader>
+                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                </CardHeader>
+              </Card>
+            ))}
+          </div>
+        ) :
          threads?.map((thread: any) => (
           <Card key={thread.$id} onClick={() => onSelectThread(thread)} className="cursor-pointer hover:bg-muted/50 mb-4">
             <CardHeader><CardTitle>{thread.title}</CardTitle><CardDescription>Created {formatDistanceToNow(new Date(thread.$createdAt))} ago</CardDescription></CardHeader>
@@ -190,19 +214,37 @@ function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild><Button variant="outline" className="w-full"><PlusCircle className="w-4 h-4 mr-2" /> New Chat</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader><DialogTitle>Start a new conversation</DialogTitle></DialogHeader>
-                <Command><CommandInput placeholder="Search for users..." /><CommandList>
-                    <CommandEmpty>No users found.</CommandEmpty>
-                    <CommandGroup heading="Users">{isLoading ? <CommandItem>Loading...</CommandItem> :
-                        users?.filter(u => u.$id !== currentUser?.$id).map(user => (
-                        <CommandItem key={user.$id} onSelect={() => handleSelectUser(user)} className={cn(selectedUsers.some(su => su.$id === user.$id) && "bg-accent")}>
-                            {user.firstName ? `${user.firstName} ${user.lastName}` : user.name}
-                        </CommandItem>
-                    ))}</CommandGroup>
-                </CommandList></Command>
-                <div className="p-2 text-sm">Selected: {selectedUsers.map(u => u.firstName || u.name).join(', ') || 'None'}</div>
-                <DialogFooter><Button onClick={handleCreateConversation} disabled={selectedUsers.length === 0}>Start Chat</Button></DialogFooter>
+            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col">
+                <DialogHeader className="px-6 pt-6 pb-4">
+                  <DialogTitle className="text-xl sm:text-2xl">Start a new conversation</DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground mt-2">
+                    Search and select users to start chatting
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="px-6 flex-1 overflow-y-auto">
+                  <Command>
+                    <CommandInput placeholder="Search for users..." />
+                    <CommandList>
+                      <CommandEmpty>No users found.</CommandEmpty>
+                      <CommandGroup heading="Users">{isLoading ? <CommandItem>Loading...</CommandItem> :
+                          users?.filter(u => u.$id !== currentUser?.$id).map(user => (
+                          <CommandItem key={user.$id} onSelect={() => handleSelectUser(user)} className={cn(selectedUsers.some(su => su.$id === user.$id) && "bg-accent")}>
+                              {user.firstName ? `${user.firstName} ${user.lastName}` : user.name}
+                          </CommandItem>
+                      ))}</CommandGroup>
+                    </CommandList>
+                  </Command>
+                  <div className="p-3 mt-3 text-sm bg-muted/50 rounded-md">
+                    <span className="font-medium">Selected:</span> {selectedUsers.map(u => u.firstName || u.name).join(', ') || 'None'}
+                  </div>
+                </div>
+                <DialogFooter className="px-6 pb-6 pt-4 border-t flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                  <Button variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">Cancel</Button>
+                  <Button onClick={handleCreateConversation} disabled={selectedUsers.length === 0} className="w-full sm:w-auto">
+                    <MessageCircle className="w-4 h-4 mr-2" />
+                    Start Chat
+                  </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
     );
@@ -226,7 +268,16 @@ function ConversationList({ onSelect, selectedConversationId }: { onSelect: (id:
                 <h2 className="text-xl font-bold">Chats</h2>
             </div>
             <div className="flex-1 overflow-y-auto">
-                {isLoading ? <p className="p-4">Loading...</p> :
+                {isLoading ? (
+                  <div className="p-4 space-y-3">
+                    {[...Array(3)].map((_, i) => (
+                      <div key={i} className="animate-pulse">
+                        <div className="h-5 bg-gray-200 rounded w-3/4 mb-2"></div>
+                        <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) :
                  conversations?.map(conv => (
                     <div key={conv.$id} onClick={() => onSelect(conv.$id)} className={cn("p-4 border-b cursor-pointer hover:bg-muted/50", selectedConversationId === conv.$id && "bg-accent")}>
                         <p className="font-semibold">{getConversationName(conv)}</p>
@@ -291,7 +342,19 @@ function ChatPanel({ conversationId, onBack }: { conversationId: string | null, 
                 </div>
             </CardHeader>
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-                {isLoadingMessages ? <p>Loading...</p> :
+                {isLoadingMessages ? (
+                  <div className="space-y-4">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className={`flex items-end space-x-3 ${i % 2 === 0 ? '' : 'justify-end'} animate-pulse`}>
+                        {i % 2 === 0 && <div className="w-8 h-8 bg-gray-200 rounded-full"></div>}
+                        <div className={`max-w-xs px-4 py-2 rounded-lg ${i % 2 === 0 ? 'bg-gray-200' : 'bg-blue-200'}`}>
+                          <div className="h-4 bg-gray-100 rounded w-24 mb-1"></div>
+                          <div className="h-3 bg-gray-100 rounded w-16"></div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) :
                  messages?.map((msg: any) => {
                     const sender = getUserDetails(msg.senderId);
                     const isCurrentUser = msg.senderId === user?.$id;
@@ -331,10 +394,38 @@ export default function Communications() {
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
+  const { testPerformance, clearCache } = useCommunicationsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logCommunicationsPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).communicationsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+      console.log('💬 Communications Performance Testing available in console:');
+      console.log('  window.communicationsPerfTest.testPerformance() - Run performance test');
+      console.log('  window.communicationsPerfTest.clearCache() - Clear cache and reload');
+    }
+  }, []);
+
     return (
         <div className="space-y-6">
             <TopNav title="Communications" subtitle="Engage in forum discussions and private chats" showGoBackButton={true} />
-            <div className="px-4 sm:px-6 lg:px-8 py-4">
+            <ErrorBoundary>
+                <div className="px-4 sm:px-6 lg:px-8 py-4">
                 <Tabs defaultValue="forum">
                     <TabsList>
                         <TabsTrigger value="forum">Forum</TabsTrigger>
@@ -367,6 +458,7 @@ export default function Communications() {
                     </TabsContent>
                 </Tabs>
             </div>
+            </ErrorBoundary>
         </div>
     );
 }

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -240,14 +241,18 @@ export default function Messages() {
                       Compose Message
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Compose New Message</DialogTitle>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="px-6 pt-6 pb-4">
+                      <DialogTitle className="text-xl sm:text-2xl">Compose New Message</DialogTitle>
+                      <DialogDescription className="text-sm text-muted-foreground mt-2">
+                        Send a message to students, teachers, or parents
+                      </DialogDescription>
                     </DialogHeader>
                     
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="overflow-y-auto px-6 flex-1">
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name="recipientId"
@@ -328,17 +333,18 @@ export default function Messages() {
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2">
-                          <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)}>
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t">
+                          <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)} className="w-full sm:w-auto">
                             Cancel
                           </Button>
-                          <Button type="submit" data-testid="button-send-message">
+                          <Button type="submit" data-testid="button-send-message" className="w-full sm:w-auto">
                             <Send className="w-4 h-4 mr-2" />
                             Send Message
                           </Button>
                         </div>
                       </form>
                     </Form>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
