@@ -18,6 +18,21 @@ export function useAssignedExams() {
   });
 }
 
+export function useAvailableExams() {
+  const { getJWT } = useAuth();
+  return useQuery({
+    queryKey: ['cbt-exams-available'],
+    queryFn: async () => {
+      const jwt = await getJWT();
+      const res = await fetch(`${API_BASE}/exams/available`, {
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      });
+      if (!res.ok) throw new Error('Failed to fetch available exams');
+      return (await res.json()) as { exams: any[]; total: number; message?: string };
+    },
+  });
+}
+
 export function useAvailableSubjects(type?: string, enabled = true) {
   const { getJWT } = useAuth();
   return useQuery({

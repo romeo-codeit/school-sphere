@@ -595,6 +595,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         [Query.limit(100), Query.offset(0)]
       );
       const exams = result.documents as any[];
+      const visible = exams.filter((e) => {
+        const assigned: string[] | undefined = (e as any).assignedTo;
+        const examType = (e as any).type?.toLowerCase();
+
+        // Public if assignedTo exists and is an empty array (internal exams only)
+        if (Array.isArray(assigned) && assigned.length === 0) return true;
+
+        // Never show WAEC/NECO/JAMB exams in "Assigned to me" - they're subscription-gated
+        if (['waec', 'neco', 'jamb'].includes(examType)) return false;
+
+        // Not public if assignedTo is undefined (other unassigned exams)
+        if (assigned === undefined) return false;
+
+        // Visible if explicitly assigned to student or their class
+        return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
+      });
+      return res.json({ exams: visible, total: visible.length });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch assigned exams' });
+    }
+  });
+
+  // Get subscription-based exams (WAEC/NECO/JAMB) for subscribed users
+  app.get('/api/cbt/exams/available', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
       // Check user's subscription status
       let isSubscribed = false;
@@ -610,28 +639,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       } catch {}
 
-      const visible = exams.filter((e) => {
-        const assigned: string[] | undefined = (e as any).assignedTo;
-        const examType = (e as any).type?.toLowerCase();
+      if (!isSubscribed) {
+        return res.json({ exams: [], total: 0, message: 'Subscription required to access practice exams' });
+      }
 
-        // Public if assignedTo exists and is an empty array (internal exams)
-        if (Array.isArray(assigned) && assigned.length === 0) return true;
+      // Return WAEC/NECO/JAMB exams for subscribed users
+      const result = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'exams',
+        [Query.limit(100), Query.offset(0)]
+      );
+      const standardizedExams = result.documents.filter((exam: any) =>
+        ['waec', 'neco', 'jamb'].includes(exam.type?.toLowerCase())
+      );
 
-        // For standardized exams (WAEC/NECO/JAMB), check subscription
-        if (assigned === undefined && ['waec', 'neco', 'jamb'].includes(examType)) {
-          return isSubscribed; // Show only to subscribed users
-        }
-
-        // Not public if assignedTo is undefined (other unassigned exams)
-        if (assigned === undefined) return false;
-
-        // Visible if explicitly assigned to student or their class
-        return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
-      });
-      return res.json({ exams: visible, total: visible.length });
+      return res.json({ exams: standardizedExams, total: standardizedExams.length });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: 'Failed to fetch assigned exams' });
+      res.status(500).json({ message: 'Failed to fetch available exams' });
     }
   });
 
