@@ -101,8 +101,8 @@ const collections = [
         { id: 'members', type: 'string', size: 255, required: true, array: true },
         { id: 'lastMessage', type: 'string', size: 1024, required: false },
         { id: 'lastActivity', type: 'datetime', required: true },
-        { id: 'isGroup', type: 'boolean', required: true, default: false },
-        { id: 'name', type: 'string', size: 255, required: false }, // For group chats
+        { id: 'isGroup', type: 'boolean', required: true },
+        { id: 'name', type: 'string', size: 255, required: false }
     ]
   },
   {
@@ -452,6 +452,46 @@ async function seedCollections() {
         } else {
           console.error(`Error creating attribute '${attr.id}' in collection '${collection.name}':`, error);
         }
+      }
+    }
+
+    // After creating or ensuring collection exists, add common indexes (attributes must exist)
+    try {
+      switch (collection.id) {
+        case 'userProfiles':
+          // @ts-ignore Use literal to satisfy SDK type
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_userId', 'key' as any, ['userId'], ['ASC']);
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_accountStatus', 'key' as any, ['accountStatus'], ['ASC']);
+          break;
+        case 'userSubscriptions':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_userId', 'key' as any, ['userId'], ['ASC']);
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_status', 'key' as any, ['subscriptionStatus'], ['ASC']);
+          break;
+        case 'attendanceRecords':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_class_date', 'key' as any, ['classId','date'], ['ASC','DESC']);
+          break;
+        case 'examAttempts':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_student_exam', 'key' as any, ['studentId','examId'], ['ASC','ASC']);
+          break;
+        case 'messages':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_recipient', 'key' as any, ['recipientId','isRead'], ['ASC','ASC']);
+          break;
+        case 'resources':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_subject_type', 'key' as any, ['subject','type'], ['ASC','ASC']);
+          break;
+      }
+    } catch (e: any) {
+      if (e.code === 409) {
+        console.log(`Indexes already exist for '${collection.name}'. Skipping.`);
+      } else if (e.code !== 401) {
+        console.warn(`Index creation warning for '${collection.name}':`, e?.message || e);
       }
     }
   }

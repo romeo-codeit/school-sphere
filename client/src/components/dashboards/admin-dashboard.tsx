@@ -27,6 +27,7 @@ import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 import { SubscriptionManager } from "@/components/subscription-manager";
 import { AccountApprovalManager } from "@/components/account-approval-manager";
+import { HealthAdminCard } from "@/components/health-admin-card";
 
 const RoundedBar = (props: any) => {
   const { fill, x, y, width, height } = props;
@@ -224,8 +225,9 @@ export function AdminDashboard() {
           <div className="h-full">
             <SubscriptionManager />
           </div>
-          <div className="h-full">
+          <div className="h-full space-y-4">
             <AccountApprovalManager />
+            <HealthAdminCard />
           </div>
         </div>
         <div className="mt-8 px-4 sm:px-6 lg:px-8">

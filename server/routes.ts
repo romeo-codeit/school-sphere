@@ -1717,5 +1717,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health/Admin status endpoint
+  app.get('/api/admin/health', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      // Basic counts to avoid heavy queries
+      const collections = ['userProfiles','userSubscriptions','userProfileExtras','students','teachers','exams','questions','examAttempts','messages','notifications'];
+      const counts: Record<string, number> = {};
+
+      for (const col of collections) {
+        try {
+          const result = await databases.listDocuments(APPWRITE_DATABASE_ID!, col, [Query.limit(1)]);
+          counts[col] = result.total || 0;
+        } catch (e) {
+          counts[col] = -1; // indicates not accessible/not present
+        }
+      }
+
+      res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        counts,
+      });
+    } catch (error) {
+      console.error('Health endpoint error:', error);
+      res.status(500).json({ status: 'error' });
+    }
+  });
+
   return httpServer;
 }
