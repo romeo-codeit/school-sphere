@@ -23,8 +23,7 @@ import { NoticeBoard } from "@/components/notice-board";
 import type { Notice } from "@/components/notice-board";
 import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
-import { useActivities } from "@/hooks/useActivities";
-import { useNotices } from "@/hooks/useNotices";
+import { SubscriptionManager } from "@/components/subscription-manager";
 
 const RoundedBar = (props: any) => {
   const { fill, x, y, width, height } = props;
@@ -164,8 +163,8 @@ export function AdminDashboard() {
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
 
-        {/* Payment and Exam Module */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
+        {/* Payment, Exam Module, and Subscription Management */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
           <Card className="h-full">
             <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Payment Status</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -219,6 +218,9 @@ export function AdminDashboard() {
               </div>
             </div></CardContent>
           </Card>
+          <div className="h-full">
+            <SubscriptionManager />
+          </div>
         </div>
       </div>
     </>
