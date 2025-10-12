@@ -54,17 +54,12 @@ const collections = [
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'role', type: 'string', size: 50, required: false },
       { id: 'bio', type: 'string', size: 1024, required: false },
-      { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for any extra fields
+      { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for subscription data and other extra fields
       // Account approval fields
       { id: 'accountStatus', type: 'string', size: 50, required: false, default: 'pending' }, // 'pending', 'approved', 'rejected', 'suspended'
       { id: 'approvedBy', type: 'string', size: 255, required: false }, // Admin user ID who approved
       { id: 'approvedAt', type: 'datetime', required: false },
       { id: 'rejectionReason', type: 'string', size: 1024, required: false },
-      // Subscription fields (inactive by default)
-      { id: 'subscriptionStatus', type: 'string', size: 50, required: false, default: 'inactive' }, // 'active', 'inactive', 'expired'
-      { id: 'subscriptionType', type: 'string', size: 50, required: false }, // 'basic', 'premium', 'unlimited'
-      { id: 'subscriptionExpiry', type: 'datetime', required: false },
-      // Note: activationCodes and examAccess attributes removed due to collection attribute limit
     ]
   },
   {
@@ -349,6 +344,21 @@ const collections = [
       { id: 'date', type: 'string', size: 255, required: true },
       { id: 'category', type: 'string', size: 255, required: false },
       { id: 'search', type: 'string', size: 1024, required: false },
+    ]
+  },
+  {
+    id: 'userSubscriptions',
+    name: 'User Subscriptions',
+    attributes: [
+      { id: 'userId', type: 'string', size: 255, required: true },
+      { id: 'subscriptionStatus', type: 'string', size: 50, required: false, default: 'inactive' }, // 'active', 'inactive', 'expired'
+      { id: 'subscriptionType', type: 'string', size: 50, required: false }, // 'basic', 'premium', 'unlimited'
+      { id: 'subscriptionExpiry', type: 'datetime', required: false },
+      { id: 'activationCodes', type: 'string', size: 2048, required: false }, // JSON array of used activation codes
+      { id: 'examAccess', type: 'string', size: 2048, required: false }, // JSON array of accessible exam types
+      { id: 'paymentHistory', type: 'string', size: 4096, required: false }, // JSON array of payment records
+      { id: 'createdAt', type: 'datetime', required: false },
+      { id: 'updatedAt', type: 'datetime', required: false },
     ]
   },
 ];
@@ -834,7 +844,7 @@ async function seedDemoData() {
 
     // Seed resources
   const resourcesCollection = await databases.listDocuments(dbId, 'resources');
-    if (resourcesCollection.total === 0 && seededTeachers.total > 0) {
+  if (resourcesCollection.total === 0 && seededTeachers.total > 0) {
         console.log('Seeding resources...');
         const teacherId = seededTeachers.documents[0].$id;
         const resourceData = [

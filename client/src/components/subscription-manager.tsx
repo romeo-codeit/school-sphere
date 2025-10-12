@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUsers } from "@/hooks/useUsers";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
+import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
 import { databases, ID } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
@@ -27,33 +28,35 @@ interface SubscriptionUser {
 export function SubscriptionManager() {
   const { users, isLoading: usersLoading } = useUsers();
   const { data: profiles, isLoading: profilesLoading } = useUserProfiles();
+  const { data: subscriptions, isLoading: subscriptionsLoading } = useUserSubscriptions();
   const { toast } = useToast();
   const [subscriptionUsers, setSubscriptionUsers] = useState<SubscriptionUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const isLoading = usersLoading || profilesLoading;
+  const isLoading = usersLoading || profilesLoading || subscriptionsLoading;
 
   useEffect(() => {
-    if (users && profiles) {
-      // Combine user data with profile data
+    if (users && profiles && subscriptions) {
+      // Combine user data with profile data and subscription data
       const combined = users.map(user => {
         const profile = profiles?.find((p: any) => p.userId === user.$id);
+        const subscription = subscriptions?.find((s: any) => s.userId === user.$id);
         return {
           $id: user.$id,
           userId: user.$id,
           firstName: profile?.firstName || user.name?.split(' ')[0] || 'Unknown',
           lastName: profile?.lastName || user.name?.split(' ').slice(1).join(' ') || '',
           email: user.email,
-          subscriptionStatus: profile?.subscriptionStatus || 'inactive',
-          subscriptionType: profile?.subscriptionType,
-          subscriptionExpiry: profile?.subscriptionExpiry,
+          subscriptionStatus: subscription?.subscriptionStatus || 'inactive',
+          subscriptionType: subscription?.subscriptionType,
+          subscriptionExpiry: subscription?.subscriptionExpiry,
         };
       });
       setSubscriptionUsers(combined);
     }
-  }, [users, profiles]);
+  }, [users, profiles, subscriptions]);
 
   const activeSubscriptions = subscriptionUsers.filter(u => u.subscriptionStatus === 'active').length;
   const inactiveSubscriptions = subscriptionUsers.filter(u => u.subscriptionStatus === 'inactive').length;
@@ -62,28 +65,39 @@ export function SubscriptionManager() {
   const handleUpdateSubscription = async (userId: string, updates: Partial<SubscriptionUser>) => {
     setIsUpdating(true);
     try {
-      // Find the profile document
-      const profileDocs = await databases.listDocuments(
+      // Find existing subscription document
+      const subscriptionDocs = await databases.listDocuments(
         import.meta.env.VITE_APPWRITE_DATABASE_ID,
-        'userProfiles',
+        'userSubscriptions',
         [Query.equal('userId', userId), Query.limit(1)]
       );
 
-      if (profileDocs.total > 0) {
-        // Update existing profile
+      const subscriptionData = {
+        subscriptionStatus: updates.subscriptionStatus,
+        subscriptionType: updates.subscriptionType,
+        subscriptionExpiry: updates.subscriptionExpiry,
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (subscriptionDocs.total > 0) {
+        // Update existing subscription
         await databases.updateDocument(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
-          'userProfiles',
-          profileDocs.documents[0].$id,
-          updates
+          'userSubscriptions',
+          subscriptionDocs.documents[0].$id,
+          subscriptionData
         );
       } else {
-        // Create new profile if it doesn't exist
+        // Create new subscription if it doesn't exist
         await databases.createDocument(
           import.meta.env.VITE_APPWRITE_DATABASE_ID,
-          'userProfiles',
+          'userSubscriptions',
           ID.unique(),
-          { userId, ...updates }
+          {
+            userId,
+            ...subscriptionData,
+            createdAt: new Date().toISOString(),
+          }
         );
       }
 
