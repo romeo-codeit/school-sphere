@@ -55,6 +55,12 @@ const collections = [
       { id: 'role', type: 'string', size: 50, required: false },
       { id: 'bio', type: 'string', size: 1024, required: false },
       { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for any extra fields
+      // Subscription fields (inactive by default)
+      { id: 'subscriptionStatus', type: 'string', size: 50, required: false, default: 'inactive' }, // 'active', 'inactive', 'expired'
+      { id: 'subscriptionType', type: 'string', size: 50, required: false }, // 'basic', 'premium', 'unlimited'
+      { id: 'subscriptionExpiry', type: 'datetime', required: false },
+      { id: 'activationCodes', type: 'string', size: 2048, required: false }, // JSON array of used activation codes
+      { id: 'examAccess', type: 'string', size: 2048, required: false }, // JSON array of accessible exam types
     ]
   },
   {
@@ -530,13 +536,17 @@ async function seedExamsOnly() {
     }
 
     const title = `${exam_type} ${subject} ${exam_year} ${paper_type}`;
+    
+    // Only make internal exams public by default, not standardized exams
+    const isStandardizedExam = ['waec', 'neco', 'jamb'].includes(exam_type.toLowerCase());
+    
     const exam = {
       title,
       type: exam_type.toLowerCase(),
       subject: subject.replace(/_/g, ' '),
       year: exam_year,
       paper_type,
-      assignedTo: [],
+      ...(isStandardizedExam ? {} : { assignedTo: [] }), // Only internal exams are public by default
       mode: 'exam',
     };
     const search = [exam.title, exam.type, exam.subject, exam.year, exam.paper_type].filter(Boolean).join(' ');

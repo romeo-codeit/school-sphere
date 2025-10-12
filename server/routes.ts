@@ -596,9 +596,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       const exams = result.documents as any[];
       const visible = exams.filter((e) => {
-        const assigned: string[] = Array.isArray((e as any).assignedTo) ? (e as any).assignedTo : [];
-        // Public if no assignments yet
-        if (!assigned || assigned.length === 0) return true;
+        const assigned: string[] | undefined = (e as any).assignedTo;
+        // Public if assignedTo exists and is an empty array (internal exams)
+        if (Array.isArray(assigned) && assigned.length === 0) return true;
+        // Not public if assignedTo is undefined (standardized exams like WAEC/NECO/JAMB)
+        if (assigned === undefined) return false;
         // Visible if explicitly assigned to student or their class
         return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
       });
