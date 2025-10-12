@@ -115,6 +115,7 @@ const collections = [
         { id: 'qualification', type: 'string', size: 255, required: false },
         { id: 'experience', type: 'integer', required: false },
         { id: 'status', type: 'string', size: 50, required: false },
+        { id: 'gender', type: 'string', size: 50, required: false },
         { id: 'classIds', type: 'string', size: 255, required: false, array: true },
         { id: 'search', type: 'string', size: 1024, required: false },
     ]
@@ -983,7 +984,7 @@ async function ensurePhase1Attributes() {
   async function safeCreateStringAttribute(collectionId: string, id: string, size = 255, required = false, array = false) {
     try {
       // @ts-ignore
-      await databases.createStringAttribute(dbId, collectionId, id, size, required, array);
+      await databases.createStringAttribute(dbId, collectionId, id, size, required, undefined, array);
       console.log(`Created string attribute ${collectionId}.${id}`);
     } catch (e: any) {
       if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
@@ -992,7 +993,7 @@ async function ensurePhase1Attributes() {
   async function safeCreateIntegerAttribute(collectionId: string, id: string, required = false, array = false) {
     try {
       // @ts-ignore
-      await databases.createIntegerAttribute(dbId, collectionId, id, required, array);
+      await databases.createIntegerAttribute(dbId, collectionId, id, required, undefined, undefined, undefined, array);
       console.log(`Created integer attribute ${collectionId}.${id}`);
     } catch (e: any) {
       if (e?.code !== 409) console.warn(`Could not create ${collectionId}.${id}:`, e?.message || e);
