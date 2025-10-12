@@ -73,7 +73,7 @@ const collections = [
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'parentPhone', type: 'string', size: 255, required: false },
       { id: 'parentEmail', type: 'string', size: 255, required: false },
-      { id: 'classId', type: 'string', size: 255, required: false },
+      { id: 'class', type: 'string', size: 255, required: false },
       { id: 'enrollmentDate', type: 'string', size: 255, required: false },
       { id: 'status', type: 'string', size: 50, required: false },
       { id: 'search', type: 'string', size: 1024, required: false },
@@ -623,18 +623,18 @@ async function seedDemoData() {
   }
   console.log('Seeding students...');
   const studentData = [
-    { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
-    { userId: ID.unique(), studentId: 'S002', firstName: 'Aisha', lastName: 'Bello', email: 'aisha.bello@school.ng', classId: class1Id, status: 'active', gender: 'female', parentName: 'Mr. Bello', parentPhone: '08021234567', parentEmail: 'mr.bello@school.ng' },
-    { userId: ID.unique(), studentId: 'S003', firstName: 'Emeka', lastName: 'Nwosu', email: 'emeka.nwosu@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Nwosu', parentPhone: '08011234567', parentEmail: 'mrs.nwosu@school.ng' },
-    { userId: ID.unique(), studentId: 'S004', firstName: 'Ngozi', lastName: 'Eze', email: 'ngozi.eze@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Eze', parentPhone: '08041234567', parentEmail: 'mr.eze@school.ng' },
-    { userId: ID.unique(), studentId: 'S005', firstName: 'Tunde', lastName: 'Adebayo', email: 'tunde.adebayo@school.ng', classId: class2Id, status: 'active', gender: 'male', parentName: 'Mrs. Adebayo', parentPhone: '08051234567', parentEmail: 'mrs.adebayo@school.ng' },
-    { userId: ID.unique(), studentId: 'S006', firstName: 'Fatima', lastName: 'Abubakar', email: 'fatima.abubakar@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Abubakar', parentPhone: '08061234567', parentEmail: 'mr.abubakar@school.ng' },
-    { userId: ID.unique(), studentId: 'S007', firstName: 'Ifeanyi', lastName: 'Uche', email: 'ifeanyi.uche@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Uche', parentPhone: '08071234567', parentEmail: 'mrs.uche@school.ng' },
-    { userId: ID.unique(), studentId: 'S008', firstName: 'Blessing', lastName: 'Ogunleye', email: 'blessing.ogunleye@school.ng', classId: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Ogunleye', parentPhone: '08081234567', parentEmail: 'mr.ogunleye@school.ng' },
-    { userId: ID.unique(), studentId: 'S009', firstName: 'Samuel', lastName: 'Ojo', email: 'samuel.ojo@school.ng', classId: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Ojo', parentPhone: '08091234567', parentEmail: 'mrs.ojo@school.ng' },
+    { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
+    { userId: ID.unique(), studentId: 'S002', firstName: 'Aisha', lastName: 'Bello', email: 'aisha.bello@school.ng', class: class1Id, status: 'active', gender: 'female', parentName: 'Mr. Bello', parentPhone: '08021234567', parentEmail: 'mr.bello@school.ng' },
+    { userId: ID.unique(), studentId: 'S003', firstName: 'Emeka', lastName: 'Nwosu', email: 'emeka.nwosu@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Nwosu', parentPhone: '08011234567', parentEmail: 'mrs.nwosu@school.ng' },
+    { userId: ID.unique(), studentId: 'S004', firstName: 'Ngozi', lastName: 'Eze', email: 'ngozi.eze@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Eze', parentPhone: '08041234567', parentEmail: 'mr.eze@school.ng' },
+    { userId: ID.unique(), studentId: 'S005', firstName: 'Tunde', lastName: 'Adebayo', email: 'tunde.adebayo@school.ng', class: class2Id, status: 'active', gender: 'male', parentName: 'Mrs. Adebayo', parentPhone: '08051234567', parentEmail: 'mrs.adebayo@school.ng' },
+    { userId: ID.unique(), studentId: 'S006', firstName: 'Fatima', lastName: 'Abubakar', email: 'fatima.abubakar@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Abubakar', parentPhone: '08061234567', parentEmail: 'mr.abubakar@school.ng' },
+    { userId: ID.unique(), studentId: 'S007', firstName: 'Ifeanyi', lastName: 'Uche', email: 'ifeanyi.uche@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Uche', parentPhone: '08071234567', parentEmail: 'mrs.uche@school.ng' },
+    { userId: ID.unique(), studentId: 'S008', firstName: 'Blessing', lastName: 'Ogunleye', email: 'blessing.ogunleye@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Ogunleye', parentPhone: '08081234567', parentEmail: 'mr.ogunleye@school.ng' },
+    { userId: ID.unique(), studentId: 'S009', firstName: 'Samuel', lastName: 'Ojo', email: 'samuel.ojo@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Ojo', parentPhone: '08091234567', parentEmail: 'mrs.ojo@school.ng' },
   ];
   for (const student of studentData) {
-    const search = [student.firstName, student.lastName, student.email, student.studentId, student.classId, student.status, student.gender].filter(Boolean).join(' ');
+    const search = [student.firstName, student.lastName, student.email, student.studentId, student.class, student.status, student.gender].filter(Boolean).join(' ');
     await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
     await delay(100);
   }
