@@ -436,7 +436,11 @@ async function seedCollections() {
       } catch (error: any) {
         if (error.code === 401) {
           console.log(`Attribute '${attr.id}' creation skipped due to API key permissions. Assuming it exists.`);
-        } else if (error.code !== 409) {
+        } else if (error.code === 409) {
+          console.log(`Attribute '${attr.id}' already exists in collection '${collection.name}'. Skipping.`);
+        } else if (error.code === 400 && error.type === 'attribute_limit_exceeded') {
+          console.log(`Attribute '${attr.id}' creation skipped due to collection attribute limit. Collection '${collection.name}' has reached maximum attributes.`);
+        } else {
           console.error(`Error creating attribute '${attr.id}' in collection '${collection.name}':`, error);
         }
       }
