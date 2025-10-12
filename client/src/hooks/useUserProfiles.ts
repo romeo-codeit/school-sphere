@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { databases, Query } from '@/lib/appwrite';
+import { databases } from '@/lib/appwrite';
+import { Query } from 'appwrite';
 
 export function useUserProfiles() {
   return useQuery({

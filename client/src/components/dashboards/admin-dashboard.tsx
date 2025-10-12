@@ -16,6 +16,8 @@ import { useStudents } from "@/hooks/useStudents";
 import { usePayments } from "@/hooks/usePayments";
 import { useExams } from "@/hooks/useExams";
 import { useAttendance } from "@/hooks/useAttendance";
+import { useActivities } from "@/hooks/useActivities";
+import { useNotices } from "@/hooks/useNotices";
 import { useLocation } from "wouter";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StudentsProgressChart } from "@/components/students-progress-chart";
@@ -24,6 +26,7 @@ import type { Notice } from "@/components/notice-board";
 import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 import { SubscriptionManager } from "@/components/subscription-manager";
+import { AccountApprovalManager } from "@/components/account-approval-manager";
 
 const RoundedBar = (props: any) => {
   const { fill, x, y, width, height } = props;
@@ -163,8 +166,8 @@ export function AdminDashboard() {
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
 
-        {/* Payment, Exam Module, and Subscription Management */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
+        {/* Payment, Exam Module, Subscription Management, and Account Approvals */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
           <Card className="h-full">
             <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Payment Status</CardTitle></CardHeader>
             <CardContent className="space-y-4">
@@ -221,6 +224,12 @@ export function AdminDashboard() {
           <div className="h-full">
             <SubscriptionManager />
           </div>
+          <div className="h-full">
+            <AccountApprovalManager />
+          </div>
+        </div>
+        <div className="mt-8 px-4 sm:px-6 lg:px-8">
+          <AccountApprovalManager />
         </div>
       </div>
     </>

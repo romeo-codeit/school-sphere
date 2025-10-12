@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useUsers } from "@/hooks/useUsers";
 import { useUserProfiles } from "@/hooks/useUserProfiles";
-import { databases, ID, Query } from "@/lib/appwrite";
+import { databases, ID } from "@/lib/appwrite";
+import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
 import { Crown, Users, UserCheck, UserX } from "lucide-react";
 
@@ -25,7 +26,7 @@ interface SubscriptionUser {
 
 export function SubscriptionManager() {
   const { users, isLoading: usersLoading } = useUsers();
-  const { profiles, isLoading: profilesLoading } = useUserProfiles();
+  const { data: profiles, isLoading: profilesLoading } = useUserProfiles();
   const { toast } = useToast();
   const [subscriptionUsers, setSubscriptionUsers] = useState<SubscriptionUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
@@ -38,7 +39,7 @@ export function SubscriptionManager() {
     if (users && profiles) {
       // Combine user data with profile data
       const combined = users.map(user => {
-        const profile = profiles.find(p => p.userId === user.$id);
+        const profile = profiles?.find((p: any) => p.userId === user.$id);
         return {
           $id: user.$id,
           userId: user.$id,

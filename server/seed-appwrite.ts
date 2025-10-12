@@ -55,6 +55,11 @@ const collections = [
       { id: 'role', type: 'string', size: 50, required: false },
       { id: 'bio', type: 'string', size: 1024, required: false },
       { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for any extra fields
+      // Account approval fields
+      { id: 'accountStatus', type: 'string', size: 50, required: false, default: 'pending' }, // 'pending', 'approved', 'rejected', 'suspended'
+      { id: 'approvedBy', type: 'string', size: 255, required: false }, // Admin user ID who approved
+      { id: 'approvedAt', type: 'datetime', required: false },
+      { id: 'rejectionReason', type: 'string', size: 1024, required: false },
       // Subscription fields (inactive by default)
       { id: 'subscriptionStatus', type: 'string', size: 50, required: false, default: 'inactive' }, // 'active', 'inactive', 'expired'
       { id: 'subscriptionType', type: 'string', size: 50, required: false }, // 'basic', 'premium', 'unlimited'
@@ -405,18 +410,18 @@ async function seedCollections() {
       try {
         switch (attr.type) {
           case 'string':
-            await databases.createStringAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.size || 255, attr.required, undefined, attr.array);
+            await databases.createStringAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.size || 255, attr.required, undefined, (attr as any).array || false);
             break;
           case 'integer':
             // @ts-ignore
-            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, (attr as any).array || false);
             break;
           case 'float':
             // @ts-ignore
-            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, attr.array);
+            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, (attr as any).array || false);
             break;
           case 'boolean':
-            await databases.createBooleanAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, attr.array);
+            await databases.createBooleanAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).array || false);
             break;
         }
       } catch (error: any) {

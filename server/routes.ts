@@ -1556,6 +1556,139 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User registration endpoint that creates user profiles with pending approval
+  app.post('/api/users/register', async (req, res) => {
+    try {
+      const { email, password, name, role = 'student' } = req.body;
+
+      if (!email || !password || !name) {
+        return res.status(400).json({ message: 'Email, password, and name are required' });
+      }
+
+      // Create user account
+      const newUser = await users.create(ID.unique(), email, password, name);
+      await users.updatePrefs(newUser.$id, { role });
+
+      // Create user profile with pending approval status
+      const profileData = {
+        userId: newUser.$id,
+        firstName: name.split(' ')[0] || '',
+        lastName: name.split(' ').slice(1).join(' ') || '',
+        email: email,
+        role: role,
+        accountStatus: 'pending', // All new accounts start as pending
+        subscriptionStatus: 'inactive',
+      };
+
+      await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
+
+      res.json({
+        message: 'Account created successfully. Please wait for admin approval.',
+        user: newUser,
+        status: 'pending_approval'
+      });
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: error.message || 'Failed to create account' });
+    }
+  });
+
+  // Admin endpoints for account approval
+  app.get('/api/admin/pending-accounts', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const result = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'userProfiles',
+        [Query.equal('accountStatus', 'pending'), Query.limit(100)]
+      );
+
+      res.json({ accounts: result.documents, total: result.total });
+    } catch (error) {
+      console.error('Error fetching pending accounts:', error);
+      res.status(500).json({ message: 'Failed to fetch pending accounts' });
+    }
+  });
+
+  app.post('/api/admin/approve-account/:userId', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const { userId } = req.params;
+      const { role = 'student' } = req.body;
+
+      // Update user profile
+      const profileResult = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'userProfiles',
+        [Query.equal('userId', userId), Query.limit(1)]
+      );
+
+      if (profileResult.total === 0) {
+        return res.status(404).json({ message: 'User profile not found' });
+      }
+
+      const profileId = profileResult.documents[0].$id;
+      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileId, {
+        accountStatus: 'approved',
+        role: role,
+        approvedBy: sessionUser.$id,
+        approvedAt: new Date().toISOString(),
+      });
+
+      // Update user preferences
+      await users.updatePrefs(userId, { role });
+
+      res.json({ message: 'Account approved successfully' });
+    } catch (error) {
+      console.error('Error approving account:', error);
+      res.status(500).json({ message: 'Failed to approve account' });
+    }
+  });
+
+  app.post('/api/admin/reject-account/:userId', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const { userId } = req.params;
+      const { reason } = req.body;
+
+      // Update user profile
+      const profileResult = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'userProfiles',
+        [Query.equal('userId', userId), Query.limit(1)]
+      );
+
+      if (profileResult.total === 0) {
+        return res.status(404).json({ message: 'User profile not found' });
+      }
+
+      const profileId = profileResult.documents[0].$id;
+      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileId, {
+        accountStatus: 'rejected',
+        rejectionReason: reason,
+        approvedBy: sessionUser.$id,
+        approvedAt: new Date().toISOString(),
+      });
+
+      res.json({ message: 'Account rejected' });
+    } catch (error) {
+      console.error('Error rejecting account:', error);
+      res.status(500).json({ message: 'Failed to reject account' });
+    }
+  });
+
   // DEBUG: Test Appwrite connectivity for students collection
   app.get('/api/debug/students', async (req, res) => {
     try {
