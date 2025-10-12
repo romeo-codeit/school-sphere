@@ -44,6 +44,20 @@ export function useTeachers(filters: TeacherFilters = {}) {
     });
   };
 
+  const useTeacherByUserId = (userId: string) => {
+    return useQuery({
+      queryKey: ['teachers', 'byUserId', userId],
+      queryFn: async () => {
+        if (!userId) return null;
+        const response = await databases.listDocuments(DATABASE_ID, 'teachers', [
+          Query.equal('userId', userId)
+        ]);
+        return response.documents[0] || null;
+      },
+      enabled: !!userId,
+    });
+  };
+
   const createTeacherMutation = useMutation({
     mutationFn: async (teacherData: any) => {
       const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
@@ -94,6 +108,7 @@ export function useTeachers(filters: TeacherFilters = {}) {
     isLoading,
     error,
     useTeacher,
+    useTeacherByUserId,
     createTeacher: createTeacherMutation.mutateAsync,
     updateTeacher: updateTeacherMutation.mutateAsync,
     deleteTeacher: deleteTeacherMutation.mutateAsync,

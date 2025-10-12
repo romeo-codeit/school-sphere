@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,13 +21,21 @@ import { useClasses } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
 import { useAttendance } from "@/hooks/useAttendance";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { useTeachers } from "@/hooks/useTeachers";
+import { useRole } from "@/hooks/useRole";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
 import React from "react";
 
 export default function TakeAttendance() {
-  const { classes, isLoading: classesLoading } = useClasses();
+  const { user } = useAuth();
+  const { role } = useRole();
+  const { classes: allClasses, isLoading: classesLoading } = useClasses();
+  const { useTeacherByUserId } = useTeachers();
+  const { data: teacherProfile, isLoading: teacherLoading } = useTeacherByUserId(user?.$id || '');
+  
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const { students, isLoading: studentsLoading } = useStudents({ classId: selectedClassId || undefined });
   const { createAttendance } = useAttendance();
@@ -35,6 +43,21 @@ export default function TakeAttendance() {
   const [attendance, setAttendance] = useState<{ [studentId: string]: string }>({});
 
   const { testPerformance, clearCache } = useAttendancePerformanceTest();
+
+  // Get teacher's assigned classes
+  const teacherClasses = teacherProfile?.classIds ? 
+    allClasses?.filter(cls => teacherProfile.classIds.includes(cls.$id)) || [] : 
+    [];
+
+  // Auto-select class if teacher has only one assigned class
+  useEffect(() => {
+    if (role === 'teacher' && teacherClasses.length === 1 && !selectedClassId) {
+      setSelectedClassId(teacherClasses[0].$id);
+    }
+  }, [role, teacherClasses, selectedClassId]);
+
+  // Determine which classes to show in dropdown
+  const availableClasses = role === 'teacher' ? teacherClasses : allClasses;
 
   // Performance test handlers (only used in development)
   const handlePerformanceTest = async () => {
@@ -66,7 +89,10 @@ export default function TakeAttendance() {
   };
 
   const handleSubmit = async () => {
-    if (!selectedClassId) {
+    // For teachers with one class, use that class automatically
+    const classIdToUse = selectedClassId || (role === 'teacher' && teacherClasses.length === 1 ? teacherClasses[0].$id : null);
+
+    if (!classIdToUse) {
       toast({ title: "Error", description: "Please select a class.", variant: "destructive" });
       return;
     }
@@ -79,7 +105,7 @@ export default function TakeAttendance() {
     try {
       const attendancePromises = Object.keys(attendance).map(studentId =>
         createAttendance({
-          classId: selectedClassId,
+          classId: classIdToUse,
           date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
           studentId: studentId,
           status: attendance[studentId] || 'present', // Default to 'present' if no status is set
@@ -104,20 +130,38 @@ export default function TakeAttendance() {
           <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <CardTitle className="text-lg sm:text-xl">Select Class</CardTitle>
-              <Select onValueChange={setSelectedClassId}>
-                <SelectTrigger className="w-full sm:w-[280px]">
-                  <SelectValue placeholder="Select a class..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {classesLoading ? <SelectItem value="loading" disabled>Loading...</SelectItem> :
-                   classes?.map((c: any) => <SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <CardTitle className="text-lg sm:text-xl">
+                {role === 'teacher' ? 
+                  (teacherClasses.length > 1 ? 'Select Class' : 'Take Attendance') : 
+                  'Select Class'
+                }
+              </CardTitle>
+              {((role === 'teacher' && teacherClasses.length > 1) || role !== 'teacher') && (
+                <Select onValueChange={setSelectedClassId} value={selectedClassId || undefined}>
+                  <SelectTrigger className="w-full sm:w-[280px]">
+                    <SelectValue placeholder={
+                      role === 'teacher' ? 
+                        "Select your class..." : 
+                        "Select a class..."
+                    } />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {classesLoading || teacherLoading ? 
+                      <SelectItem value="loading" disabled>Loading...</SelectItem> :
+                      availableClasses?.map((c: any) => <SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>)
+                    }
+                  </SelectContent>
+                </Select>
+              )}
+              {role === 'teacher' && teacherClasses.length === 1 && (
+                <div className="text-sm text-muted-foreground">
+                  Class: <span className="font-medium">{teacherClasses[0]?.name}</span>
+                </div>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            {selectedClassId ?
+            {(selectedClassId || (role === 'teacher' && teacherClasses.length === 1)) ?
              (studentsLoading ? <TableSkeleton columns={2} rows={5} /> :
               <>
                 {/* Mobile: Card view */}
@@ -176,7 +220,12 @@ export default function TakeAttendance() {
                   <Button onClick={handleSubmit} className="w-full sm:w-auto">Submit Attendance</Button>
                 </div>
               </>) :
-             <p className="text-center text-muted-foreground p-8">Please select a class to take attendance.</p>
+             <p className="text-center text-muted-foreground p-8">
+               {role === 'teacher' && teacherClasses.length === 1 ? 
+                 "Loading students..." : 
+                 "Please select a class to take attendance."
+               }
+             </p>
             }
           </CardContent>
         </Card>
