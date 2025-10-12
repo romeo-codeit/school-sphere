@@ -344,6 +344,7 @@ const collections = [
 async function createDatabaseIfNotExists() {
   try {
     await databases.get(APPWRITE_DATABASE_ID!!);
+    console.log('Database exists.');
   } catch (error: any) {
     if (error.code === 404) {
       try {
@@ -353,6 +354,10 @@ async function createDatabaseIfNotExists() {
         console.error("Error creating database:", creationError);
         throw creationError;
       }
+    } else if (error.code === 401) {
+      // API key doesn't have permission to check database existence
+      // Assume database exists and continue
+      console.log('Database check skipped due to API key permissions. Assuming database exists.');
     } else {
       console.error("Error checking database:", error);
       throw error;
@@ -368,15 +373,24 @@ async function seedCollections() {
   for (const collection of collections) {
     try {
       await databases.getCollection(APPWRITE_DATABASE_ID!, collection.id);
-    } catch (error) {
-      console.log(`Creating collection '${collection.name}'...`);
-      await databases.createCollection(APPWRITE_DATABASE_ID!, collection.id, collection.name, [
-        Permission.read(Role.any()),
-        Permission.create(Role.users()),
-        Permission.update(Role.users()),
-        Permission.delete(Role.users()),
-      ]);
-      console.log(`Collection '${collection.name}' created.`);
+    } catch (error: any) {
+      if (error.code === 404) {
+        console.log(`Creating collection '${collection.name}'...`);
+        await databases.createCollection(APPWRITE_DATABASE_ID!, collection.id, collection.name, [
+          Permission.read(Role.any()),
+          Permission.create(Role.users()),
+          Permission.update(Role.users()),
+          Permission.delete(Role.users()),
+        ]);
+        console.log(`Collection '${collection.name}' created.`);
+      } else if (error.code === 401) {
+        // API key doesn't have permission to check collection existence
+        // Assume collection exists and continue
+        console.log(`Collection '${collection.name}' check skipped due to API key permissions. Assuming it exists.`);
+      } else {
+        console.error(`Error checking collection '${collection.name}':`, error);
+        throw error;
+      }
     }
 
     for (const attr of collection.attributes) {
