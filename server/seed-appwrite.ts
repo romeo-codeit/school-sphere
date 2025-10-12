@@ -1023,6 +1023,34 @@ async function seedDemoData() {
     console.log('Demo data seeding complete.');
 }
 
+async function unassignStandardizedExams() {
+  console.log('Unassigning WAEC, NECO, and JAMB exams...');
+
+  try {
+    const dbId = APPWRITE_DATABASE_ID!;
+    const standardizedTypes = ['waec', 'neco', 'jamb'];
+
+    // Get all exams and filter for standardized ones
+    const result = await databases.listDocuments(dbId, 'exams', [Query.limit(1000)]);
+    const standardizedExams = result.documents.filter(exam =>
+      standardizedTypes.includes(exam.type?.toLowerCase())
+    );
+
+    console.log(`Found ${standardizedExams.length} standardized exams to unassign`);
+
+    for (const exam of standardizedExams) {
+      console.log(`Unassigning: ${exam.title}`);
+      // Remove the assignedTo field entirely by setting it to null
+      await databases.updateDocument(dbId, 'exams', exam.$id, { assignedTo: null });
+    }
+
+    console.log('✅ All WAEC, NECO, and JAMB exams have been unassigned!');
+
+  } catch (error) {
+    console.error('❌ Error unassigning exams:', error);
+  }
+}
+
 async function main() {
   console.log('Starting database setup and attribute updates...');
   await createDatabaseIfNotExists();
@@ -1030,6 +1058,8 @@ async function main() {
   await ensurePhase1Attributes();
   // Ensure collections and attributes exist (non-destructive)
   await seedCollections();
+  // Unassign WAEC, NECO, and JAMB exams from all roles
+  await unassignStandardizedExams();
   // Seed users, classes, students, teachers, payments, attendance, messages, etc.
   await seedDemoUsers();
   await seedDemoData();
