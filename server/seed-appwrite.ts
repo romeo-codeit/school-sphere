@@ -431,12 +431,36 @@ async function seedCollections() {
             await databases.createStringAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.size || 255, attr.required, undefined, (attr as any).array || false);
             break;
           case 'integer':
+            // Include both min and max (as undefined) before default, then array flag
             // @ts-ignore
-            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).default ? parseInt((attr as any).default) : undefined, (attr as any).array || false);
+            await databases.createIntegerAttribute(
+              APPWRITE_DATABASE_ID!,
+              collection.id,
+              attr.id,
+              attr.required,
+              undefined, // min
+              undefined, // max
+              (attr as any).default !== undefined && (attr as any).default !== null
+                ? parseInt((attr as any).default)
+                : undefined, // default
+              (attr as any).array || false // array
+            );
             break;
           case 'float':
+            // Include both min and max (as undefined) before default, then array flag
             // @ts-ignore
-            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).default ? parseFloat((attr as any).default) : undefined, (attr as any).array || false);
+            await databases.createFloatAttribute(
+              APPWRITE_DATABASE_ID!,
+              collection.id,
+              attr.id,
+              attr.required,
+              undefined, // min
+              undefined, // max
+              (attr as any).default !== undefined && (attr as any).default !== null
+                ? parseFloat((attr as any).default)
+                : undefined, // default
+              (attr as any).array || false // array
+            );
             break;
           case 'boolean':
             await databases.createBooleanAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).array || false);
