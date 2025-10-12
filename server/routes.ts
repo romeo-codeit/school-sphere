@@ -625,17 +625,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      // Check user's subscription status
       let isSubscribed = false;
       try {
-        const userProfiles = await databases.listDocuments(
+        // Prefer new userSubscriptions collection
+        const subs = await databases.listDocuments(
           APPWRITE_DATABASE_ID!,
-          'userProfiles',
+          'userSubscriptions',
           [Query.equal('userId', String(userId)), Query.limit(1)]
         );
-        if (userProfiles.total > 0) {
-          const profile = userProfiles.documents[0];
-          isSubscribed = profile.subscriptionStatus === 'active';
+        if (subs.total > 0) {
+          isSubscribed = subs.documents[0].subscriptionStatus === 'active';
+        } else {
+          // Fallback to legacy userProfiles
+          const userProfiles = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'userProfiles',
+            [Query.equal('userId', String(userId)), Query.limit(1)]
+          );
+          if (userProfiles.total > 0) {
+            const profile = userProfiles.documents[0];
+            isSubscribed = profile.subscriptionStatus === 'active';
+          }
         }
       } catch {}
 
@@ -643,7 +653,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ exams: [], total: 0, message: 'Subscription required to access practice exams' });
       }
 
-      // Return WAEC/NECO/JAMB exams for subscribed users
       const result = await databases.listDocuments(
         APPWRITE_DATABASE_ID!,
         'exams',
@@ -1258,6 +1267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
           if (docType !== type) continue;
+          
           let subj = canonicalSubject((doc as any).subject || '');
           const year = String((doc as any).year || '').trim();
           if (!year) continue;

@@ -54,7 +54,6 @@ const collections = [
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'role', type: 'string', size: 50, required: false },
       { id: 'bio', type: 'string', size: 1024, required: false },
-      { id: 'extra', type: 'string', size: 2048, required: false }, // JSON for subscription data and other extra fields
       // Account approval fields
       { id: 'accountStatus', type: 'string', size: 50, required: false, default: 'pending' }, // 'pending', 'approved', 'rejected', 'suspended'
       { id: 'approvedBy', type: 'string', size: 255, required: false }, // Admin user ID who approved
@@ -357,6 +356,16 @@ const collections = [
       { id: 'activationCodes', type: 'string', size: 2048, required: false }, // JSON array of used activation codes
       { id: 'examAccess', type: 'string', size: 2048, required: false }, // JSON array of accessible exam types
       { id: 'paymentHistory', type: 'string', size: 4096, required: false }, // JSON array of payment records
+      { id: 'createdAt', type: 'datetime', required: false },
+      { id: 'updatedAt', type: 'datetime', required: false },
+    ]
+  },
+  {
+    id: 'userProfileExtras',
+    name: 'User Profile Extras',
+    attributes: [
+      { id: 'userId', type: 'string', size: 255, required: true },
+      { id: 'extra', type: 'string', size: 4096, required: false }, // JSON blob for overflow profile data
       { id: 'createdAt', type: 'datetime', required: false },
       { id: 'updatedAt', type: 'datetime', required: false },
     ]
