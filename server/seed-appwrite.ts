@@ -64,8 +64,7 @@ const collections = [
       { id: 'subscriptionStatus', type: 'string', size: 50, required: false, default: 'inactive' }, // 'active', 'inactive', 'expired'
       { id: 'subscriptionType', type: 'string', size: 50, required: false }, // 'basic', 'premium', 'unlimited'
       { id: 'subscriptionExpiry', type: 'datetime', required: false },
-      { id: 'activationCodes', type: 'string', size: 2048, required: false }, // JSON array of used activation codes
-      { id: 'examAccess', type: 'string', size: 2048, required: false }, // JSON array of accessible exam types
+      // Note: activationCodes and examAccess attributes removed due to collection attribute limit
     ]
   },
   {
@@ -414,11 +413,11 @@ async function seedCollections() {
             break;
           case 'integer':
             // @ts-ignore
-            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, (attr as any).array || false);
+            await databases.createIntegerAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).default ? parseInt((attr as any).default) : undefined, (attr as any).array || false);
             break;
           case 'float':
             // @ts-ignore
-            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, undefined, (attr as any).array || false);
+            await databases.createFloatAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).default ? parseFloat((attr as any).default) : undefined, (attr as any).array || false);
             break;
           case 'boolean':
             await databases.createBooleanAttribute(APPWRITE_DATABASE_ID!, collection.id, attr.id, attr.required, undefined, (attr as any).array || false);
