@@ -647,8 +647,6 @@ async function seedDemoData() {
   }
   console.log('Classes seeded.');
   const seededClasses = await databases.listDocuments(dbId, 'classes');
-  const class1Id = seededClasses.documents[0].$id;
-  const class2Id = seededClasses.documents[1].$id;
 
     // Seed students (force reseed)
   const studentsCollection = await databases.listDocuments(dbId, 'students');
@@ -661,15 +659,44 @@ async function seedDemoData() {
   }
   console.log('Seeding students...');
   const studentData = [
-    { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
-    { userId: ID.unique(), studentId: 'S002', firstName: 'Aisha', lastName: 'Bello', email: 'aisha.bello@school.ng', class: class1Id, status: 'active', gender: 'female', parentName: 'Mr. Bello', parentPhone: '08021234567', parentEmail: 'mr.bello@school.ng' },
-    { userId: ID.unique(), studentId: 'S003', firstName: 'Emeka', lastName: 'Nwosu', email: 'emeka.nwosu@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Nwosu', parentPhone: '08011234567', parentEmail: 'mrs.nwosu@school.ng' },
-    { userId: ID.unique(), studentId: 'S004', firstName: 'Ngozi', lastName: 'Eze', email: 'ngozi.eze@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Eze', parentPhone: '08041234567', parentEmail: 'mr.eze@school.ng' },
-    { userId: ID.unique(), studentId: 'S005', firstName: 'Tunde', lastName: 'Adebayo', email: 'tunde.adebayo@school.ng', class: class2Id, status: 'active', gender: 'male', parentName: 'Mrs. Adebayo', parentPhone: '08051234567', parentEmail: 'mrs.adebayo@school.ng' },
-    { userId: ID.unique(), studentId: 'S006', firstName: 'Fatima', lastName: 'Abubakar', email: 'fatima.abubakar@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Abubakar', parentPhone: '08061234567', parentEmail: 'mr.abubakar@school.ng' },
-    { userId: ID.unique(), studentId: 'S007', firstName: 'Ifeanyi', lastName: 'Uche', email: 'ifeanyi.uche@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Uche', parentPhone: '08071234567', parentEmail: 'mrs.uche@school.ng' },
-    { userId: ID.unique(), studentId: 'S008', firstName: 'Blessing', lastName: 'Ogunleye', email: 'blessing.ogunleye@school.ng', class: class2Id, status: 'active', gender: 'female', parentName: 'Mr. Ogunleye', parentPhone: '08081234567', parentEmail: 'mr.ogunleye@school.ng' },
-    { userId: ID.unique(), studentId: 'S009', firstName: 'Samuel', lastName: 'Ojo', email: 'samuel.ojo@school.ng', class: class1Id, status: 'active', gender: 'male', parentName: 'Mrs. Ojo', parentPhone: '08091234567', parentEmail: 'mrs.ojo@school.ng' },
+    // JSS 1 (6 students)
+    { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
+    { userId: ID.unique(), studentId: 'S002', firstName: 'Nkechi', lastName: 'Eze', email: 'nkechi.eze@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'female', parentName: 'Mr. Eze', parentPhone: '08021234567', parentEmail: 'mr.eze@school.ng' },
+    { userId: ID.unique(), studentId: 'S003', firstName: 'Emeka', lastName: 'Nwosu', email: 'emeka.nwosu@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'male', parentName: 'Mrs. Nwosu', parentPhone: '08011234567', parentEmail: 'mrs.nwosu@school.ng' },
+    { userId: ID.unique(), studentId: 'S004', firstName: 'Adaora', lastName: 'Okoye', email: 'adaora.okoye@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'female', parentName: 'Mr. Okoye', parentPhone: '08041234567', parentEmail: 'mr.okoye@school.ng' },
+    { userId: ID.unique(), studentId: 'S005', firstName: 'Ifeanyi', lastName: 'Uche', email: 'ifeanyi.uche@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'male', parentName: 'Mrs. Uche', parentPhone: '08051234567', parentEmail: 'mrs.uche@school.ng' },
+    { userId: ID.unique(), studentId: 'S006', firstName: 'Chioma', lastName: 'Nnamdi', email: 'chioma.nnamdi@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'female', parentName: 'Mr. Nnamdi', parentPhone: '08061234567', parentEmail: 'mr.nnamdi@school.ng' },
+
+    // JSS 2 (5 students)
+    { userId: ID.unique(), studentId: 'S007', firstName: 'Kenechukwu', lastName: 'Ibe', email: 'kenechukwu.ibe@school.ng', class: seededClasses.documents[1].$id, status: 'active', gender: 'male', parentName: 'Mrs. Ibe', parentPhone: '08071234567', parentEmail: 'mrs.ibe@school.ng' },
+    { userId: ID.unique(), studentId: 'S008', firstName: 'Ngozi', lastName: 'Obi', email: 'ngozi.obi@school.ng', class: seededClasses.documents[1].$id, status: 'active', gender: 'female', parentName: 'Mr. Obi', parentPhone: '08081234567', parentEmail: 'mr.obi@school.ng' },
+    { userId: ID.unique(), studentId: 'S009', firstName: 'Chukwudi', lastName: 'Anyanwu', email: 'chukwudi.anyanwu@school.ng', class: seededClasses.documents[1].$id, status: 'active', gender: 'male', parentName: 'Mrs. Anyanwu', parentPhone: '08091234567', parentEmail: 'mrs.anyanwu@school.ng' },
+    { userId: ID.unique(), studentId: 'S010', firstName: 'Amara', lastName: 'Okoro', email: 'amara.okoro@school.ng', class: seededClasses.documents[1].$id, status: 'active', gender: 'female', parentName: 'Mr. Okoro', parentPhone: '08101234567', parentEmail: 'mr.okoro@school.ng' },
+    { userId: ID.unique(), studentId: 'S011', firstName: 'Obinna', lastName: 'Nweke', email: 'obinna.nweke@school.ng', class: seededClasses.documents[1].$id, status: 'active', gender: 'male', parentName: 'Mrs. Nweke', parentPhone: '08111234567', parentEmail: 'mrs.nweke@school.ng' },
+
+    // JSS 3 (4 students)
+    { userId: ID.unique(), studentId: 'S012', firstName: 'Chidiebere', lastName: 'Onyeka', email: 'chidiebere.onyeka@school.ng', class: seededClasses.documents[2].$id, status: 'active', gender: 'male', parentName: 'Mrs. Onyeka', parentPhone: '08121234567', parentEmail: 'mrs.onyeka@school.ng' },
+    { userId: ID.unique(), studentId: 'S013', firstName: 'Ifunanya', lastName: 'Chukwu', email: 'ifunanya.chukwu@school.ng', class: seededClasses.documents[2].$id, status: 'active', gender: 'female', parentName: 'Mr. Chukwu', parentPhone: '08131234567', parentEmail: 'mr.chukwu@school.ng' },
+    { userId: ID.unique(), studentId: 'S014', firstName: 'Nnamdi', lastName: 'Okonkwo', email: 'nnamdi.okonkwo@school.ng', class: seededClasses.documents[2].$id, status: 'active', gender: 'male', parentName: 'Mrs. Okonkwo', parentPhone: '08141234567', parentEmail: 'mrs.okonkwo@school.ng' },
+    { userId: ID.unique(), studentId: 'S015', firstName: 'Uchenna', lastName: 'Madu', email: 'uchenna.madu@school.ng', class: seededClasses.documents[2].$id, status: 'active', gender: 'female', parentName: 'Mr. Madu', parentPhone: '08151234567', parentEmail: 'mr.madu@school.ng' },
+
+    // SS 1 Science (2 students)
+    { userId: ID.unique(), studentId: 'S016', firstName: 'Chukwuma', lastName: 'Ekwueme', email: 'chukwuma.ekwueme@school.ng', class: seededClasses.documents[3].$id, status: 'active', gender: 'male', parentName: 'Mrs. Ekwueme', parentPhone: '08161234567', parentEmail: 'mrs.ekwueme@school.ng' },
+    { userId: ID.unique(), studentId: 'S017', firstName: 'Ogechi', lastName: 'Nwachukwu', email: 'ogechi.nwachukwu@school.ng', class: seededClasses.documents[3].$id, status: 'active', gender: 'female', parentName: 'Mr. Nwachukwu', parentPhone: '08171234567', parentEmail: 'mr.nwachukwu@school.ng' },
+
+    // SS 1 Arts (2 students)
+    { userId: ID.unique(), studentId: 'S018', firstName: 'Ebuka', lastName: 'Okafor', email: 'ebuka.okafor@school.ng', class: seededClasses.documents[4].$id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08181234567', parentEmail: 'mrs.okafor2@school.ng' },
+    { userId: ID.unique(), studentId: 'S019', firstName: 'Chinwe', lastName: 'Iwu', email: 'chinwe.iwu@school.ng', class: seededClasses.documents[4].$id, status: 'active', gender: 'female', parentName: 'Mr. Iwu', parentPhone: '08191234567', parentEmail: 'mr.iwu@school.ng' },
+
+    // SS 1 Commercial (2 students)
+    { userId: ID.unique(), studentId: 'S020', firstName: 'Chibuzor', lastName: 'Agu', email: 'chibuzor.agu@school.ng', class: seededClasses.documents[5].$id, status: 'active', gender: 'male', parentName: 'Mrs. Agu', parentPhone: '08201234567', parentEmail: 'mrs.agu@school.ng' },
+    { userId: ID.unique(), studentId: 'S021', firstName: 'Nkiruka', lastName: 'Oguejiofor', email: 'nkiruka.oguejiofor@school.ng', class: seededClasses.documents[5].$id, status: 'active', gender: 'female', parentName: 'Mr. Oguejiofor', parentPhone: '08211234567', parentEmail: 'mr.oguejiofor@school.ng' },
+
+    // SS 2 Science (1 student)
+    { userId: ID.unique(), studentId: 'S022', firstName: 'Kamsiyochukwu', lastName: 'Okoli', email: 'kamsiyochukwu.okoli@school.ng', class: seededClasses.documents[6].$id, status: 'active', gender: 'male', parentName: 'Mrs. Okoli', parentPhone: '08221234567', parentEmail: 'mrs.okoli@school.ng' },
+
+    // SS 3 Arts (1 student)
+    { userId: ID.unique(), studentId: 'S023', firstName: 'Obianuju', lastName: 'Nduka', email: 'obianuju.nduka@school.ng', class: seededClasses.documents[10].$id, status: 'active', gender: 'female', parentName: 'Mr. Nduka', parentPhone: '08231234567', parentEmail: 'mr.nduka@school.ng' },
   ];
   for (const student of studentData) {
     const search = [student.firstName, student.lastName, student.email, student.studentId, student.class, student.status, student.gender].filter(Boolean).join(' ');
@@ -689,11 +716,18 @@ async function seedDemoData() {
   }
   console.log('Seeding teachers...');
   const teacherData = [
-    { userId: teacherUserId, employeeId: 'T001', firstName: 'Olufemi', lastName: 'Adeyemi', email: 'olufemi.adeyemi@school.ng', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
-    { userId: ID.unique(), employeeId: 'T002', firstName: 'Grace', lastName: 'Nnamdi', email: 'grace.nnamdi@school.ng', subjects: ['English Language', 'Literature in English'], status: 'active', gender: 'female', classIds: [class2Id] },
-    { userId: ID.unique(), employeeId: 'T003', firstName: 'Musa', lastName: 'Ibrahim', email: 'musa.ibrahim@school.ng', subjects: ['Biology', 'Chemistry'], status: 'active', gender: 'male', classIds: [class1Id] },
-    { userId: ID.unique(), employeeId: 'T004', firstName: 'Chiamaka', lastName: 'Okeke', email: 'chiamaka.okeke@school.ng', subjects: ['Civic Education', 'Government'], status: 'active', gender: 'female', classIds: [class2Id] },
-    { userId: ID.unique(), employeeId: 'T005', firstName: 'Babatunde', lastName: 'Ogun', email: 'babatunde.ogun@school.ng', subjects: ['Economics', 'Commerce'], status: 'active', gender: 'male', classIds: [class1Id, class2Id] },
+    { userId: teacherUserId, employeeId: 'T001', firstName: 'Olufemi', lastName: 'Adeyemi', email: 'olufemi.adeyemi@school.ng', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [seededClasses.documents[0].$id, seededClasses.documents[1].$id] },
+    { userId: ID.unique(), employeeId: 'T002', firstName: 'Grace', lastName: 'Nnamdi', email: 'grace.nnamdi@school.ng', subjects: ['English Language', 'Literature in English'], status: 'active', gender: 'female', classIds: [seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
+    { userId: ID.unique(), employeeId: 'T003', firstName: 'Musa', lastName: 'Ibrahim', email: 'musa.ibrahim@school.ng', subjects: ['Biology', 'Chemistry'], status: 'active', gender: 'male', classIds: [seededClasses.documents[3].$id, seededClasses.documents[6].$id] },
+    { userId: ID.unique(), employeeId: 'T004', firstName: 'Chiamaka', lastName: 'Okeke', email: 'chiamaka.okeke@school.ng', subjects: ['Civic Education', 'Government'], status: 'active', gender: 'female', classIds: [seededClasses.documents[4].$id, seededClasses.documents[7].$id] },
+    { userId: ID.unique(), employeeId: 'T005', firstName: 'Babatunde', lastName: 'Ogun', email: 'babatunde.ogun@school.ng', subjects: ['Economics', 'Commerce'], status: 'active', gender: 'male', classIds: [seededClasses.documents[5].$id, seededClasses.documents[8].$id] },
+    { userId: ID.unique(), employeeId: 'T006', firstName: 'Nkechi', lastName: 'Obi', email: 'nkechi.obi@school.ng', subjects: ['Mathematics', 'Further Mathematics'], status: 'active', gender: 'female', classIds: [seededClasses.documents[9].$id, seededClasses.documents[10].$id] },
+    { userId: ID.unique(), employeeId: 'T007', firstName: 'Chukwudi', lastName: 'Eze', email: 'chukwudi.eze@school.ng', subjects: ['Physics', 'Chemistry'], status: 'active', gender: 'male', classIds: [seededClasses.documents[6].$id, seededClasses.documents[9].$id] },
+    { userId: ID.unique(), employeeId: 'T008', firstName: 'Adaora', lastName: 'Nwachukwu', email: 'adaora.nwachukwu@school.ng', subjects: ['English Language', 'Literature in English'], status: 'active', gender: 'female', classIds: [seededClasses.documents[7].$id, seededClasses.documents[10].$id] },
+    { userId: ID.unique(), employeeId: 'T009', firstName: 'Ifeanyi', lastName: 'Okoro', email: 'ifeanyi.okoro@school.ng', subjects: ['Geography', 'History'], status: 'active', gender: 'male', classIds: [seededClasses.documents[4].$id, seededClasses.documents[7].$id] },
+    { userId: ID.unique(), employeeId: 'T010', firstName: 'Chioma', lastName: 'Anyanwu', email: 'chioma.anyanwu@school.ng', subjects: ['Accounting', 'Commerce'], status: 'active', gender: 'female', classIds: [seededClasses.documents[5].$id, seededClasses.documents[8].$id] },
+    { userId: ID.unique(), employeeId: 'T011', firstName: 'Obinna', lastName: 'Madu', email: 'obinna.madu@school.ng', subjects: ['Computer Studies', 'Basic Technology'], status: 'active', gender: 'male', classIds: [seededClasses.documents[0].$id, seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
+    { userId: ID.unique(), employeeId: 'T012', firstName: 'Ifunanya', lastName: 'Onyeka', email: 'ifunanya.onyeka@school.ng', subjects: ['Home Economics', 'Physical and Health Education'], status: 'active', gender: 'female', classIds: [seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
   ];
   for (const teacher of teacherData) {
     const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
@@ -882,6 +916,24 @@ async function seedDemoData() {
   }
   console.log('Subjects seeded.');
 
+    // Seed school information
+  const schoolCollection = await databases.listDocuments(dbId, 'school');
+  if (schoolCollection.total === 0) {
+    console.log('Seeding school information...');
+    const schoolData = {
+      schoolName: 'Ohman Foundation Secondary School',
+      address: '123 Independence Avenue, Awka, Anambra State, Nigeria',
+      phone: '+234 803 123 4567',
+      email: 'info@ohmanfoundation.edu.ng',
+      website: 'https://ohmanfoundation.edu.ng',
+      motto: 'Excellence Through Knowledge',
+      currentTerm: 'First Term',
+      academicYear: '2024/2025',
+    };
+    await databases.createDocument(dbId, 'school', ID.unique(), schoolData);
+    console.log('School information seeded.');
+  }
+
     // Seed video meetings
   const videoMeetingsCollection = await databases.listDocuments(dbId, 'videoMeetings');
     if (videoMeetingsCollection.total === 0 && seededTeachers.total > 0) {
@@ -946,10 +998,10 @@ async function seedDemoData() {
   if (activitiesCollection.total === 0) {
         console.log('Seeding activities...');
         const activityData = [
-            { activity: "New student registration completed", date: new Date().toISOString(), type: 'new_student' },
-            { activity: "Payment received from student", date: new Date(Date.now() - 15 * 60 * 1000).toISOString(), type: 'payment_received' },
-            { activity: "New JAMB questions uploaded", date: new Date(Date.now() - 60 * 60 * 1000).toISOString(), type: 'exam_uploaded' },
-            { activity: "Payment overdue alert for 3 students", date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), type: 'payment_overdue' },
+            { activity: "23 new students registered successfully", date: new Date().toISOString(), type: 'new_student' },
+            { activity: "School fees payment received from 18 students", date: new Date(Date.now() - 15 * 60 * 1000).toISOString(), type: 'payment_received' },
+            { activity: "New JAMB questions uploaded for 2025 exams", date: new Date(Date.now() - 60 * 60 * 1000).toISOString(), type: 'exam_uploaded' },
+            { activity: "Payment overdue alert for 5 students", date: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), type: 'payment_overdue' },
         ];
         for (const activity of activityData) {
             await databases.createDocument(dbId, 'activities', ID.unique(), activity);
