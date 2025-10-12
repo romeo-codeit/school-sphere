@@ -328,6 +328,7 @@ const collections = [
     attributes: [
       { id: 'name', type: 'string', size: 255, required: true },
       { id: 'description', type: 'string', size: 1024, required: false },
+      { id: 'search', type: 'string', size: 1024, required: false },
     ]
   },
   {
