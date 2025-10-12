@@ -31,7 +31,7 @@ export function useStudents(filters: StudentFilters = {}) {
           queries.push(Query.search('search', search));
       }
       if (classId) {
-          queries.push(Query.equal('classId', classId));
+          queries.push(Query.equal('class', classId));
       }
 
       const response = await databases.listDocuments(DATABASE_ID, 'students', queries);
