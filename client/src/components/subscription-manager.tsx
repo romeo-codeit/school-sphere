@@ -28,7 +28,7 @@ interface SubscriptionUser {
 export function SubscriptionManager() {
   const { users, isLoading: usersLoading } = useUsers();
   const { data: profiles, isLoading: profilesLoading } = useUserProfiles();
-  const { data: subscriptions, isLoading: subscriptionsLoading } = useUserSubscriptions();
+  const { data: subscriptions, isLoading: subscriptionsLoading, error: subscriptionsError } = useUserSubscriptions();
   const { toast } = useToast();
   const [subscriptionUsers, setSubscriptionUsers] = useState<SubscriptionUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<SubscriptionUser | null>(null);
@@ -63,6 +63,15 @@ export function SubscriptionManager() {
   const expiredSubscriptions = subscriptionUsers.filter(u => u.subscriptionStatus === 'expired').length;
 
   const handleUpdateSubscription = async (userId: string, updates: Partial<SubscriptionUser>) => {
+    if (subscriptionsError) {
+      toast({
+        title: "Subscription System Unavailable",
+        description: "Cannot update subscriptions because the database collection is not accessible.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsUpdating(true);
     try {
       // Find existing subscription document
@@ -151,6 +160,33 @@ export function SubscriptionManager() {
             <div className="h-4 bg-gray-200 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 rounded w-1/2"></div>
             <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (subscriptionsError) {
+    return (
+      <Card className="h-full">
+        <CardHeader>
+          <CardTitle className="text-base sm:text-lg lg:text-xl">Subscription Management</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <div className="text-muted-foreground mb-4">
+              <p className="text-lg font-medium">Subscription System Unavailable</p>
+              <p className="text-sm">The subscription database collection could not be accessed.</p>
+              <p className="text-sm mt-2">This may be due to database attribute limits or collection not being created yet.</p>
+            </div>
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
+              <p className="text-sm font-medium text-yellow-800">To enable subscriptions:</p>
+              <ul className="text-sm text-yellow-700 mt-2 space-y-1">
+                <li>• Run database seeding to create the userSubscriptions collection</li>
+                <li>• Or manually create the collection in Appwrite Console</li>
+                <li>• Check database permissions and attribute limits</li>
+              </ul>
+            </div>
           </div>
         </CardContent>
       </Card>
