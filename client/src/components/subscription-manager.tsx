@@ -12,7 +12,9 @@ import { useUserSubscriptions } from "@/hooks/useUserSubscriptions";
 import { databases, ID } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
-import { Crown, Users, UserCheck, UserX } from "lucide-react";
+import { Users, UserCheck, UserX } from "lucide-react";
+import SimpleBar from 'simplebar-react';
+import 'simplebar-react/dist/simplebar.min.css';
 
 interface SubscriptionUser {
   $id: string;
@@ -139,13 +141,13 @@ export function SubscriptionManager() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
-        return <Badge className="bg-green-100 text-green-800">Active</Badge>;
+        return <Badge className="bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30 text-xs">Active</Badge>;
       case 'inactive':
-        return <Badge variant="secondary">Inactive</Badge>;
+        return <Badge variant="secondary" className="text-xs">Inactive</Badge>;
       case 'expired':
-        return <Badge variant="destructive">Expired</Badge>;
+        return <Badge className="bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30 text-xs">Expired</Badge>;
       default:
-        return <Badge variant="outline">Unknown</Badge>;
+        return <Badge variant="outline" className="text-xs">Unknown</Badge>;
     }
   };
 
@@ -153,13 +155,13 @@ export function SubscriptionManager() {
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg lg:text-xl">Subscription Management</CardTitle>
+          <CardTitle className="text-lg">Subscription Management</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-4">
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-            <div className="h-4 bg-gray-200 rounded w-2/3"></div>
+            <div className="h-4 bg-muted rounded w-3/4"></div>
+            <div className="h-4 bg-muted rounded w-1/2"></div>
+            <div className="h-4 bg-muted rounded w-2/3"></div>
           </div>
         </CardContent>
       </Card>
@@ -170,7 +172,7 @@ export function SubscriptionManager() {
     return (
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg lg:text-xl">Subscription Management</CardTitle>
+          <CardTitle className="text-lg">Subscription Management</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
@@ -179,9 +181,9 @@ export function SubscriptionManager() {
               <p className="text-sm">The subscription database collection could not be accessed.</p>
               <p className="text-sm mt-2">This may be due to database attribute limits or collection not being created yet.</p>
             </div>
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left">
-              <p className="text-sm font-medium text-yellow-800">To enable subscriptions:</p>
-              <ul className="text-sm text-yellow-700 mt-2 space-y-1">
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4 text-left">
+              <p className="text-sm font-medium text-yellow-700 dark:text-yellow-300">To enable subscriptions:</p>
+              <ul className="text-sm text-yellow-600 dark:text-yellow-400 mt-2 space-y-1">
                 <li>• Run database seeding to create the userSubscriptions collection</li>
                 <li>• Or manually create the collection in Appwrite Console</li>
                 <li>• Check database permissions and attribute limits</li>
@@ -197,73 +199,76 @@ export function SubscriptionManager() {
     <>
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg lg:text-xl flex items-center gap-2">
-            <Crown className="h-5 w-5" />
-            Subscription Management
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>Subscription Management</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => window.location.href = '/admin/activation-codes'}
+              className="text-xs"
+            >
+              Manage Codes →
+            </Button>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Subscription Stats */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 bg-green-50 rounded-lg">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="text-center p-3 bg-green-500/10 dark:bg-green-500/20 rounded-lg border border-green-500/20">
               <div className="flex items-center justify-center mb-1">
-                <UserCheck className="h-4 w-4 text-green-600" />
+                <UserCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
               </div>
-              <p className="text-sm text-green-600 font-medium">Active</p>
-              <p className="text-xl font-bold text-green-700">{activeSubscriptions}</p>
+              <p className="text-xs text-green-700 dark:text-green-300 font-medium">Active</p>
+              <p className="text-2xl font-bold text-green-700 dark:text-green-300">{activeSubscriptions}</p>
             </div>
-            <div className="text-center p-3 bg-gray-50 rounded-lg">
+            <div className="text-center p-3 bg-muted/50 rounded-lg border border-border">
               <div className="flex items-center justify-center mb-1">
-                <UserX className="h-4 w-4 text-gray-600" />
+                <UserX className="h-4 w-4 text-muted-foreground" />
               </div>
-              <p className="text-sm text-gray-600 font-medium">Inactive</p>
-              <p className="text-xl font-bold text-gray-700">{inactiveSubscriptions}</p>
+              <p className="text-xs text-muted-foreground font-medium">Inactive</p>
+              <p className="text-2xl font-bold text-foreground">{inactiveSubscriptions}</p>
             </div>
-            <div className="text-center p-3 bg-red-50 rounded-lg">
+            <div className="text-center p-3 bg-red-500/10 dark:bg-red-500/20 rounded-lg border border-red-500/20">
               <div className="flex items-center justify-center mb-1">
-                <UserX className="h-4 w-4 text-red-600" />
+                <UserX className="h-4 w-4 text-red-600 dark:text-red-400" />
               </div>
-              <p className="text-sm text-red-600 font-medium">Expired</p>
-              <p className="text-xl font-bold text-red-700">{expiredSubscriptions}</p>
+              <p className="text-xs text-red-700 dark:text-red-300 font-medium">Expired</p>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-300">{expiredSubscriptions}</p>
             </div>
           </div>
 
-          {/* User List */}
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {subscriptionUsers.slice(0, 10).map((user) => (
-              <div key={user.userId} className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex-1">
-                  <p className="font-medium text-sm">
-                    {user.firstName} {user.lastName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">{user.email}</p>
+          {/* User List with Custom Scrollbar */}
+          <SimpleBar style={{ maxHeight: '256px' }}>
+            <div className="space-y-2 pr-2">
+              {subscriptionUsers.slice(0, 10).map((user) => (
+                <div 
+                  key={user.userId} 
+                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-sm truncate">
+                      {user.firstName} {user.lastName}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {getStatusBadge(user.subscriptionStatus)}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSelectedUser(user);
+                        setIsDialogOpen(true);
+                      }}
+                      className="text-xs"
+                    >
+                      Edit
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  {getStatusBadge(user.subscriptionStatus)}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedUser(user);
-                      setIsDialogOpen(true);
-                    }}
-                  >
-                    Edit
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="pt-4 border-t border-border">
-            <Button
-              className="w-full sm:w-auto bg-primary hover:bg-primary/90"
-              onClick={() => setIsDialogOpen(true)}
-            >
-              <Users className="h-4 w-4 mr-2" />
-              Manage All Subscriptions
-            </Button>
-          </div>
+              ))}
+            </div>
+          </SimpleBar>
         </CardContent>
       </Card>
 

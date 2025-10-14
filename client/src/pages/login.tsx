@@ -19,7 +19,7 @@ const loginSchema = z.object({
 });
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, getJWT } = useAuth();
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -103,8 +103,21 @@ export default function LoginPage() {
         description: "You have successfully signed in.",
         variant: "default",
       });
-
-      setLocation("/dashboard");
+      // Decide landing route based on canonical role from backend
+      let userRole: string | null = null;
+      try {
+        const jwt = await getJWT();
+        const res = await fetch('/api/users/me', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+        if (res.ok) {
+          const data = await res.json();
+          userRole = data?.role || null;
+        }
+      } catch {}
+      if (userRole === 'guest') {
+        setLocation('/exams');
+      } else {
+        setLocation('/');
+      }
     } catch (err: any) {
       setAttemptCount((prev) => prev + 1);
       const remainingAttempts = 5 - (attemptCount + 1);

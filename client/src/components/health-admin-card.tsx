@@ -1,14 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
-async function fetchHealth() {
-  const res = await fetch('/api/admin/health', { credentials: 'include' });
+async function fetchHealth(getJWT: () => Promise<string | null>) {
+  const jwt = await getJWT();
+  const res = await fetch('/api/admin/health', {
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}
+  });
   if (!res.ok) throw new Error('Failed to fetch health');
   return res.json();
 }
 
 export function HealthAdminCard() {
-  const { data, isLoading, error } = useQuery({ queryKey: ['admin-health'], queryFn: fetchHealth });
+  const { getJWT } = useAuth();
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['admin-health'],
+    queryFn: () => fetchHealth(getJWT)
+  });
 
   if (isLoading) {
     return (

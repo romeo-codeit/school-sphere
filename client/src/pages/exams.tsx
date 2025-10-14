@@ -107,7 +107,7 @@ function ExamPreviewDialog({ exam, open, onOpenChange }: { exam: any, open: bool
 
 
 function ExamsPage() {
-  const { role } = useAuth();
+  const { role, getJWT } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedType, setSelectedType] = useState("all");
   const [isUploadFormOpen, setIsUploadFormOpen] = useState(false);
@@ -119,6 +119,22 @@ function ExamsPage() {
   const { toast } = useToast();
   const startAttemptMutation = useStartAttempt();
   const { data: assignedData } = useAssignedExams();
+
+  // Guests: fetch subscription state to gate UI
+  const [guestSubActive, setGuestSubActive] = React.useState<boolean | null>(null);
+  React.useEffect(() => {
+    const checkGuestSubscription = async () => {
+      if (role !== 'guest') { setGuestSubActive(true); return; }
+      try {
+        const jwt = await getJWT();
+        const res = await fetch('/api/users/subscription', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+        if (!res.ok) { setGuestSubActive(false); return; }
+        const data = await res.json();
+        setGuestSubActive(data?.subscriptionStatus === 'active');
+      } catch { setGuestSubActive(false); }
+    };
+    checkGuestSubscription();
+  }, [role]);
 
   // Fetch ALL exams for table and stats (no questions, no type filter)
   const { exams: allExams, isLoading: isAllLoading } = useExams({ limit: 'all', withQuestions: false });
@@ -169,6 +185,11 @@ function ExamsPage() {
   }, []);
 
   const handleStartExam = (exam: any) => {
+    // Guests: block starting internal/school exams entirely
+    if (role === 'guest') {
+      toast({ variant: 'destructive', title: 'Not allowed', description: 'Guests can only access practice exams.' });
+      return;
+    }
     const examType = String(exam.type || '').toLowerCase();
     // For internal/school exams, start directly
     startAttemptMutation.mutate(
@@ -234,9 +255,20 @@ function ExamsPage() {
   return (
     <div className="space-y-6">
       <TopNav title="Exams" subtitle="Practice standardized tests or take school exams" showGoBackButton={true} />
+      {role === 'guest' && guestSubActive === false && (
+        <div className="mx-4 sm:mx-6 lg:mx-8 -mb-4">
+          <div className="rounded-md border border-yellow-300 bg-yellow-50 text-yellow-900 p-4 flex items-center justify-between">
+            <div>
+              <div className="font-semibold">Activation required</div>
+              <div className="text-sm">Enter your activation code to unlock practice exams.</div>
+            </div>
+            <Button variant="outline" onClick={() => navigate('/activate')}>Activate</Button>
+          </div>
+        </div>
+      )}
       <ErrorBoundary>
         <div className="px-4 sm:px-6 lg:px-8 py-6">
-        {/* Practice Hub for JAMB/WAEC/NECO */}
+  {/* Practice Hub for JAMB/WAEC/NECO */}
         <Card className="mb-8">
           <CardHeader>
             <CardTitle className="text-lg sm:text-xl">Practice Hub</CardTitle>
@@ -246,7 +278,7 @@ function ExamsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Card 
                 className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-primary"
-                onClick={() => setSubjectSelectionExam({ type: 'jamb', title: 'JAMB Practice' })}
+                onClick={() => role === 'guest' && guestSubActive === false ? navigate('/activate') : setSubjectSelectionExam({ type: 'jamb', title: 'JAMB Practice' })}
               >
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -261,7 +293,7 @@ function ExamsPage() {
               </Card>
               <Card 
                 className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-secondary"
-                onClick={() => setSubjectSelectionExam({ type: 'waec', title: 'WAEC Practice' })}
+                onClick={() => role === 'guest' && guestSubActive === false ? navigate('/activate') : setSubjectSelectionExam({ type: 'waec', title: 'WAEC Practice' })}
               >
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -276,7 +308,7 @@ function ExamsPage() {
               </Card>
               <Card 
                 className="hover:shadow-lg transition-all cursor-pointer border-2 hover:border-accent"
-                onClick={() => setSubjectSelectionExam({ type: 'neco', title: 'NECO Practice' })}
+                onClick={() => role === 'guest' && guestSubActive === false ? navigate('/activate') : setSubjectSelectionExam({ type: 'neco', title: 'NECO Practice' })}
               >
                 <CardContent className="p-6 text-center">
                   <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -293,8 +325,9 @@ function ExamsPage() {
           </CardContent>
         </Card>
 
-        {/* Internal Exams & Assigned Exams */}
-        <Card>
+  {/* Internal Exams & Assigned Exams (hidden for guests) */}
+  {role !== 'guest' && (
+  <Card>
           <CardHeader>
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <CardTitle className="text-lg sm:text-xl">School Exams</CardTitle>
@@ -466,7 +499,8 @@ function ExamsPage() {
               </>
             )}
           </CardContent>
-        </Card>
+  </Card>
+  )}
         <ExamPreviewDialog
           exam={selectedExamForPreview}
           open={isPreviewDialogOpen}

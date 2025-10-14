@@ -370,6 +370,22 @@ const collections = [
       { id: 'updatedAt', type: 'datetime', required: false },
     ]
   },
+  {
+    id: 'activationCodes',
+    name: 'Activation Codes',
+    attributes: [
+      { id: 'code', type: 'string', size: 255, required: true },
+      // codeType controls duration granted when used. Suggested values: 'trial_30d' | 'annual_1y'
+      { id: 'codeType', type: 'string', size: 50, required: false },
+      // Convenience integer to store duration in days for this code (e.g., 30 or 365)
+      { id: 'durationDays', type: 'integer', required: false },
+      { id: 'status', type: 'string', size: 50, required: false, default: 'unused' }, // 'unused' | 'used' | 'expired'
+      { id: 'assignedTo', type: 'string', size: 255, required: false },
+      { id: 'expiresAt', type: 'datetime', required: false },
+      { id: 'createdAt', type: 'datetime', required: false },
+      { id: 'usedAt', type: 'datetime', required: false },
+    ]
+  },
 ];
 
 async function createDatabaseIfNotExists() {
@@ -509,6 +525,12 @@ async function seedCollections() {
         case 'resources':
           // @ts-ignore
           await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_subject_type', 'key' as any, ['subject','type'], ['ASC','ASC']);
+          break;
+        case 'activationCodes':
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_code', 'key' as any, ['code'], ['ASC']);
+          // @ts-ignore
+          await databases.createIndex(APPWRITE_DATABASE_ID!, collection.id, 'idx_status', 'key' as any, ['status'], ['ASC']);
           break;
       }
     } catch (e: any) {

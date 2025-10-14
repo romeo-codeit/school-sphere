@@ -27,7 +27,6 @@ import { RecentActivityWidget } from "@/components/recent-activity-widget";
 import { EventCalendar } from "@/components/event-calendar";
 import { SubscriptionManager } from "@/components/subscription-manager";
 import { AccountApprovalManager } from "@/components/account-approval-manager";
-import { HealthAdminCard } from "@/components/health-admin-card";
 
 const RoundedBar = (props: any) => {
   const { fill, x, y, width, height } = props;
@@ -46,6 +45,42 @@ import { useAdminDashboardPerformanceTest } from "@/hooks/useAdminDashboardPerfo
 
 export function AdminDashboard() {
   const { user } = useAuth();
+  // Local state for richer profile name (first + last) sourced from userProfiles collection
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [profileLoading, setProfileLoading] = useState<boolean>(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadProfile() {
+      try {
+        setProfileLoading(true);
+        setProfileError(null);
+        const jwtResp = await fetch('/api/users/me').catch(() => null);
+        if (!jwtResp || !jwtResp.ok) {
+          if (!cancelled) setDisplayName(user?.name || null);
+          return;
+        }
+        const me = await jwtResp.json();
+        let fullName: string | null = null;
+        if (me?.firstName || me?.lastName) {
+          fullName = [me.firstName, me.lastName].filter(Boolean).join(' ').trim() || null;
+        }
+        if (!fullName && me?.name) fullName = me.name;
+        if (!fullName && user?.name) fullName = user.name;
+        if (!cancelled) setDisplayName(fullName);
+      } catch (e: any) {
+        if (!cancelled) {
+          setProfileError(e?.message || 'Failed to load profile');
+          setDisplayName(user?.name || null);
+        }
+      } finally {
+        if (!cancelled) setProfileLoading(false);
+      }
+    }
+    loadProfile();
+    return () => { cancelled = true; };
+  }, [user?.name]);
   const { stats, isLoading: statsLoading, error: statsError } = useDashboard();
   const { students, isLoading: studentsLoading, error: studentsError } = useStudents({ limit: 1000 }); // Fetch all students for stats
   const { payments, isLoading: paymentsLoading, error: paymentsError } = usePayments();
@@ -99,9 +134,6 @@ export function AdminDashboard() {
   const totalPaidStudents = payments?.filter((p: any) => p.status === 'paid').length || 0;
   const totalPendingPayments = payments?.filter((p: any) => p.status === 'pending').length || 0;
   const totalOverduePayments = payments?.filter((p: any) => p.status === 'overdue').length || 0;
-  const jambQuestions = exams?.filter((e: any) => e.type === 'jamb').length || 0;
-  const waecQuestions = exams?.filter((e: any) => e.type === 'waec').length || 0;
-  const necoQuestions = exams?.filter((e: any) => e.type === 'neco').length || 0;
 
   const studentGenderData = [
     { name: 'Male', value: 0, fill: 'var(--primary)' },
@@ -134,7 +166,14 @@ export function AdminDashboard() {
 
   return (
     <>
-      <TopNav title="Admin Dashboard" subtitle={`Welcome back, ${user?.name || 'Admin'}`} />
+      <TopNav
+        title="Admin Dashboard"
+        subtitle={
+          profileLoading
+            ? 'Loading profile…'
+            : `Welcome back, ${displayName || user?.name || 'Administrator'}`
+        }
+      />
       <div className="space-y-6">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 px-4 sm:px-6 lg:px-8">
@@ -167,71 +206,17 @@ export function AdminDashboard() {
           <div className="space-y-6 lg:pr-0"><RecentActivityWidget activities={recentActivities || []} /></div>
         </div>
 
-        {/* Payment, Exam Module, Subscription Management, and Account Approvals */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-8 px-4 sm:px-6 lg:px-8">
-          <Card className="h-full">
-            <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Payment Status</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-secondary/10 rounded-lg">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="w-3 h-3 bg-secondary rounded-full"></div>
-                  <span className="font-medium text-foreground text-sm sm:text-base">Paid Students</span>
-                </div>
-                <span className="font-bold text-foreground text-lg">{totalPaidStudents}</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-accent/10 rounded-lg">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="w-3 h-3 bg-accent rounded-full"></div>
-                  <span className="font-medium text-foreground text-sm sm:text-base">Pending Payments</span>
-                </div>
-                <span className="font-bold text-foreground text-lg">{totalPendingPayments}</span>
-              </div>
-              <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-destructive/10 rounded-lg">
-                <div className="flex items-center space-x-3 mb-2 sm:mb-0">
-                  <div className="w-3 h-3 bg-destructive rounded-full"></div>
-                  <span className="font-medium text-foreground text-sm sm:text-base">Overdue</span>
-                </div>
-                <span className="font-bold text-foreground text-lg">{totalOverduePayments}</span>
-              </div>
-              <div className="pt-4 border-t border-border"><Button className="w-full sm:w-auto bg-primary hover:bg-primary/90" onClick={() => setLocation('/payments')}>View Payment Details</Button></div>
-            </CardContent>
-          </Card>
-          <Card className="h-full">
-            <CardHeader><div className="flex items-center justify-between"><CardTitle className="text-base sm:text-lg lg:text-xl">Exam Module</CardTitle><Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setLocation('/exams')}>Manage Exams</Button></div></CardHeader>
-            <CardContent><div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-              <div className="text-center p-6 border border-border rounded-lg">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-primary text-2xl" />
-                </div>
-                <h4 className="font-semibold text-base sm:text-lg">JAMB Questions</h4>
-                <p className="text-2xl font-bold">{jambQuestions}</p>
-              </div>
-              <div className="text-center p-6 border rounded-lg">
-                <div className="w-16 h-16 bg-secondary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-secondary text-2xl" />
-                </div>
-                <h4 className="font-semibold text-base sm:text-lg">WAEC Questions</h4>
-                <p className="text-2xl font-bold">{waecQuestions}</p>
-              </div>
-              <div className="text-center p-6 border rounded-lg">
-                <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="text-accent text-2xl" />
-                </div>
-                <h4 className="font-semibold text-base sm:text-lg">NECO Questions</h4>
-                <p className="text-2xl font-bold">{necoQuestions}</p>
-              </div>
-            </div></CardContent>
-          </Card>
-          <div className="h-full">
+        {/* Management Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8 px-4 sm:px-6 lg:px-8">
+          {/* Subscription Management */}
+          <div className="shadow-sm hover:shadow-md transition-shadow">
             <SubscriptionManager />
           </div>
-          <div className="h-full space-y-4">
+
+          {/* Account Approvals */}
+          <div className="shadow-sm hover:shadow-md transition-shadow">
             <AccountApprovalManager />
-            <HealthAdminCard />
           </div>
-        </div>
-        <div className="mt-8 px-4 sm:px-6 lg:px-8">
-          <AccountApprovalManager />
         </div>
       </div>
     </>

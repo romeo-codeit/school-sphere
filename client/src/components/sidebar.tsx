@@ -77,7 +77,7 @@ const getNavigationItems = (role: string | null) => {
       name: "Exams", 
       href: "/exams", 
       icon: FileText,
-      roles: ["admin", "teacher", "student", "parent"],
+      roles: ["admin", "teacher", "student", "parent", "guest"],
       exact: false,
       badge: undefined
     },

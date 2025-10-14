@@ -42,6 +42,8 @@ const SubjectsPage = lazy(() => import("@/pages/subjects"));
 const NoticesPage = lazy(() => import("@/pages/notices"));
 const ActivitiesPage = lazy(() => import("@/pages/activities"));
 const NotificationsPage = lazy(() => import("@/pages/notifications"));
+const ActivatePage = lazy(() => import("@/pages/activate"));
+const AdminActivationCodesPage = lazy(() => import("@/pages/admin-activation-codes"));
 
 function PageSkeleton() {
   return (
@@ -75,6 +77,7 @@ function Router() {
           <Route path="/"><Landing /></Route>
           <Route path="/login"><LoginPage /></Route>
           <Route path="/signup"><SignUpPage /></Route>
+          <Route path="/activate"><ActivatePage /></Route>
           <Route><NotFound /></Route>
         </Switch>
       </Suspense>
@@ -108,7 +111,7 @@ function Router() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 overflow-auto mb-8">
         {/* Mobile Header */}
         <div className="lg:hidden p-4 sticky top-0 bg-background z-10 border-b">
           <button onClick={() => setSidebarOpen(true)}>
@@ -131,13 +134,14 @@ function Router() {
               </RoleGuard>
             )}</Route>
             <Route path="/exams"><Exams /></Route>
+            <Route path="/activate"><ActivatePage /></Route>
             <Route path="/exams/:id/take">
               <RoleGuard allowedRoles={['admin', 'student']}>
                 <ExamTaking />
               </RoleGuard>
             </Route>
             <Route path="/exams/practice/:type">
-              <RoleGuard allowedRoles={['admin', 'student']}>
+              <RoleGuard allowedRoles={['admin', 'student', 'guest']}>
                 <ExamTaking />
               </RoleGuard>
             </Route>
@@ -151,6 +155,7 @@ function Router() {
             <Route path="/messages"><Messages /></Route>
             <Route path="/resources"><Resources /></Route>
             <Route path="/settings"><Settings /></Route>
+            <Route path="/admin/activation-codes"><RoleGuard allowedRoles={['admin']}><AdminActivationCodesPage /></RoleGuard></Route>
             <Route path="/video-conferencing"><VideoConferencing /></Route>
             <Route path="/communications"><Communications /></Route>
             <Route path="/attendance"><Attendance /></Route>

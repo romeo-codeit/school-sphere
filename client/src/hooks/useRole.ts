@@ -1,6 +1,6 @@
 import { useAuth } from "./useAuth";
 
-export type UserRole = "admin" | "teacher" | "student" | "parent";
+export type UserRole = "admin" | "teacher" | "student" | "parent" | "guest";
 
 export interface RolePermissions {
   students: string[];
@@ -73,6 +73,20 @@ const permissions: Record<UserRole, RolePermissions> = {
     videoConferencing: ["read"],
     forum: ["read"], // Can only read
     chat: ["create", "read"],
+  },
+  guest: {
+    students: [],
+    teachers: [],
+    exams: ["read"],
+    payments: [],
+    messages: [],
+    resources: [],
+    settings: [],
+    attendance: [],
+    grades: [],
+    videoConferencing: [],
+    forum: ["read"],
+    chat: [],
   }
 };
 
@@ -105,6 +119,7 @@ export function useRole() {
   const isTeacher = (): boolean => role === "teacher";
   const isStudent = (): boolean => role === "student";
   const isParent = (): boolean => role === "parent";
+  const isGuest = (): boolean => role === "guest";
 
   return {
     role: getUserRole(),
@@ -114,6 +129,7 @@ export function useRole() {
     isTeacher,
     isStudent,
     isParent,
+    isGuest,
     permissions: role ? permissions[role as UserRole] : null
   };
 }

@@ -10,7 +10,7 @@ import { useUserProfiles } from "@/hooks/useUserProfiles";
 import { databases } from "@/lib/appwrite";
 import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
-import { UserCheck, UserX, Users, Shield, AlertCircle } from "lucide-react";
+import { UserCheck, UserX, Users, AlertCircle } from "lucide-react";
 
 interface PendingAccount {
   $id: string;
@@ -141,22 +141,19 @@ export function AccountApprovalManager() {
     <>
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-base sm:text-lg lg:text-xl flex items-center gap-2">
-            <Shield className="h-5 w-5" />
-            Account Approvals
-          </CardTitle>
+          <CardTitle className="text-lg">Account Approvals</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Pending Accounts Count */}
-          <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+          <div className="flex items-center justify-between p-4 bg-blue-500/10 dark:bg-blue-500/20 rounded-lg border border-blue-500/20">
             <div className="flex items-center gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600" />
+              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               <div>
-                <p className="font-medium text-blue-900">Pending Approvals</p>
-                <p className="text-sm text-blue-700">Accounts waiting for review</p>
+                <p className="font-medium text-blue-900 dark:text-blue-100">Pending Approvals</p>
+                <p className="text-sm text-blue-700 dark:text-blue-300">Accounts waiting for review</p>
               </div>
             </div>
-            <span className="text-2xl font-bold text-blue-900">{pendingAccounts.length}</span>
+            <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">{pendingAccounts.length}</span>
           </div>
 
           {/* Pending Accounts List */}

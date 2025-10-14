@@ -63,6 +63,7 @@ export default function SignupPage() {
   const [showPendingMessage, setShowPendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
+  const [registerAsGuest, setRegisterAsGuest] = useState(false);
 
   const passwordStrength = calculatePasswordStrength(password);
 
@@ -112,7 +113,7 @@ export default function SignupPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password, name, role: "student" }),
+        body: JSON.stringify({ email, password, name, role: registerAsGuest ? 'guest' : 'student' }),
       });
 
       const data = await response.json();
@@ -121,15 +122,23 @@ export default function SignupPage() {
         throw new Error(data.message || 'Failed to create account');
       }
 
-      toast({
-        title: "Account Created Successfully!",
-        description: "Your account is pending admin approval. You'll be notified once approved.",
-        variant: "default",
-      });
+      if (registerAsGuest) {
+        toast({
+          title: "Guest Account Created",
+          description: "You can now sign in. Subscription is required to access practice exams.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Account Created Successfully!",
+          description: "Your account is pending admin approval. You'll be notified once approved.",
+          variant: "default",
+        });
+      }
 
       // Don't redirect to dashboard - show pending approval message instead
-      setIsLoading(false);
-      setShowPendingMessage(true);
+  setIsLoading(false);
+  setShowPendingMessage(!registerAsGuest);
     } catch (err: any) {
       const errorMessage = err.message || "Failed to create account. Please try again.";
       setError(errorMessage);
@@ -160,6 +169,12 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="px-6 pb-8">
+              <div className="mb-4 p-3 rounded-md bg-muted/40 text-sm">
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" checked={registerAsGuest} onChange={(e) => setRegisterAsGuest(e.target.checked)} />
+                  <span>Register as Guest (limited access; subscription required for practice exams)</span>
+                </label>
+              </div>
             {/* Registration Form */}
             {!showPendingMessage && (
               <form onSubmit={handleSubmit} className="space-y-5">

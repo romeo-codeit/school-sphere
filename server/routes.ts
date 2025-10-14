@@ -626,7 +626,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
       let isSubscribed = false;
+      let role: string | null = null;
       try {
+        // Get role from account prefs
+        const account = await req.appwrite!.account.get();
+        role = (account as any)?.prefs?.role || null;
+        // Students have free access to practice exams
+        if (role === 'student') {
+          isSubscribed = true;
+        }
         // Prefer new userSubscriptions collection
         const subs = await databases.listDocuments(
           APPWRITE_DATABASE_ID!,
@@ -887,6 +895,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const user = await req.appwrite!.account.get();
       const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
+      const role = (user as any)?.prefs?.role || null;
+
+      // If practice mode (standardized exams via synthetic id) and role is guest, require subscription
+      if (examId.startsWith('practice-')) {
+        if (role === 'guest') {
+          // Check subscription status for guest
+          let isSubscribed = false;
+          try {
+            const subs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userSubscriptions', [Query.equal('userId', String(user.$id)), Query.limit(1)]);
+            if (subs.total > 0) {
+              isSubscribed = subs.documents[0].subscriptionStatus === 'active';
+            } else {
+              const profiles = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [Query.equal('userId', String(user.$id)), Query.limit(1)]);
+              if (profiles.total > 0) isSubscribed = profiles.documents[0].subscriptionStatus === 'active';
+            }
+          } catch {}
+          if (!isSubscribed) return res.status(402).json({ message: 'Subscription required for guests to start practice exams' });
+        }
+      }
       
       // Handle practice sessions (synthetic examId like 'practice-jamb')
       if (examId.startsWith('practice-')) {
@@ -1579,27 +1606,250 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newUser = await users.create(ID.unique(), email, password, name);
       await users.updatePrefs(newUser.$id, { role });
 
-      // Create user profile with pending approval status
+      // Create user profile; auto-approve guests, require approval for others
       const profileData = {
         userId: newUser.$id,
         firstName: name.split(' ')[0] || '',
         lastName: name.split(' ').slice(1).join(' ') || '',
         email: email,
         role: role,
-        accountStatus: 'pending', // All new accounts start as pending
+        accountStatus: role === 'guest' ? 'approved' : 'pending',
         subscriptionStatus: 'inactive',
       };
 
       await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
 
       res.json({
-        message: 'Account created successfully. Please wait for admin approval.',
+        message: role === 'guest'
+          ? 'Guest account created successfully. You can sign in now. Subscription is required to access practice exams.'
+          : 'Account created successfully. Please wait for admin approval.',
         user: newUser,
-        status: 'pending_approval'
+        status: role === 'guest' ? 'guest_created' : 'pending_approval'
       });
     } catch (error: any) {
       console.error('Registration error:', error);
       res.status(500).json({ message: error.message || 'Failed to create account' });
+    }
+  });
+
+  // Get current user's subscription status
+  app.get('/api/users/subscription', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+      let status = 'inactive';
+      let expiry: string | null = null;
+      let examAccess: string[] = [];
+
+      try {
+        const subs = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'userSubscriptions',
+          [Query.equal('userId', String(userId)), Query.limit(1)]
+        );
+        if (subs.total > 0) {
+          const doc: any = subs.documents[0];
+          status = doc.subscriptionStatus || 'inactive';
+          expiry = doc.subscriptionExpiry || null;
+          try { examAccess = JSON.parse(doc.examAccess || '[]'); } catch {}
+        } else {
+          const profiles = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'userProfiles',
+            [Query.equal('userId', String(userId)), Query.limit(1)]
+          );
+          if (profiles.total > 0) {
+            const p: any = profiles.documents[0];
+            status = p.subscriptionStatus || 'inactive';
+          }
+        }
+      } catch {}
+
+      return res.json({ subscriptionStatus: status, subscriptionExpiry: expiry, examAccess });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to get subscription status' });
+    }
+  });
+
+  // Canonical user profile info
+  app.get('/api/users/me', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+      let profile: any = null;
+      let firstName = null;
+      let lastName = null;
+      try {
+        const profiles = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [Query.equal('userId', String(userId)), Query.limit(1)]);
+        if (profiles.total > 0) {
+          profile = profiles.documents[0];
+          firstName = profile.firstName || null;
+          lastName = profile.lastName || null;
+        }
+      } catch {}
+
+      let subscriptions: any = null;
+      try {
+        const subs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userSubscriptions', [Query.equal('userId', String(userId)), Query.limit(1)]);
+        if (subs.total > 0) subscriptions = subs.documents[0];
+      } catch {}
+
+      const role = profile?.role || sessionUser?.prefs?.role || null;
+      const accountStatus = profile?.accountStatus || 'approved';
+      const subscriptionStatus = subscriptions?.subscriptionStatus || profile?.subscriptionStatus || 'inactive';
+      const subscriptionExpiry = subscriptions?.subscriptionExpiry || null;
+
+      return res.json({
+        id: userId,
+        name: sessionUser?.name,
+        email: sessionUser?.email,
+        firstName,
+        lastName,
+        role,
+        accountStatus,
+        subscriptionStatus,
+        subscriptionExpiry,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to get user profile' });
+    }
+  });
+
+  // Activate subscription using an activation code (guests only in your policy)
+  app.post('/api/users/activate-subscription', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+  const { activationCode } = (req.body || {}) as { activationCode?: string };
+      if (!activationCode || String(activationCode).trim().length < 6) {
+        return res.status(400).json({ message: 'Invalid activation code' });
+      }
+      // Validate code exists and unused (if activationCodes collection exists)
+      let codeDoc: any = null;
+      try {
+        const codes = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'activationCodes',
+          [Query.equal('code', String(activationCode).trim()), Query.limit(1)]
+        );
+        if (codes.total > 0) codeDoc = codes.documents[0];
+      } catch {}
+      if (codeDoc && codeDoc.status && codeDoc.status !== 'unused') {
+        return res.status(409).json({ message: 'Activation code already used or expired' });
+      }
+
+      // Create or update userSubscriptions
+      let existing: any = null;
+      try {
+        const subs = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'userSubscriptions',
+          [Query.equal('userId', String(userId)), Query.limit(1)]
+        );
+        if (subs.total > 0) existing = subs.documents[0];
+      } catch {}
+
+      const now = new Date();
+      // Determine duration: default 30 days; annual codes grant 365 days
+      const durationDays = Number(codeDoc?.durationDays) || (String(codeDoc?.codeType || '').toLowerCase() === 'annual_1y' ? 365 : 30);
+      const expiry = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+      const payload: any = {
+        userId: String(userId),
+        subscriptionStatus: 'active',
+        subscriptionType: 'basic',
+        subscriptionExpiry: expiry.toISOString(),
+        examAccess: JSON.stringify(['jamb','waec','neco']),
+      };
+
+      if (existing) {
+        // Append activation code to list
+        let usedCodes: string[] = [];
+        try { usedCodes = JSON.parse(existing.activationCodes || '[]'); } catch {}
+        usedCodes.push(String(activationCode));
+        payload.activationCodes = JSON.stringify(usedCodes);
+        await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userSubscriptions', existing.$id, payload);
+      } else {
+        payload.activationCodes = JSON.stringify([String(activationCode)]);
+        await databases.createDocument(APPWRITE_DATABASE_ID!, 'userSubscriptions', ID.unique(), payload);
+      }
+
+      // Update legacy profile flag as well
+      try {
+        const profiles = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'userProfiles',
+          [Query.equal('userId', String(userId)), Query.limit(1)]
+        );
+        if (profiles.total > 0) {
+          await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profiles.documents[0].$id, {
+            subscriptionStatus: 'active'
+          } as any);
+        }
+      } catch {}
+      // Mark code as used
+      if (codeDoc) {
+        try {
+          await databases.updateDocument(APPWRITE_DATABASE_ID!, 'activationCodes', codeDoc.$id, {
+            status: 'used',
+            assignedTo: String(userId),
+            codeType: codeDoc?.codeType || null,
+            durationDays: durationDays,
+            usedAt: new Date().toISOString(),
+          } as any);
+        } catch {}
+      }
+
+      return res.json({ message: 'Subscription activated', subscriptionStatus: 'active', subscriptionExpiry: expiry.toISOString() });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to activate subscription' });
+    }
+  });
+
+  // Admin: generate activation codes
+  app.post('/api/admin/activation-codes', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+      const { count = 10, prefix = 'OHM', length = 10, codeType = 'trial_30d' } = (req.body || {}) as any;
+      const codes: any[] = [];
+      for (let i = 0; i < Math.min(1000, Number(count) || 10); i++) {
+        const rand = Math.random().toString(36).slice(2).toUpperCase();
+        const code = `${prefix}-${rand}`.slice(0, Number(length) || 10);
+        const doc = await databases.createDocument(APPWRITE_DATABASE_ID!, 'activationCodes', ID.unique(), {
+          code,
+          status: 'unused',
+          codeType,
+          durationDays: String(codeType).toLowerCase() === 'annual_1y' ? 365 : 30,
+          createdAt: new Date().toISOString(),
+        } as any);
+        codes.push({ code: doc.code || code });
+      }
+      return res.json({ codes });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to generate codes' });
+    }
+  });
+
+  // Admin: list activation codes
+  app.get('/api/admin/activation-codes', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+  const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'activationCodes', [Query.limit(100)]);
+      return res.json({ codes: page.documents, total: page.total });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to list codes' });
     }
   });
 
