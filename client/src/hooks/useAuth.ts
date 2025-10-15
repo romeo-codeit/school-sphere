@@ -5,7 +5,9 @@ import { ID } from 'appwrite';
 
 export function useAuth() {
   // JWT state (in-memory, not persisted)
-  const [jwt, setJwt] = useState<string | null>(null);
+  const [jwt, setJwt] = useState<string | null>(() => {
+    try { return localStorage.getItem('appwrite_jwt'); } catch { return null; }
+  });
 
   // Fetch JWT from Appwrite
   const getJWT = async () => {
@@ -13,6 +15,7 @@ export function useAuth() {
     try {
       const { jwt: token } = await account.createJWT();
       setJwt(token);
+      try { localStorage.setItem('appwrite_jwt', token); } catch {}
       return token;
     } catch (e) {
       return null;
@@ -46,6 +49,7 @@ export function useAuth() {
       await account.deleteSession('current');
     },
     onSuccess: () => {
+      try { localStorage.removeItem('appwrite_jwt'); } catch {}
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (error: any) => {

@@ -10,7 +10,10 @@ import { RoleGuard } from "@/components/RoleGuard";
 import { useState, lazy, Suspense } from "react";
 import { ThemeInitializer } from "@/hooks/useTheme";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Loading } from "@/components/ui/loading";
+import { SplashScreen } from "@/components/ui/splash-screen";
+import { OfflineBanner } from "@/components/ui/offline-banner";
+import { useEffect } from "react";
+import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce } from "@/lib/offline";
 
 // Lazy load all the pages for better performance
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -62,17 +65,34 @@ function Router() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
 
+  // Configure offline sync auth header provider and auto-process queue on reconnect
+  useEffect(() => {
+    configureAuthHeaderProvider(async () => {
+      const headers: Record<string, string> = {};
+      try {
+        const token = localStorage.getItem('appwrite_jwt');
+        if (token) headers.Authorization = `Bearer ${token}`;
+      } catch {
+        // ignore
+      }
+      return headers;
+    });
+    const off = onNetworkChange((online) => {
+      if (online) {
+        processQueueOnce();
+        processAppwriteQueueOnce();
+      }
+    });
+    return () => off();
+  }, []);
+
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen">
-        <Loading size="lg" text="Loading application..." />
-      </div>
-    );
+    return null; // Splash screen will show instead
   }
 
   if (!isAuthenticated) {
     return (
-      <Suspense fallback={<div className="flex items-center justify-center h-screen"><Loading size="lg" text="Loading page..." /></div>}>
+      <Suspense fallback={null}>
         <Switch>
           <Route path="/"><Landing /></Route>
           <Route path="/login"><LoginPage /></Route>
@@ -86,6 +106,7 @@ function Router() {
 
   return (
     <div className="h-screen flex bg-background">
+      <OfflineBanner />
       {/* Desktop Sidebar */}
       <Sidebar
         className="hidden lg:block"
@@ -190,6 +211,7 @@ function App() {
   return (
     <>
       <ThemeInitializer />
+      <SplashScreen />
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
           <Toaster />

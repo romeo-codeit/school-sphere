@@ -1,6 +1,6 @@
 # Development Tools & Guidelines
 
-This document outlines development tools, testing utilities, and best practices for the SchoolSphere application.
+This document outlines development tools, testing utilities, and best practices for the OhmanFoundations application.
 
 ## Performance Testing
 

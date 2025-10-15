@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">OhmanFoundation</string>
     <string name="title_activity_main">OhmanFoundation</string>
-    <string name="package_name">com.romeocodeit.schoolsphere</string>
-    <string name="custom_url_scheme">com.romeocodeit.schoolsphere</string>
+    <string name="package_name">com.romeocodeit.ohmanfoundations</string>
+    <string name="custom_url_scheme">com.romeocodeit.ohmanfoundations</string>
 </resources>

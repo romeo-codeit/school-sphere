@@ -178,9 +178,6 @@ function ExamsPage() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📝 Exams Performance Testing available in console:');
-      console.log('  window.examsPerfTest.testPerformance() - Run performance test');
-      console.log('  window.examsPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

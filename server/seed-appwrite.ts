@@ -54,6 +54,8 @@ const collections = [
       { id: 'parentName', type: 'string', size: 255, required: false },
       { id: 'role', type: 'string', size: 50, required: false },
       { id: 'bio', type: 'string', size: 1024, required: false },
+      { id: 'firstName', type: 'string', size: 255, required: false },
+      { id: 'lastName', type: 'string', size: 255, required: false },
       // Account approval fields
       { id: 'accountStatus', type: 'string', size: 50, required: false, default: 'pending' }, // 'pending', 'approved', 'rejected', 'suspended'
       { id: 'approvedBy', type: 'string', size: 255, required: false }, // Admin user ID who approved
@@ -391,12 +393,12 @@ const collections = [
 async function createDatabaseIfNotExists() {
   try {
     await databases.get(APPWRITE_DATABASE_ID!!);
-    console.log('Database exists.');
+  // ...existing code...
   } catch (error: any) {
     if (error.code === 404) {
       try {
         await databases.create(APPWRITE_DATABASE_ID!, APPWRITE_DATABASE_NAME);
-        console.log(`Database '${APPWRITE_DATABASE_NAME}' created.`);
+  // ...existing code...
       } catch (creationError) {
         console.error("Error creating database:", creationError);
         throw creationError;
@@ -404,7 +406,7 @@ async function createDatabaseIfNotExists() {
     } else if (error.code === 401) {
       // API key doesn't have permission to check database existence
       // Assume database exists and continue
-      console.log('Database check skipped due to API key permissions. Assuming database exists.');
+  // ...existing code...
     } else {
       console.error("Error checking database:", error);
       throw error;
@@ -413,7 +415,7 @@ async function createDatabaseIfNotExists() {
 }
 
 async function seedCollections() {
-  console.log('Seeding collections...');
+  // ...existing code...
 
 
 
@@ -422,18 +424,18 @@ async function seedCollections() {
       await databases.getCollection(APPWRITE_DATABASE_ID!, collection.id);
     } catch (error: any) {
       if (error.code === 404) {
-        console.log(`Creating collection '${collection.name}'...`);
+  // ...existing code...
         await databases.createCollection(APPWRITE_DATABASE_ID!, collection.id, collection.name, [
           Permission.read(Role.any()),
           Permission.create(Role.users()),
           Permission.update(Role.users()),
           Permission.delete(Role.users()),
         ]);
-        console.log(`Collection '${collection.name}' created.`);
+  // ...existing code...
       } else if (error.code === 401) {
         // API key doesn't have permission to check collection existence
         // Assume collection exists and continue
-        console.log(`Collection '${collection.name}' check skipped due to API key permissions. Assuming it exists.`);
+  // ...existing code...
       } else {
         console.error(`Error checking collection '${collection.name}':`, error);
         throw error;
@@ -484,11 +486,11 @@ async function seedCollections() {
         }
       } catch (error: any) {
         if (error.code === 401) {
-          console.log(`Attribute '${attr.id}' creation skipped due to API key permissions. Assuming it exists.`);
+          // ...existing code...
         } else if (error.code === 409) {
-          console.log(`Attribute '${attr.id}' already exists in collection '${collection.name}'. Skipping.`);
+          // ...existing code...
         } else if (error.code === 400 && error.type === 'attribute_limit_exceeded') {
-          console.log(`Attribute '${attr.id}' creation skipped due to collection attribute limit. Collection '${collection.name}' has reached maximum attributes.`);
+          // ...existing code...
         } else {
           console.error(`Error creating attribute '${attr.id}' in collection '${collection.name}':`, error);
         }
@@ -535,14 +537,14 @@ async function seedCollections() {
       }
     } catch (e: any) {
       if (e.code === 409) {
-        console.log(`Indexes already exist for '${collection.name}'. Skipping.`);
+  // ...existing code...
       } else if (e.code !== 401) {
-        console.warn(`Index creation warning for '${collection.name}':`, e?.message || e);
+  // ...existing code...
       }
     }
   }
 
-  console.log('Collection seeding complete.');
+  // ...existing code...
 }
 
 const demoUsers = [

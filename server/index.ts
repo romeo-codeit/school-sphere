@@ -1,9 +1,88 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { logger, logError, logInfo, Sentry } from "./logger";
 
 const app = express();
+
+// Sentry Request Handler - must be first middleware
+if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
+  app.use(Sentry.setupExpressErrorHandler(app) as any);
+}
+
+// Security Headers - Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      connectSrc: [
+        "'self'",
+        process.env.VITE_APPWRITE_ENDPOINT || "",
+        "https://cloud.appwrite.io",
+      ],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+}));
+
+// CORS Configuration
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      process.env.PRODUCTION_URL || '',
+      'https://yourdomain.com', // Replace with your actual domain
+    ].filter(Boolean)
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000'];
+
+app.use(cors({
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health', // Don't rate limit health checks
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit to 5 login attempts per 15 minutes
+  message: 'Too many authentication attempts, please try again later.',
+  skipSuccessfulRequests: true,
+});
+
+// Apply rate limiting
+app.use('/api/', generalLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -15,7 +94,7 @@ app.use(express.urlencoded({ extended: false }));
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    console.error(err); // Log the error instead of crashing the server
+    logError(err, { status }); // Log with Winston and Sentry
   });
 
   // importantly only setup vite in development and after
@@ -36,6 +115,9 @@ app.use(express.urlencoded({ extended: false }));
     port,
     host: "127.0.0.1",
   }, () => {
-    log(`serving on port ${port}`);
+    logInfo(`OhmanFoundations server started on port ${port}`, { 
+      environment: process.env.NODE_ENV || 'development',
+      port 
+    });
   });
 })();

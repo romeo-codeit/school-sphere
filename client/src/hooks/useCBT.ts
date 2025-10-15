@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
+import { isOnline, queueRequest } from '@/lib/offline';
 
 const API_BASE = '/api/cbt';
 
@@ -8,12 +9,23 @@ export function useAssignedExams() {
   return useQuery({
     queryKey: ['cbt-exams-assigned'],
     queryFn: async () => {
-      const jwt = await getJWT();
-      const res = await fetch(`${API_BASE}/exams/assigned`, {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-      });
-      if (!res.ok) throw new Error('Failed to fetch assigned exams');
-      return (await res.json()) as { exams: any[]; total: number };
+      const cacheKey = 'cache:cbt:exams:assigned';
+      try {
+        const jwt = await getJWT();
+        const res = await fetch(`${API_BASE}/exams/assigned`, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        });
+        if (!res.ok) throw new Error('Failed to fetch assigned exams');
+        const data = (await res.json()) as { exams: any[]; total: number };
+        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+        return data;
+      } catch (e) {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (raw) return JSON.parse(raw);
+        } catch {}
+        throw e;
+      }
     },
   });
 }
@@ -23,12 +35,23 @@ export function useAvailableExams() {
   return useQuery({
     queryKey: ['cbt-exams-available'],
     queryFn: async () => {
-      const jwt = await getJWT();
-      const res = await fetch(`${API_BASE}/exams/available`, {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-      });
-      if (!res.ok) throw new Error('Failed to fetch available exams');
-      return (await res.json()) as { exams: any[]; total: number; message?: string };
+      const cacheKey = 'cache:cbt:exams:available';
+      try {
+        const jwt = await getJWT();
+        const res = await fetch(`${API_BASE}/exams/available`, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        });
+        if (!res.ok) throw new Error('Failed to fetch available exams');
+        const data = (await res.json()) as { exams: any[]; total: number; message?: string };
+        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
+        return data;
+      } catch (e) {
+        try {
+          const raw = localStorage.getItem(cacheKey);
+          if (raw) return JSON.parse(raw);
+        } catch {}
+        throw e;
+      }
     },
   });
 }
@@ -145,6 +168,15 @@ export function useAutosaveAttempt() {
   const { getJWT } = useAuth();
   return useMutation({
     mutationFn: async (payload: { attemptId: string; answers?: Record<string, any>; timeSpent?: number }) => {
+      if (!isOnline()) {
+        await queueRequest({
+          url: `${API_BASE}/attempts/autosave`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        return { ok: true, attempt: null } as any;
+      }
       const jwt = await getJWT();
       const res = await fetch(`${API_BASE}/attempts/autosave`, {
         method: 'POST',

@@ -146,23 +146,47 @@ export function AdminDashboard() {
     studentGenderData[1].value = femaleStudents;
   }
 
+  const [retryCount, setRetryCount] = useState(0);
+  const MAX_RETRIES = 3;
+
   if (isLoading) {
     return <AdminDashboardSkeleton />;
   }
 
   if (isError) {
+    if (retryCount < MAX_RETRIES) {
+      setTimeout(() => setRetryCount(c => c + 1), 1500);
+      return (
+        <div className="p-6 flex flex-col items-center justify-center">
+          <AdminDashboardSkeleton />
+          <div className="mt-4 text-sm text-muted-foreground">Retrying to load dashboard... ({retryCount + 1}/{MAX_RETRIES})</div>
+        </div>
+      );
+    }
     return (
-      <div className="p-6">
-        <Alert variant="destructive">
+      <div className="p-6 flex flex-col items-center justify-center">
+        <Alert variant="destructive" className="max-w-md w-full">
           <TriangleAlert className="h-4 w-4" />
           <AlertTitle>Error Loading Dashboard</AlertTitle>
           <AlertDescription>
-            There was a problem fetching the required data. Please try refreshing the page.
+            There was a problem fetching the required data.<br />
+            <Button variant="outline" className="mt-2" onClick={() => setRetryCount(0)}>
+              Retry
+            </Button>
           </AlertDescription>
         </Alert>
       </div>
     );
   }
+
+  // Graceful fallback for missing data
+  const safeStats = stats || {};
+  const safeStudents = students || [];
+  const safePayments = payments || [];
+  const safeExams = exams || [];
+  const safeAttendance = attendance || [];
+  const safeActivities = recentActivities || [];
+  const safeNotices = notices || [];
 
   return (
     <>

@@ -1,8 +1,8 @@
-# EduManage - School Management System
+# OhmanFoundations - School Management System
 
 ## Overview
 
-EduManage is a comprehensive school management system built as a full-stack web application. The platform provides functionality for managing students, teachers, exams, payments, resources, and internal communications within an educational institution.
+OhmanFoundations is a comprehensive school management system built as a full-stack web application. The platform provides functionality for managing students, teachers, exams, payments, resources, and internal communications within an educational institution.
 
 This version of the application has been refactored to use **Appwrite** as its backend-as-a-service (BaaS), handling authentication, database, and storage.
 
@@ -78,3 +78,45 @@ npm run dev
 The application will be available at the URL provided in the terminal (usually `http://localhost:5000` or a similar port).
 
 Now you can open your browser and test the application by logging in with the demo users.
+
+## Production Features
+
+OhmanFoundations includes enterprise-grade production features:
+
+### Security
+- **Helmet.js**: Security headers (CSP, HSTS, X-Frame-Options)
+- **CORS**: Configurable cross-origin request handling
+- **Rate Limiting**: API and authentication endpoint protection
+
+### Logging & Monitoring
+- **Winston**: Structured JSON logging with file rotation
+- **Sentry**: Real-time error tracking and performance monitoring
+- **Health Check**: `/health` endpoint for uptime monitoring
+
+### Deployment
+- **Docker**: Production-ready containerization
+- **Railway/Vercel**: Cloud deployment configurations
+- **Environment-based config**: Development and production modes
+
+For detailed production setup, see:
+- [LOGGING_MONITORING.md](./LOGGING_MONITORING.md) - Logging and monitoring guide
+- [SECURITY_IMPLEMENTATION.md](./SECURITY_IMPLEMENTATION.md) - Security features
+- [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) - Deployment instructions
+
+## Environment Variables
+
+### Required Variables
+```bash
+# Appwrite Configuration
+VITE_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+VITE_APPWRITE_PROJECT_ID=your-project-id
+VITE_APPWRITE_DATABASE_ID=your-database-id
+APPWRITE_API_KEY=your-api-key
+
+# Production (Optional)
+NODE_ENV=production
+SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
+PRODUCTION_URL=https://yourdomain.com
+PORT=5000
+```
+

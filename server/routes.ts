@@ -1,7 +1,46 @@
+  // Zod schema for teacher validation
+  const teacherSchema = z.object({
+    employeeId: z.string().min(1),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email().optional().or(z.literal('')),
+    phone: z.string().optional(),
+    gender: z.string().optional(),
+    subjects: z.array(z.string()).optional(),
+    qualification: z.string().optional(),
+    experience: z.number().optional(),
+    status: z.string(),
+  });
+
+  // Zod schema for attendance validation
+  const attendanceSchema = z.object({
+    studentId: z.string().min(1),
+    date: z.string().min(1),
+    status: z.string().min(1),
+    remarks: z.string().optional(),
+  });
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { Client, Users, ID, Databases, Query } from 'node-appwrite';
 import { auth } from './middleware';
+import { z } from 'zod';
+  // Zod schema for student validation
+  const studentSchema = z.object({
+    studentId: z.string().min(1),
+    firstName: z.string().min(1),
+    lastName: z.string().min(1),
+    email: z.string().email().optional().or(z.literal('')),
+    phone: z.string().optional(),
+    dateOfBirth: z.string().optional(),
+    gender: z.string().optional(),
+    address: z.string().optional(),
+    parentName: z.string().optional(),
+    parentPhone: z.string().optional(),
+    parentEmail: z.string().email().optional().or(z.literal('')),
+    classId: z.string().min(1),
+    status: z.string(),
+  });
+import { logInfo, logWarn, logError, logDebug } from './logger';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
@@ -64,7 +103,7 @@ function setCachedExam(cacheKey: string, data: any, ttl: number = CACHE_TTL): vo
 
   // Log cache size for monitoring
   if (practiceExamCache.size > 50) {
-    console.warn(`[CACHE] Practice exam cache size: ${practiceExamCache.size} entries`);
+    logWarn(`Practice exam cache size: ${practiceExamCache.size} entries`, { cacheSize: practiceExamCache.size });
   }
 }
 
@@ -81,7 +120,7 @@ setInterval(() => {
   });
 
   if (cleaned > 0) {
-    console.log(`[CACHE] Cleaned up ${cleaned} expired practice exam cache entries`);
+    logInfo(`Cleaned up ${cleaned} expired practice exam cache entries`, { cleaned });
   }
 }, 5 * 60 * 1000); // Run cleanup every 5 minutes
 
@@ -234,6 +273,17 @@ const collections = [
 export async function registerRoutes(app: Express): Promise<Server> {
   const httpServer = createServer(app);
 
+  // Health Check Endpoint
+  app.get('/health', (req, res) => {
+    res.status(200).json({
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
+    });
+  });
+
   app.post('/api/users', async (req, res) => {
     const { email, password, name, role } = req.body;
 
@@ -363,8 +413,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Generic CRUD endpoints for all collections
   for (const collection of collections) {
-    // List documents
-    app.get(`/api/${collection}`, async (req, res) => {
+    // List documents (auth required)
+    app.get(`/api/${collection}`, auth, async (req, res) => {
       try {
         const queries = [];
         for (const key in req.query) {
@@ -379,7 +429,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (!collection) {
           return res.status(400).json({ message: 'Missing collection name' });
         }
-  const response = await databases.listDocuments(APPWRITE_DATABASE_ID!, String(collection), queries);
+        // Only allow students to fetch their own profile
+        if (collection === 'students') {
+          const sessionUser: any = (req as any).user;
+          if (sessionUser?.prefs?.role === 'student') {
+            queries.push(Query.equal('userId', sessionUser.$id));
+          }
+        }
+        const response = await databases.listDocuments(APPWRITE_DATABASE_ID!, String(collection), queries);
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -387,13 +444,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Get document
-    app.get(`/api/${collection}/:id`, async (req, res) => {
+    // Get document (auth required)
+    app.get(`/api/${collection}/:id`, auth, async (req, res) => {
       try {
         if (!collection || !req.params.id) {
           return res.status(400).json({ message: 'Missing collection name or document ID' });
         }
-  const response = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+        // Only allow students to fetch their own profile
+        if (collection === 'students') {
+          const sessionUser: any = (req as any).user;
+          const doc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (sessionUser?.prefs?.role === 'student' && doc.userId !== sessionUser.$id) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+          return res.json(doc);
+        }
+        const response = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -401,13 +467,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Create document
-    app.post(`/api/${collection}`, async (req, res) => {
+    // Create document (auth required, role check)
+    app.post(`/api/${collection}`, auth, async (req, res) => {
       try {
         if (!collection) {
           return res.status(400).json({ message: 'Missing collection name' });
         }
-  const response = await databases.createDocument(APPWRITE_DATABASE_ID!, String(collection), ID.unique(), req.body);
+        const sessionUser: any = (req as any).user;
+        // Only admins can create teachers/teachersToClasses
+        if ((collection === 'teachers' || collection === 'teachersToClasses') && sessionUser?.prefs?.role !== 'admin') {
+          return res.status(403).json({ message: 'Admin access required' });
+        }
+        // Students can only create/update their own profile
+        if (collection === 'students') {
+          req.body.userId = sessionUser.$id;
+          // Validate student data
+          const parseResult = studentSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        if (collection === 'teachers') {
+          // Validate teacher data
+          const parseResult = teacherSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        if (collection === 'attendance') {
+          // Validate attendance data
+          const parseResult = attendanceSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        const response = await databases.createDocument(APPWRITE_DATABASE_ID!, String(collection), ID.unique(), req.body);
         res.status(201).json(response);
       } catch (error) {
         console.error(error);
@@ -415,13 +509,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Update document
-    app.put(`/api/${collection}/:id`, async (req, res) => {
+    // Update document (auth required, role check)
+    app.put(`/api/${collection}/:id`, auth, async (req, res) => {
       try {
         if (!collection || !req.params.id) {
           return res.status(400).json({ message: 'Missing collection name or document ID' });
         }
-  const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
+        const sessionUser: any = (req as any).user;
+        // Only admins can update teachers/teachersToClasses
+        if ((collection === 'teachers' || collection === 'teachersToClasses') && sessionUser?.prefs?.role !== 'admin') {
+          return res.status(403).json({ message: 'Admin access required' });
+        }
+        // Students can only update their own profile
+        if (collection === 'students') {
+          const doc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (doc.userId !== sessionUser.$id) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+          // Validate student data
+          const parseResult = studentSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        if (collection === 'teachers') {
+          // Validate teacher data
+          const parseResult = teacherSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        if (collection === 'attendance') {
+          // Validate attendance data
+          const parseResult = attendanceSchema.safeParse(req.body);
+          if (!parseResult.success) {
+            return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
+          }
+        }
+        const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
         res.json(response);
       } catch (error) {
         console.error(error);
@@ -429,13 +554,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     });
 
-    // Delete document
-    app.delete(`/api/${collection}/:id`, async (req, res) => {
+    // Delete document (auth required, role check)
+    app.delete(`/api/${collection}/:id`, auth, async (req, res) => {
       try {
         if (!collection || !req.params.id) {
           return res.status(400).json({ message: 'Missing collection name or document ID' });
         }
-  await databases.deleteDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+        const sessionUser: any = (req as any).user;
+        // Only admins can delete teachers/teachersToClasses
+        if ((collection === 'teachers' || collection === 'teachersToClasses') && sessionUser?.prefs?.role !== 'admin') {
+          return res.status(403).json({ message: 'Admin access required' });
+        }
+        // Students can only delete their own profile
+        if (collection === 'students' && sessionUser?.prefs?.role === 'student') {
+          const doc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (doc.userId !== sessionUser.$id) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        await databases.deleteDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.status(204).send();
       } catch (error) {
         console.error(error);
@@ -681,7 +818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/cbt/exams/:id', auth, async (req, res) => {
     try {
       const examId = String(req.params.id || '').trim();
-      console.log('[CBT] GET /api/cbt/exams/:id', { id: examId });
+      logDebug('GET /api/cbt/exams/:id', { id: examId });
 
       // Basic validation for missing/placeholder ids
       if (!examId || examId === 'undefined' || examId === 'null') {
@@ -704,11 +841,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const cachedExam = getCachedExam(cacheKey);
 
         if (cachedExam) {
-          console.log('[CBT] Serving cached practice exam:', cacheKey);
+          logDebug('Serving cached practice exam', { cacheKey });
           return res.json(cachedExam);
         }
 
-        console.log('[CBT] Generating new practice exam:', { type, subjects: selectedSubjects, year: yearParam });
+        logInfo('Generating new practice exam', { type, subjects: selectedSubjects, year: yearParam });
 
         // Fetch questions using optimized function
         const questions = await fetchPracticeExamQuestions(type, selectedSubjects, yearParam);
@@ -781,7 +918,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Debug: If ?debug=1, fetch only one exam, no questions
       if (req.query.debug === '1') {
-        console.log('[CBT] Debug mode: fetching only one exam (no questions)');
+        logDebug('Debug mode: fetching only one exam (no questions)');
         const result = await databases.listDocuments(
           APPWRITE_DATABASE_ID!,
           'exams',
@@ -1052,7 +1189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       const t = String(type).toLowerCase();
       
-      console.log('[CBT] Received validation request:', { type: t, selectedSubjects, year });
+      logDebug('Received validation request', { type: t, selectedSubjects, year });
 
       // Basic validation rules
       if (t === 'jamb') {
@@ -1062,19 +1199,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
         };
         const lowerSubjects = selectedSubjects.map((s) => normalize(s));
-        console.log('[CBT] JAMB validation - original subjects:', selectedSubjects);
-        console.log('[CBT] JAMB validation - normalized subjects:', lowerSubjects);
+        logDebug('JAMB validation - original subjects', { selectedSubjects });
+        logDebug('JAMB validation - normalized subjects', { lowerSubjects });
 
         const hasEnglish = lowerSubjects.some(isEnglish);
-        console.log('[CBT] JAMB validation - hasEnglish check result:', hasEnglish);
+        logDebug('JAMB validation - hasEnglish check result', { hasEnglish });
         if (!hasEnglish) {
-          console.log('[CBT] JAMB validation FAILED: English not found in', lowerSubjects);
+          logWarn('JAMB validation FAILED: English not found', { lowerSubjects });
           return res.status(400).json({ message: 'English is mandatory for JAMB' });
         }
 
         // Count non-English subjects
         const nonEnglishCount = lowerSubjects.filter((s) => !isEnglish(s)).length;
-        console.log('[CBT] JAMB validation - non-English subjects:', nonEnglishCount);
+        logDebug('JAMB validation - non-English subjects', { nonEnglishCount });
         if (nonEnglishCount !== 3) {
           return res.status(400).json({ message: 'Select exactly 3 additional subjects for JAMB' });
         }
@@ -1101,7 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let totalExamsScanned = 0;
       let matchingExams: any[] = [];
       
-      console.log('[CBT] Validating subjects:', { type: t, selectedSubjects: lowerSubs });
+      logDebug('Validating subjects', { type: t, selectedSubjects: lowerSubs });
       
       while (true) {
         const page = await databases.listDocuments(
@@ -1160,7 +1297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (offset >= (page.total || offset) || page.documents.length === 0) break;
       }
 
-      console.log('[CBT] Validation results:', { 
+      logInfo('Validation results', { 
         totalExamsScanned, 
         matchingExams: matchingExams.length,
         availability,
@@ -1204,7 +1341,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const type = String(req.query.type || '').toLowerCase();
       if (!type) return res.status(400).json({ message: 'type is required' });
 
-      console.log('[CBT] Fetching available subjects for type:', type);
+      logDebug('Fetching available subjects for type', { type });
 
       // Derive from exams to ensure only subjects that exist appear (case-insensitive type),
       // and collapse duplicates like "Agricultural Science" vs "AgriculturalScience"
@@ -1239,7 +1376,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const subjectArray = Array.from(subjectMap.values()).sort();
-      console.log('[CBT] Found subjects for', type, ':', { 
+      logInfo('Found subjects for exam type', { 
+        type,
         count: subjectArray.length, 
         subjects: subjectArray,
         matchingExams 
