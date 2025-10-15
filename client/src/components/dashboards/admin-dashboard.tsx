@@ -44,7 +44,7 @@ import { TriangleAlert } from "lucide-react";
 import { useAdminDashboardPerformanceTest } from "@/hooks/useAdminDashboardPerformanceTest";
 
 export function AdminDashboard() {
-  const { user } = useAuth();
+  const { user, getJWT } = useAuth();
   // Local state for richer profile name (first + last) sourced from userProfiles collection
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [profileLoading, setProfileLoading] = useState<boolean>(true);
@@ -56,7 +56,10 @@ export function AdminDashboard() {
       try {
         setProfileLoading(true);
         setProfileError(null);
-        const jwtResp = await fetch('/api/users/me').catch(() => null);
+        const jwt = await getJWT();
+        const jwtResp = jwt
+          ? await fetch('/api/users/me', { headers: { Authorization: `Bearer ${jwt}` } }).catch(() => null)
+          : null;
         if (!jwtResp || !jwtResp.ok) {
           if (!cancelled) setDisplayName(user?.name || null);
           return;
