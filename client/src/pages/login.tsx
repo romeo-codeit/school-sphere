@@ -107,7 +107,7 @@ export default function LoginPage() {
       let userRole: string | null = null;
       try {
         const jwt = await getJWT();
-        const res = await fetch('/api/users/me', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+        const res = await fetch('/api/users/me', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           userRole = data?.role || null;
