@@ -268,6 +268,7 @@ const collections = [
   'forumThreads',
   'activities',
   'classes',
+  'school',
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -282,6 +283,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment: process.env.NODE_ENV || 'development',
       version: '1.0.0',
     });
+  });
+
+  // School settings endpoints (single-document semantics)
+  app.get('/api/school', auth, async (req, res) => {
+    try {
+      const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'school', [Query.limit(1)]);
+      return res.json(page);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to fetch school settings' });
+    }
+  });
+
+  app.put('/api/school', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+      const data = req.body || {};
+      // Basic validation of required fields
+      const required = ['schoolName','address','phone','email'];
+      for (const k of required) {
+        if (!String((data as any)[k] || '').trim()) {
+          return res.status(400).json({ message: `Missing required field: ${k}` });
+        }
+      }
+      const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'school', [Query.limit(1)]);
+      let doc;
+      if (page.total > 0) {
+        doc = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'school', String(page.documents[0].$id), data);
+      } else {
+        doc = await databases.createDocument(APPWRITE_DATABASE_ID!, 'school', ID.unique(), data);
+      }
+      return res.json(doc);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Failed to update school settings' });
+    }
   });
 
   app.post('/api/users', async (req, res) => {

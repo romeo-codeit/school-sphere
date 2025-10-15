@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useCommunicationsPerformanceTest() {
   const queryClient = useQueryClient();
+  const { getJWT } = useAuth();
 
   const testPerformance = async () => {
     const startTime = performance.now();
@@ -9,9 +11,14 @@ export function useCommunicationsPerformanceTest() {
     try {
       // Test forum threads query performance
       const forumQueryStart = performance.now();
+      const jwt = await getJWT();
       await queryClient.prefetchQuery({
         queryKey: ['forum_threads'],
-        queryFn: () => fetch('/api/forum/threads').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/forum/threads', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const forumQueryTime = performance.now() - forumQueryStart;
@@ -20,7 +27,11 @@ export function useCommunicationsPerformanceTest() {
       const conversationsQueryStart = performance.now();
       await queryClient.prefetchQuery({
         queryKey: ['conversations', 'user-id'],
-        queryFn: () => fetch('/api/conversations').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/conversations', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const conversationsQueryTime = performance.now() - conversationsQueryStart;
@@ -29,7 +40,11 @@ export function useCommunicationsPerformanceTest() {
       const usersQueryStart = performance.now();
       await queryClient.prefetchQuery({
         queryKey: ['users'],
-        queryFn: () => fetch('/api/users').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/users', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const usersQueryTime = performance.now() - usersQueryStart;

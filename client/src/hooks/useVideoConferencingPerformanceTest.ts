@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useVideoConferencingPerformanceTest() {
   const queryClient = useQueryClient();
+  const { getJWT } = useAuth();
 
   const testPerformance = async () => {
     const startTime = performance.now();
@@ -9,9 +11,14 @@ export function useVideoConferencingPerformanceTest() {
     try {
       // Test meetings query performance
       const meetingsQueryStart = performance.now();
+      const jwt = await getJWT();
       await queryClient.prefetchQuery({
         queryKey: ['meetings'],
-        queryFn: () => fetch('/api/meetings').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/meetings', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const meetingsQueryTime = performance.now() - meetingsQueryStart;
@@ -20,7 +27,11 @@ export function useVideoConferencingPerformanceTest() {
       const classesQueryStart = performance.now();
       await queryClient.prefetchQuery({
         queryKey: ['classes'],
-        queryFn: () => fetch('/api/classes').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/classes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const classesQueryTime = performance.now() - classesQueryStart;

@@ -1,8 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from './useAuth';
 import { useStudents } from './useStudents';
 
 export function useStudentsPerformanceTest() {
   const queryClient = useQueryClient();
+  const { getJWT } = useAuth();
 
   const testPerformance = async () => {
     const startTime = performance.now();
@@ -10,9 +12,14 @@ export function useStudentsPerformanceTest() {
     try {
       // Test students query performance
       const studentsQueryStart = performance.now();
+      const jwt = await getJWT();
       await queryClient.prefetchQuery({
         queryKey: ['students', { page: 1, limit: 10 }],
-        queryFn: () => fetch('/api/students?page=1&limit=10').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/students?page=1&limit=10', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const studentsQueryTime = performance.now() - studentsQueryStart;
@@ -21,7 +28,11 @@ export function useStudentsPerformanceTest() {
       const searchQueryStart = performance.now();
       await queryClient.prefetchQuery({
         queryKey: ['students', { page: 1, limit: 10, search: 'test' }],
-        queryFn: () => fetch('/api/students?page=1&limit=10&search=test').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/students?page=1&limit=10&search=test', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const searchQueryTime = performance.now() - searchQueryStart;

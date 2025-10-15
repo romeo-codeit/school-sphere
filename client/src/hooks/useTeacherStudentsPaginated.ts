@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 
 interface TeacherStudentsFilters {
   limit?: number;
@@ -8,11 +9,13 @@ interface TeacherStudentsFilters {
 
 export function useTeacherStudentsPaginated(filters: TeacherStudentsFilters = {}) {
   const { limit = 50, offset = 0, enabled = true } = filters;
+  const { getJWT } = useAuth();
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['teacher-students-paginated', limit, offset],
     queryFn: async () => {
-      const response = await fetch(`/api/teacher/students?limit=${limit}&offset=${offset}`);
+      const jwt = await getJWT();
+      const response = await fetch(`/api/teacher/students?limit=${limit}&offset=${offset}`, { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
       if (!response.ok) {
         throw new Error('Failed to fetch teacher students');
       }

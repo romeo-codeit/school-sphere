@@ -22,13 +22,13 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "https://meet.jit.si"],
       connectSrc: [
         "'self'",
         process.env.VITE_APPWRITE_ENDPOINT || "",
         "https://cloud.appwrite.io",
       ],
-      frameSrc: ["'none'"],
+      frameSrc: ["'self'", "https://meet.jit.si"],
     },
   },
   hsts: {

@@ -114,7 +114,7 @@ type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, getJWT } = useAuth();
   const { theme, setTheme, primaryColor, setPrimaryColor } = useTheme();
   const userId = user?.$id || "";
   const { profile, isLoading: isLoadingProfile, upsertUserProfile } = useUserProfile(userId);
@@ -246,10 +246,11 @@ export default function Settings() {
 
   const onSchoolSubmit = async (data: SchoolFormData) => {
     try {
+      const jwt = await getJWT();
       // Implement school update logic here (call backend API)
       await fetch('/api/school', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
         body: JSON.stringify(data),
       });
       toast({ title: "Success", description: "School settings updated successfully" });
