@@ -1,0 +1,120 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><title>SchoolSphere — Client User Guide</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; color: #111; line-height: 1.5; padding: 24px; }
+  h1,h2,h3 { color: #0f172a; }
+  img { max-width: 100%; border: 1px solid #e5e7eb; border-radius: 8px; margin: 12px 0; }
+  code, pre { background: #f8fafc; padding: 2px 4px; border-radius: 4px; }
+  hr { border: none; border-top: 1px solid #e5e7eb; margin: 24px 0; }
+</style>
+</head><body>
+<article>
+<h2>SchoolSphere — Client User Guide</h2><br/><br/>Welcome to SchoolSphere! This friendly guide explains how to use every major feature, in the natural order a customer experiences the product: from signing up, to daily tasks, to signing out. It’s written for non‑technical users.<br/><br/>Tip: If you ever get stuck, look for a Save, Submit, or Continue button on the screen, or use the Back button in your browser.<br/><br/><hr/><br/><br/><h2>1) Getting Started</h2><br/><br/><img src="docs/images/landing.svg"/><br/><br/><h3>Supported devices and browsers</h3><ul><li>Desktop or laptop with a modern browser (Chrome, Edge, Safari, Firefox)</li><ul><li>Recent Android/iOS devices using Chrome/Safari</li></ul>
+<h3>Create your account (Sign Up)</h3>
+<img src="docs/images/signup.svg"/>
+Click Sign Up from the top of the site.
+Enter your full name, email, and password.
+Choose your role:
+   - Student
+   - Teacher
+   - Parent
+   - Guest (for practice exams only)
+Click Sign Up.<br/><br/>Notes:<ul><li>Guests can start right away (with limited access) and later activate practice exams with a code.</li><ul><li>Other roles may require an Admin to approve your account (see “Account Approval” below).</li></ul>
+<h3>Sign In (Login)</h3>
+<img src="docs/images/login.svg"/>
+Click Login.
+Enter your email and password.
+Click Sign In.
+You’ll land on your Dashboard—what you see depends on your role (Admin, Teacher, Student/Parent, or Guest).<br/><br/><hr/><br/><br/><h2>2) The Dashboard (Home)</h2><br/><br/>The Dashboard is your home page after login. It shows quick stats and shortcuts most relevant to your role.<br/><br/><h3>Admin Dashboard</h3>
+<img src="docs/images/dashboard-admin.svg)<ul><li>Welcome header with your name</li><ul><li>Key Stats: Total Students, Active Teachers, Pending Payments, Average Attendance</li><ul><li>Weekly Attendance Chart</li><ul><li>Students Progress donut chart</li><ul><li>Event Calendar</li><ul><li>School Notices</li><ul><li>Recent Activity feed</li><ul><li>Management tools:</li></ul>  - Subscription Manager (manage user access to practice exams"/>
+  - Account Approval Manager (approve new user accounts)<br/><br/><h3>Teacher Dashboard</h3>
+![Dashboard — Teacher](docs/images/dashboard-teacher.svg)<ul><li>Quick view of classes, attendance shortcuts, recent activity, and upcoming items</li></ul>
+<h3>Student/Parent Dashboard</h3>
+![Dashboard — Student/Parent](docs/images/dashboard-student.svg)<ul><li>Personal snapshot: recent attendance, notices, and key links</li></ul>
+<hr/><br/><br/><h2>3) Navigation</h2><ul><li>Sidebar (left): main sections—Students, Teachers, Exams, Attendance, Communications, Payments, Resources, Settings, and more</li><ul><li>Top bar: page title, optional search, profile menu (for Sign Out)</li><ul><li>You’ll only see the sections allowed for your role (see RBAC section near the end).</li></ul>
+<hr/><br/><br/><h2>4) Students (Admin & Teacher)</h2><br/><br/><h3>View Students</h3>
+![Students](docs/images/students.svg)<ul><li>Go to Students to see the list</li><ul><li>Use search and filters to find specific students</li></ul>
+<h3>Add or Edit a Student</h3>
+Click Create (or Edit on a student)
+Fill in details (name, email, class, etc.)
+Save<br/><br/><h3>Delete a Student (Admin/authorized roles)</h3><ul><li>Click Delete on the student you wish to remove</li></ul>
+<h3>Student Profile (Admin/Teacher; Student/Parent see their own)</h3>
+![Student Profile](docs/images/student-profile.svg)<ul><li>View student details, grades, attendance history, and related records</li></ul>
+<hr/><br/><br/><h2>5) Teachers (Admin)</h2><br/><br/><h3>View Teachers</h3>
+![Teachers](docs/images/teachers.svg)<ul><li>Go to Teachers; search and filter as needed</li></ul>
+<h3>Add/Update/Delete Teacher</h3><ul><li>Click Create or Edit to maintain teacher records</li><ul><li>Save your changes</li></ul>
+<h3>Teacher Profile (Admin/Teacher)</h3>
+![Teacher Profile](docs/images/teacher-profile.svg)<ul><li>See teacher details, assigned classes, and related information</li></ul>
+<hr/><br/><br/><h2>6) Classes (Admin & Teacher)</h2><ul><li>Teachers see classes they teach</li><ul><li>Admins manage classes via student and teacher records</li><ul><li>Classes are used throughout exams, attendance, and video meetings</li></ul>
+<hr/><br/><br/><h2>7) Attendance</h2><br/><br/><h3>Attendance Hub (Admin/Teacher)</h3>
+![Attendance Hub](docs/images/attendance-hub.svg)<ul><li>Links to Take Attendance, Historical Attendance, and Attendance Reports</li></ul>
+<h3>Take Attendance (Admin/Teacher)</h3>
+<img src="docs/images/attendance-take.svg"/>
+Choose a Class
+   - If you’re a teacher with a single class, it’s selected automatically
+For each student, choose Present, Absent, Late, or Excused
+Click Submit to save<br/><br/><h3>Historical Attendance (Admin/Teacher)</h3>
+![Historical Attendance](docs/images/attendance-history.svg)<ul><li>Review past attendance records</li><ul><li>Filter by date, class, or student</li></ul>
+<h3>My Attendance (Student/Parent)</h3><ul><li>See personal attendance history</li></ul>
+<h3>Attendance Reports (Admin)</h3>
+![Attendance Reports](docs/images/attendance-reports.svg)<ul><li>Aggregated analytics (e.g., averages, trends)</li></ul>
+<hr/><br/><br/><h2>8) Exams</h2><br/><br/>The Exams section includes two parts: Practice Hub (standardized exams like JAMB/WAEC/NECO) and Internal (School) Exams.<br/><br/><h3>Practice Hub (JAMB/WAEC/NECO)</h3>
+![Practice Hub](docs/images/practice-hub.svg)<ul><li>Choose exam type (e.g., JAMB)</li><ul><li>Select subjects (the system guides you with rules—for JAMB, English is required)</li><ul><li>Start a practice session</li><ul><li>Practice sessions present a curated set of questions and a timer</li></ul>
+<h3>Internal (School) Exams</h3>
+![Exams Overview](docs/images/exams.svg)<ul><li>Admin/Teacher can upload questions and manage internal exams</li><ul><li>Assigned to Me: shows exams assigned to a student/teacher</li><ul><li>Preview an exam: view title, subject, duration, and approximate question count</li><ul><li>Start an exam to begin an attempt</li></ul>
+<h3>Taking an Exam</h3>
+![Exam Taking](docs/images/exam-taking.svg)<ul><li>Timer and navigation appear at the top</li><ul><li>Select answers; autosave keeps progress</li><ul><li>Submit when done</li></ul>
+<h3>Exam Results</h3>
+![Exam Results](docs/images/exam-results.svg)<ul><li>See total questions, correct answers, and your score</li><ul><li>Where allowed, review per‑question correctness</li></ul>
+<hr/><br/><br/><h2>9) Subscriptions (Guests & Admin)</h2><br/><br/><h3>Guest Activation</h3>
+![Activate](docs/images/activate.svg)<ul><li>Guests need an activation code to unlock standardized practice exams</li></ul>1) Go to Activate
+Enter your activation code
+Access JAMB/WAEC/NECO practice exams<br/><br/><h3>Admin Activation Codes</h3>
+![Activation Codes](docs/images/admin-activation-codes.svg)<ul><li>Admins can generate codes</li><ul><li>Go to Admin → Activation Codes</li><ul><li>Click Generate, choose how many and what type</li><ul><li>See the list of codes and statuses</li></ul>
+<h3>Subscription Manager (Admin)</h3><ul><li>Overview of users’ subscription status</li><ul><li>Update a user’s subscription (e.g., set to Active or Expired)</li></ul>
+<hr/><br/><br/><h2>10) Messages (All roles)</h2>
+![Messages](docs/images/messages.svg)<ul><li>View messages and filter by type (Personal, Announcement, Notification)</li><ul><li>Compose a new message, select recipients, write your subject and content, then Send</li></ul>
+<hr/><br/><br/><h2>11) Communications (Forum & Chat)</h2><br/><br/><h3>Forum</h3>
+![Forum](docs/images/communications-forum.svg)<ul><li>See a list of threads</li><ul><li>Open a thread to read and reply</li><ul><li>Create or edit your posts (permissions vary by role)</li></ul>
+<h3>Chat</h3>
+![Chat](docs/images/communications-chat.svg)<ul><li>Start a new conversation (choose one or more users)</li><ul><li>Send messages in real time</li><ul><li>Conversation list shows name and last message</li></ul>
+<hr/><br/><br/><h2>12) Video Conferencing</h2><br/><br/><h3>Create a Meeting (Admin/Teacher)</h3>
+<img src="docs/images/video.svg"/>
+Go to Video Conferencing
+Click Create Meeting
+Enter a topic and optionally bind it to a class
+Create<br/><br/><h3>Join / End a Meeting</h3>
+![Meeting Room](docs/images/meeting-room.svg)<ul><li>Click Join to open the meeting room</li><ul><li>Owners can End the meeting; participants can Leave anytime</li></ul>
+<hr/><br/><br/><h2>13) Payments</h2>
+![Payments](docs/images/payments.svg)<ul><li>Students/Parents: view your payment items and statuses</li><ul><li>Admin: create, update, and manage payment records</li></ul>
+<hr/><br/><br/><h2>14) Resources</h2>
+![Resources](docs/images/resources.svg)<ul><li>Browse and download resources</li><ul><li>Admin/Teacher can upload and manage learning materials</li></ul>
+<hr/><br/><br/><h2>15) Notices & Activities</h2>
+<img src="docs/images/notices.svg"/>
+![Activities](docs/images/activities.svg)<ul><li>Notices: school announcements and updates</li><ul><li>Activities: recent actions and events across the system</li></ul>
+<hr/><br/><br/><h2>16) Subjects (Admin)</h2>
+![Subjects](docs/images/subjects.svg)<ul><li>Maintain the subject list used across exams and reports</li></ul>
+<hr/><br/><br/><h2>17) Progress & Grades</h2>
+![Progress & Grades](docs/images/progress.svg)<ul><li>Students/Parents: view personal progress (grades, exam results, attendance trends)</li><ul><li>Teachers/Admin: broader views to support coaching and oversight</li></ul>
+<hr/><br/><br/><h2>18) Notifications</h2>
+![Notifications](docs/images/notifications.svg)<ul><li>View system notifications and alerts</li></ul>
+<hr/><br/><br/><h2>19) Settings</h2><br/><br/><h3>Profile Settings</h3>
+![Settings — Profile](docs/images/settings-profile.svg)<ul><li>Update your first/last name, email, phone, and address</li></ul>
+<h3>School Settings (Admin)</h3>
+![Settings — School](docs/images/settings-school.svg)<ul><li>Update school info (name, address, contacts, term, academic year)</li></ul>
+<h3>Notification Preferences</h3>
+![Settings — Notifications](docs/images/settings-notifications.svg)<ul><li>Email/SMS/Push toggles so you receive what matters to you</li></ul>
+<h3>Appearance</h3>
+![Settings — Appearance](docs/images/settings-appearance.svg)<ul><li>Choose Light, Dark, or System theme</li><ul><li>Pick your primary color</li></ul>
+<h3>Security</h3>
+![Settings — Security](docs/images/settings-security.svg)<ul><li>Two‑Factor Authentication (2FA): start setup and verify with your authenticator app</li><ul><li>Manage Sessions: see how many sessions you have active</li><ul><li>Change Password: enter current and new passwords</li><ul><li>Export Data: download your personal data</li><ul><li>Delete Account: permanently remove your account (irreversible)</li></ul>
+<hr/><br/><br/><h2>20) Create User (Admin)</h2><ul><li>Admin can create new users directly with assigned roles</li></ul>
+<hr/><br/><br/><h2>21) Admin Tools</h2><ul><li>Health card: quick counts across the system (for simple diagnostics)</li><ul><li>Account Approval Manager: review and approve new accounts</li><ul><li>Subscription Manager: manage access to standardized practice exams</li></ul>
+<hr/><br/><br/><h2>22) Role‑Based Access (Plain English)</h2><ul><li>Admin: full control—manage people, exams, attendance, payments, and settings</li><ul><li>Teacher: manage classes, take attendance, prepare exams/resources, and communicate</li><ul><li>Student: practice and take assigned exams, view progress, read resources/notices, communicate</li><ul><li>Parent: view your child’s progress and attendance, read notices, communicate</li><ul><li>Guest: try practice exams (activation may be required)</li></ul>
+<hr/><br/><br/><h2>23) Tips & Troubleshooting</h2><ul><li>“Unauthorized” message: sign out and back in; if it persists, contact the school admin</li><ul><li>Missing a page or button: your role may not allow it; contact an admin if you need access</li><ul><li>Slow or offline: check your internet; many actions retry automatically when you reconnect</li><ul><li>Browser: if something looks off, update your browser or try another modern browser</li></ul>
+<hr/><br/><br/><h2>24) FAQ (Quick Answers)</h2><ul><li>Can I reset my password? Yes—go to Settings → Security → Change Password.</li><ul><li>Can I change my role? Roles are assigned by an Admin.</li><ul><li>Can I practice JAMB/WAEC/NECO as a guest? Yes, after activation (enter your activation code on the Activate page).</li><ul><li>Where are my exams? Go to Exams → Assigned to Me (for internal) or use Practice Hub for standardized exams.</li></ul>
+<hr/><br/><br/><h2>25) Signing Out</h2>
+Click your profile/menu in the top bar
+Choose Sign Out
+You’ll be returned to the Login page<br/><br/>That’s it! If you need help, contact your school administrator or support representative. Enjoy using SchoolSphere!
+</article>
+</body></html>

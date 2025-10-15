@@ -8,11 +8,14 @@ Tip: If you ever get stuck, look for a Save, Submit, or Continue button on the s
 
 ## 1) Getting Started
 
+![Landing Page](docs/images/landing.svg)
+
 ### Supported devices and browsers
 - Desktop or laptop with a modern browser (Chrome, Edge, Safari, Firefox)
 - Recent Android/iOS devices using Chrome/Safari
 
 ### Create your account (Sign Up)
+![Sign Up](docs/images/signup.svg)
 1) Click Sign Up from the top of the site.
 2) Enter your full name, email, and password.
 3) Choose your role:
@@ -27,6 +30,7 @@ Notes:
 - Other roles may require an Admin to approve your account (see “Account Approval” below).
 
 ### Sign In (Login)
+![Login](docs/images/login.svg)
 1) Click Login.
 2) Enter your email and password.
 3) Click Sign In.
@@ -39,6 +43,7 @@ Notes:
 The Dashboard is your home page after login. It shows quick stats and shortcuts most relevant to your role.
 
 ### Admin Dashboard
+![Dashboard — Admin](docs/images/dashboard-admin.svg)
 - Welcome header with your name
 - Key Stats: Total Students, Active Teachers, Pending Payments, Average Attendance
 - Weekly Attendance Chart
@@ -51,9 +56,11 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
   - Account Approval Manager (approve new user accounts)
 
 ### Teacher Dashboard
+![Dashboard — Teacher](docs/images/dashboard-teacher.svg)
 - Quick view of classes, attendance shortcuts, recent activity, and upcoming items
 
 ### Student/Parent Dashboard
+![Dashboard — Student/Parent](docs/images/dashboard-student.svg)
 - Personal snapshot: recent attendance, notices, and key links
 
 ---
@@ -68,6 +75,7 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 ## 4) Students (Admin & Teacher)
 
 ### View Students
+![Students](docs/images/students.svg)
 - Go to Students to see the list
 - Use search and filters to find specific students
 
@@ -80,6 +88,7 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 - Click Delete on the student you wish to remove
 
 ### Student Profile (Admin/Teacher; Student/Parent see their own)
+![Student Profile](docs/images/student-profile.svg)
 - View student details, grades, attendance history, and related records
 
 ---
@@ -87,6 +96,7 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 ## 5) Teachers (Admin)
 
 ### View Teachers
+![Teachers](docs/images/teachers.svg)
 - Go to Teachers; search and filter as needed
 
 ### Add/Update/Delete Teacher
@@ -94,6 +104,7 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 - Save your changes
 
 ### Teacher Profile (Admin/Teacher)
+![Teacher Profile](docs/images/teacher-profile.svg)
 - See teacher details, assigned classes, and related information
 
 ---
@@ -108,15 +119,18 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 ## 7) Attendance
 
 ### Attendance Hub (Admin/Teacher)
+![Attendance Hub](docs/images/attendance-hub.svg)
 - Links to Take Attendance, Historical Attendance, and Attendance Reports
 
 ### Take Attendance (Admin/Teacher)
+![Take Attendance](docs/images/attendance-take.svg)
 1) Choose a Class
    - If you’re a teacher with a single class, it’s selected automatically
 2) For each student, choose Present, Absent, Late, or Excused
 3) Click Submit to save
 
 ### Historical Attendance (Admin/Teacher)
+![Historical Attendance](docs/images/attendance-history.svg)
 - Review past attendance records
 - Filter by date, class, or student
 
@@ -124,6 +138,7 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 - See personal attendance history
 
 ### Attendance Reports (Admin)
+![Attendance Reports](docs/images/attendance-reports.svg)
 - Aggregated analytics (e.g., averages, trends)
 
 ---
@@ -133,23 +148,27 @@ The Dashboard is your home page after login. It shows quick stats and shortcuts 
 The Exams section includes two parts: Practice Hub (standardized exams like JAMB/WAEC/NECO) and Internal (School) Exams.
 
 ### Practice Hub (JAMB/WAEC/NECO)
+![Practice Hub](docs/images/practice-hub.svg)
 - Choose exam type (e.g., JAMB)
 - Select subjects (the system guides you with rules—for JAMB, English is required)
 - Start a practice session
 - Practice sessions present a curated set of questions and a timer
 
 ### Internal (School) Exams
+![Exams Overview](docs/images/exams.svg)
 - Admin/Teacher can upload questions and manage internal exams
 - Assigned to Me: shows exams assigned to a student/teacher
 - Preview an exam: view title, subject, duration, and approximate question count
 - Start an exam to begin an attempt
 
 ### Taking an Exam
+![Exam Taking](docs/images/exam-taking.svg)
 - Timer and navigation appear at the top
 - Select answers; autosave keeps progress
 - Submit when done
 
 ### Exam Results
+![Exam Results](docs/images/exam-results.svg)
 - See total questions, correct answers, and your score
 - Where allowed, review per‑question correctness
 
@@ -158,12 +177,14 @@ The Exams section includes two parts: Practice Hub (standardized exams like JAMB
 ## 9) Subscriptions (Guests & Admin)
 
 ### Guest Activation
+![Activate](docs/images/activate.svg)
 - Guests need an activation code to unlock standardized practice exams
 1) Go to Activate
 2) Enter your activation code
 3) Access JAMB/WAEC/NECO practice exams
 
 ### Admin Activation Codes
+![Activation Codes](docs/images/admin-activation-codes.svg)
 - Admins can generate codes
 - Go to Admin → Activation Codes
 - Click Generate, choose how many and what type
@@ -176,6 +197,7 @@ The Exams section includes two parts: Practice Hub (standardized exams like JAMB
 ---
 
 ## 10) Messages (All roles)
+![Messages](docs/images/messages.svg)
 - View messages and filter by type (Personal, Announcement, Notification)
 - Compose a new message, select recipients, write your subject and content, then Send
 
@@ -184,11 +206,13 @@ The Exams section includes two parts: Practice Hub (standardized exams like JAMB
 ## 11) Communications (Forum & Chat)
 
 ### Forum
+![Forum](docs/images/communications-forum.svg)
 - See a list of threads
 - Open a thread to read and reply
 - Create or edit your posts (permissions vary by role)
 
 ### Chat
+![Chat](docs/images/communications-chat.svg)
 - Start a new conversation (choose one or more users)
 - Send messages in real time
 - Conversation list shows name and last message
@@ -198,47 +222,56 @@ The Exams section includes two parts: Practice Hub (standardized exams like JAMB
 ## 12) Video Conferencing
 
 ### Create a Meeting (Admin/Teacher)
+![Video Conferencing](docs/images/video.svg)
 1) Go to Video Conferencing
 2) Click Create Meeting
 3) Enter a topic and optionally bind it to a class
 4) Create
 
 ### Join / End a Meeting
+![Meeting Room](docs/images/meeting-room.svg)
 - Click Join to open the meeting room
 - Owners can End the meeting; participants can Leave anytime
 
 ---
 
 ## 13) Payments
+![Payments](docs/images/payments.svg)
 - Students/Parents: view your payment items and statuses
 - Admin: create, update, and manage payment records
 
 ---
 
 ## 14) Resources
+![Resources](docs/images/resources.svg)
 - Browse and download resources
 - Admin/Teacher can upload and manage learning materials
 
 ---
 
 ## 15) Notices & Activities
+![Notices](docs/images/notices.svg)
+![Activities](docs/images/activities.svg)
 - Notices: school announcements and updates
 - Activities: recent actions and events across the system
 
 ---
 
 ## 16) Subjects (Admin)
+![Subjects](docs/images/subjects.svg)
 - Maintain the subject list used across exams and reports
 
 ---
 
 ## 17) Progress & Grades
+![Progress & Grades](docs/images/progress.svg)
 - Students/Parents: view personal progress (grades, exam results, attendance trends)
 - Teachers/Admin: broader views to support coaching and oversight
 
 ---
 
 ## 18) Notifications
+![Notifications](docs/images/notifications.svg)
 - View system notifications and alerts
 
 ---
@@ -246,19 +279,24 @@ The Exams section includes two parts: Practice Hub (standardized exams like JAMB
 ## 19) Settings
 
 ### Profile Settings
+![Settings — Profile](docs/images/settings-profile.svg)
 - Update your first/last name, email, phone, and address
 
 ### School Settings (Admin)
+![Settings — School](docs/images/settings-school.svg)
 - Update school info (name, address, contacts, term, academic year)
 
 ### Notification Preferences
+![Settings — Notifications](docs/images/settings-notifications.svg)
 - Email/SMS/Push toggles so you receive what matters to you
 
 ### Appearance
+![Settings — Appearance](docs/images/settings-appearance.svg)
 - Choose Light, Dark, or System theme
 - Pick your primary color
 
 ### Security
+![Settings — Security](docs/images/settings-security.svg)
 - Two‑Factor Authentication (2FA): start setup and verify with your authenticator app
 - Manage Sessions: see how many sessions you have active
 - Change Password: enter current and new passwords
