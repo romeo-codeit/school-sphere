@@ -122,11 +122,13 @@ export function useValidateSubjects() {
   return useMutation({
     mutationFn: async (payload: { type: string; selectedSubjects: string[]; year?: string }) => {
       const jwt = await getJWT();
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch(`${API_BASE}/exams/validate-subjects`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -149,11 +151,13 @@ export function useStartAttempt() {
   return useMutation({
     mutationFn: async (payload: { examId: string; subjects?: string[] }) => {
       const jwt = await getJWT();
+      const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch(`${API_BASE}/attempts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
         },
         body: JSON.stringify(payload),
       });
@@ -178,11 +182,13 @@ export function useAutosaveAttempt() {
         return { ok: true, attempt: null } as any;
       }
       const jwt = await getJWT();
+      const csrf3 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch(`${API_BASE}/attempts/autosave`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf3 ? { 'X-CSRF-Token': csrf3 } : {}),
         },
         body: JSON.stringify(payload),
       });

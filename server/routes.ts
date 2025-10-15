@@ -269,6 +269,8 @@ const collections = [
   'activities',
   'classes',
   'school',
+  // 'conversations' intentionally omitted from generic CRUD for privacy,
+  // we provide a filtered alias endpoint below.
 ];
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -283,6 +285,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
       environment: process.env.NODE_ENV || 'development',
       version: '1.0.0',
     });
+  });
+  // Alias: meetings -> videoMeetings (GET only)
+  app.get('/api/meetings', auth, async (_req, res) => {
+    try {
+      const result = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'videoMeetings',
+        [Query.orderDesc('$createdAt'), Query.limit(100)]
+      );
+      return res.json(result.documents);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ message: 'Failed to fetch meetings' });
+    }
+  });
+
+  // Forum threads: top-level only
+  app.get('/api/forum/threads', auth, async (_req, res) => {
+    try {
+      const page = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'forumThreads',
+        [Query.isNull('parentThreadId'), Query.orderDesc('$createdAt'), Query.limit(100)]
+      );
+      return res.json(page.documents);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ message: 'Failed to fetch threads' });
+    }
+  });
+
+  // Conversations for current user
+  app.get('/api/conversations', auth, async (req, res) => {
+    try {
+      const user = (req as any).user;
+      if (!user?.$id) return res.status(401).json({ message: 'Unauthorized' });
+      const page = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'conversations',
+        [Query.equal('members', String(user.$id)), Query.orderDesc('lastActivity'), Query.limit(100)]
+      );
+      return res.json(page.documents);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ message: 'Failed to fetch conversations' });
+    }
+  });
+
+  // Users (combined teachers + students) - minimal info, admin-only
+  app.get('/api/users', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') return res.status(403).json({ message: 'Admin access required' });
+      const teachers = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'teachers', [Query.limit(100)]);
+      const students = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.limit(100)]);
+      const mapUser = (u: any) => ({
+        $id: u.$id,
+        userId: u.userId || u.$id,
+        firstName: u.firstName || null,
+        lastName: u.lastName || null,
+        name: u.name || [u.firstName, u.lastName].filter(Boolean).join(' ') || null,
+        email: u.email || null,
+        role: u.role || (u.classId ? 'student' : 'teacher'),
+      });
+      const usersCombined = [...teachers.documents, ...students.documents].map(mapUser);
+      return res.json(usersCombined);
+    } catch (e) {
+      console.error(e);
+      return res.status(500).json({ message: 'Failed to fetch users' });
+    }
+  });
+
+  // Self-delete account (irreversible)
+  app.delete('/api/users/self', auth, async (req, res) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      const userId = sessionUser?.$id;
+      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+
+      // Best-effort delete related docs
+      try {
+        const profiles = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [Query.equal('userId', String(userId))]);
+        for (const p of profiles.documents) {
+          try { await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'userProfiles', String(p.$id)); } catch {}
+        }
+        const subs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userSubscriptions', [Query.equal('userId', String(userId))]);
+        for (const s of subs.documents) {
+          try { await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'userSubscriptions', String(s.$id)); } catch {}
+        }
+      } catch {}
+
+      await users.delete(String(userId));
+      return res.json({ ok: true });
+    } catch (e) {
+      console.error('Failed to delete account', e);
+      return res.status(500).json({ message: 'Failed to delete account' });
+    }
   });
 
   // School settings endpoints (single-document semantics)

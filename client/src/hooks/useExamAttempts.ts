@@ -30,11 +30,13 @@ export function useExamAttempts(studentId?: string) {
   const startAttemptMutation = useMutation({
     mutationFn: async (examId: string) => {
       const jwt = await getJWT();
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
         },
         body: JSON.stringify({ examId }),
       });
@@ -52,11 +54,13 @@ export function useExamAttempts(studentId?: string) {
   const submitAttemptMutation = useMutation({
     mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: any }) => {
       const jwt = await getJWT();
+      const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const response = await fetch(`${API_URL}/${attemptId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
         },
         body: JSON.stringify({ answers }),
       });

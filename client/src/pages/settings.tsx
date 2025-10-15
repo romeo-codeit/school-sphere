@@ -380,9 +380,12 @@ export default function Settings() {
   const handleDeleteAccount = async () => {
     setSecurityLoading(true);
     try {
-  await account.deleteSession("current");
-      toast({ title: "Account Deleted", description: "Your account has been deleted." });
-      // Optionally, redirect to login page
+      // Delete server-side account and then end session
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
+      await fetch('/api/users/self', { method: 'DELETE', headers: csrf ? { 'X-CSRF-Token': csrf } : {}, credentials: 'include' });
+      await account.deleteSession("current");
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      toast({ title: "Account Deleted", description: "Your account and data have been deleted." });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
     } finally {
