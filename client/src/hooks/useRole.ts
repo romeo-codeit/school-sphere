@@ -96,7 +96,6 @@ export function useRole() {
 
   const hasPermission = (resource: keyof RolePermissions, action: string): boolean => {
     if (!role) return false;
-    if (role === 'admin') return true; // Admin has all permissions
     const userRole = role as UserRole;
     const rolePermissions = permissions[userRole];
     if (!rolePermissions || !rolePermissions[resource]) {
@@ -107,7 +106,6 @@ export function useRole() {
 
   const canAccess = (allowedRoles: UserRole[]): boolean => {
     if (!role) return false;
-    if (role === 'admin') return true; // Admin can access everything
     return allowedRoles.includes(role as UserRole);
   };
 
