@@ -2177,5 +2177,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Auth utilities for cookie-based auth: issue JWT cookie + CSRF token
+  app.post('/api/auth/jwt-cookie', async (req, res) => {
+    try {
+      const token = String((req.body || {}).jwt || '');
+      if (!token) return res.status(400).json({ message: 'Missing jwt' });
+      // Very light validation; full validation occurs in auth middleware
+      const csrfToken = Math.random().toString(36).slice(2);
+      const isProd = app.get('env') === 'production';
+      res.cookie('aw_jwt', token, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      res.cookie('csrf_token', csrfToken, {
+        httpOnly: false,
+        secure: isProd,
+        sameSite: 'strict',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+      });
+      return res.json({ ok: true, csrfToken });
+    } catch (e) {
+      res.status(500).json({ message: 'Failed to set auth cookies' });
+    }
+  });
+
+  app.post('/api/auth/logout', (_req, res) => {
+    const isProd = app.get('env') === 'production';
+    res.cookie('aw_jwt', '', { httpOnly: true, secure: isProd, sameSite: 'strict', path: '/', maxAge: 0 });
+    res.cookie('csrf_token', '', { httpOnly: false, secure: isProd, sameSite: 'strict', path: '/', maxAge: 0 });
+    return res.json({ ok: true });
+  });
+
   return httpServer;
 }

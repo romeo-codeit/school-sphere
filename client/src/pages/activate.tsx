@@ -25,11 +25,13 @@ export default function ActivatePage() {
     setLoading(true);
     try {
       const jwt = await getJWT();
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch('/api/users/activate-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
         },
         body: JSON.stringify({ activationCode: code.trim() })
       });

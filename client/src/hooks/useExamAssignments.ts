@@ -21,9 +21,10 @@ export function useExamAssignments(examId?: string) {
   const assign = useMutation({
     mutationFn: async (payload: { classIds?: string[]; studentIds?: string[] }) => {
       const jwt = await getJWT();
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch(`${API}/${examId}/assign`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
         body: JSON.stringify(payload),
       });
       const data = await res.json();
@@ -39,9 +40,10 @@ export function useExamAssignments(examId?: string) {
   const unassign = useMutation({
     mutationFn: async (payload: { ids: string[] }) => {
       const jwt = await getJWT();
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
       const res = await fetch(`${API}/${examId}/unassign`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
         body: JSON.stringify(payload),
       });
       const data = await res.json();

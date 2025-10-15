@@ -38,6 +38,17 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       await account.createEmailPasswordSession(email, password);
+      // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
+      try {
+        const { jwt: token } = await account.createJWT();
+        await fetch('/api/auth/jwt-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: token }),
+          credentials: 'include',
+        });
+        try { localStorage.setItem('appwrite_jwt', token); } catch {}
+      } catch {}
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -47,6 +58,7 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await account.deleteSession('current');
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     },
     onSuccess: () => {
       try { localStorage.removeItem('appwrite_jwt'); } catch {}
@@ -66,6 +78,16 @@ export function useAuth() {
       const newUser = await account.create(ID.unique(), email, password, name);
       await account.createEmailPasswordSession(email, password);
       await account.updatePrefs({ role });
+      try {
+        const { jwt: token } = await account.createJWT();
+        await fetch('/api/auth/jwt-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: token }),
+          credentials: 'include',
+        });
+        try { localStorage.setItem('appwrite_jwt', token); } catch {}
+      } catch {}
       return newUser;
     },
     onSuccess: () => {

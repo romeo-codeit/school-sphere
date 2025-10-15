@@ -12,9 +12,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const csrf = (typeof document !== 'undefined')
+    ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
+    : '';
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -29,8 +35,12 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
+    const csrf = (typeof document !== 'undefined')
+      ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
+      : '';
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

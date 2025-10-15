@@ -13,7 +13,26 @@ declare global {
 }
 
 export const auth = (req: Request, res: Response, next: NextFunction) => {
-  const session = req.headers.authorization?.split(' ')[1];
+  // Support Authorization header or HttpOnly cookie-based JWT
+  const getCookies = (cookieHeader?: string): Record<string, string> => {
+    const out: Record<string, string> = {};
+    if (!cookieHeader) return out;
+    cookieHeader.split(';').forEach((pair) => {
+      const idx = pair.indexOf('=');
+      if (idx > -1) {
+        const k = pair.slice(0, idx).trim();
+        const v = pair.slice(idx + 1).trim();
+        out[k] = decodeURIComponent(v);
+      }
+    });
+    return out;
+  };
+
+  const cookies = getCookies(req.headers.cookie);
+  const headerToken = req.headers.authorization?.split(' ')[1];
+  const cookieToken = cookies['aw_jwt'];
+  const usingCookieAuth = !headerToken && !!cookieToken;
+  const session = headerToken || cookieToken;
 
   if (!session) {
     return res.status(401).json({ message: 'Unauthorized' });
@@ -29,8 +48,17 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
   // Verify JWT by calling get() on account
   account.get()
     .then((user) => {
+      // CSRF protection for cookie-authenticated state-changing requests
+      if (usingCookieAuth && ['POST','PUT','PATCH','DELETE'].includes(req.method.toUpperCase())) {
+        const csrfCookie = cookies['csrf_token'];
+        const csrfHeader = (req.headers['x-csrf-token'] || req.headers['x-xsrf-token']) as string | undefined;
+        if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
+          return res.status(403).json({ message: 'CSRF token invalid or missing' });
+        }
+      }
+
       req.appwrite = { client, account };
-      // Optionally attach user info for downstream use
+      // Attach user info for RBAC checks
       (req as any).user = user;
       next();
     })
