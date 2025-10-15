@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query';
+import { useAuth } from '@/hooks/useAuth';
 
 export function useExamsPerformanceTest() {
   const queryClient = useQueryClient();
+  const { getJWT } = useAuth();
 
   const testPerformance = async () => {
     const startTime = performance.now();
@@ -9,9 +11,14 @@ export function useExamsPerformanceTest() {
     try {
       // Test exams query performance
       const examsQueryStart = performance.now();
+      const jwt = await getJWT();
       await queryClient.prefetchQuery({
         queryKey: ['cbt-exams-assigned'],
-        queryFn: () => fetch('/api/cbt/exams/assigned').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/cbt/exams/assigned', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const examsQueryTime = performance.now() - examsQueryStart;
@@ -20,7 +27,11 @@ export function useExamsPerformanceTest() {
       const subjectsQueryStart = performance.now();
       await queryClient.prefetchQuery({
         queryKey: ['cbt-subjects-available', 'mock'],
-        queryFn: () => fetch('/api/cbt/subjects/available?type=mock').then(res => res.json()),
+        queryFn: async () => {
+          const res = await fetch('/api/cbt/subjects/available?type=mock', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          if (!res.ok) throw new Error('Failed');
+          return res.json();
+        },
         staleTime: 0,
       });
       const subjectsQueryTime = performance.now() - subjectsQueryStart;

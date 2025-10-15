@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
+import { account } from '@/lib/appwrite';
 
 const API_URL = '/api/cbt/exams';
 
@@ -20,10 +21,19 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       if (typeof offset === 'number') query.push(`offset=${offset}`);
       if (!withQuestions) query.push(`withQuestions=false`);
       if (query.length > 0) url += `?${query.join('&')}`;
-      const jwt = await getJWT();
-      const response = await fetch(url, {
+      let jwt = await getJWT();
+      let response = await fetch(url, {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
+      // Auto-refresh JWT once on 401
+      if (response.status === 401) {
+        try {
+          const { jwt: fresh } = await account.createJWT();
+          try { localStorage.setItem('appwrite_jwt', fresh); } catch {}
+          jwt = fresh;
+          response = await fetch(url, { headers: { Authorization: `Bearer ${fresh}` } });
+        } catch {}
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch exams');
       }
@@ -66,13 +76,14 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       const search = [examData.title, examData.type, examData.subject, examData.createdBy]
         .filter(Boolean)
         .join(' ');
+      const jwt = await getJWT();
       const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         },
         body: JSON.stringify({ ...examData, search }),
-        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to create exam');
@@ -89,13 +100,14 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       const search = [examData.title, examData.type, examData.subject, examData.createdBy]
         .filter(Boolean)
         .join(' ');
+      const jwt = await getJWT();
       const response = await fetch(`${API_URL}/${examId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         },
         body: JSON.stringify({ ...examData, search }),
-        credentials: 'include',
       });
       if (!response.ok) {
         throw new Error('Failed to update exam');
@@ -110,9 +122,10 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
 
   const deleteExamMutation = useMutation({
     mutationFn: async (examId: string) => {
+      const jwt = await getJWT();
       const response = await fetch(`${API_URL}/${examId}`, {
         method: 'DELETE',
-        credentials: 'include',
+        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
       });
       if (!response.ok) {
         throw new Error('Failed to delete exam');
