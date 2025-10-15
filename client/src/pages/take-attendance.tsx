@@ -78,9 +78,6 @@ export default function TakeAttendance() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📝 Take Attendance Performance Testing available in console:');
-      console.log('  window.takeAttendancePerfTest.testPerformance() - Run performance test');
-      console.log('  window.takeAttendancePerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

@@ -44,9 +44,6 @@ const StudentAttendanceView: React.FC = () => {
           testPerformance: handlePerformanceTest,
           clearCache: handleClearCache,
         };
-        console.log('📊 Attendance Performance Testing available in console:');
-        console.log('  window.attendancePerfTest.testPerformance() - Run performance test');
-        console.log('  window.attendancePerfTest.clearCache() - Clear cache and reload');
       }
     }, []);
 

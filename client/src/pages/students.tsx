@@ -72,9 +72,6 @@ export default function Students() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('👥 Students Performance Testing available in console:');
-      console.log('  window.studentsPerfTest.testPerformance() - Run performance test');
-      console.log('  window.studentsPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

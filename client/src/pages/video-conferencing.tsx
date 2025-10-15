@@ -72,9 +72,6 @@ export default function VideoConferencing() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📹 Video Conferencing Performance Testing available in console:');
-      console.log('  window.videoConferencingPerfTest.testPerformance() - Run performance test');
-      console.log('  window.videoConferencingPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

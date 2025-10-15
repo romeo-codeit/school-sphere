@@ -19,14 +19,16 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      styleSrc: ["'self'", "https://fonts.googleapis.com"],
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:", "blob:"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "https://meet.jit.si"],
+      scriptSrc: ["'self'", "https://meet.jit.si"],
       connectSrc: [
         "'self'",
         process.env.VITE_APPWRITE_ENDPOINT || "",
         "https://cloud.appwrite.io",
+        "https://meet.jit.si",
+        "wss://meet.jit.si",
       ],
       frameSrc: ["'self'", "https://meet.jit.si"],
     },

@@ -415,9 +415,6 @@ export default function Communications() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('💬 Communications Performance Testing available in console:');
-      console.log('  window.communicationsPerfTest.testPerformance() - Run performance test');
-      console.log('  window.communicationsPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 
