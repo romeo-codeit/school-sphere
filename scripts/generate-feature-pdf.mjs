@@ -18,18 +18,25 @@ if (!fs.existsSync(guideMdPath)) {
 
 const md = fs.readFileSync(guideMdPath, 'utf8');
 
-// PDF setup
+// Attempt to load Poppins font if available locally; fallback to Helvetica
+const fontsDir = path.join(root, 'docs', 'fonts');
+const poppinsRegular = path.join(fontsDir, 'Poppins-Regular.ttf');
+const poppinsBold = path.join(fontsDir, 'Poppins-Bold.ttf');
+const hasPoppins = fs.existsSync(poppinsRegular) && fs.existsSync(poppinsBold);
+
+// PDF setup with sensible page margins; no paragraph indentation
 const doc = new PDFDocument({
   size: 'A4',
-  margins: { top: 0, bottom: 0, left: 0, right: 0 },
+  margins: { top: 42, bottom: 42, left: 48, right: 48 },
 });
 
 const stream = fs.createWriteStream(outPdfPath);
 doc.pipe(stream);
 
 // Layout helpers
-const pageWidth = doc.page.width; // no left/right margins per requirement
-const usableWidth = pageWidth; // fully flush-left
+const { left: marginLeft, right: marginRight } = doc.page.margins;
+const pageWidth = doc.page.width;
+const usableWidth = pageWidth - marginLeft - marginRight; // text flush-left within margins
 const lineGap = 4; // compact spacing
 
 function ensureSpace(extraHeight = 24) {
@@ -39,37 +46,32 @@ function ensureSpace(extraHeight = 24) {
 }
 
 function writeText(text, fontSize = 11, options = {}) {
-  doc.font('Helvetica');
+  doc.font(hasPoppins ? poppinsRegular : 'Helvetica');
   doc.fontSize(fontSize);
   ensureSpace(fontSize + lineGap);
-  doc.text(String(text), 0, undefined, {
-    width: usableWidth,
-    align: 'left',
-    lineGap,
-    paragraphGap: 6,
-    indent: 0,
-    ...options,
-  });
+  doc.text(String(text), undefined, undefined, { width: usableWidth, align: 'left', lineGap, paragraphGap: 6, indent: 0, ...options });
 }
 
 function writeRule() {
   ensureSpace(16);
   const y = doc.y + 6;
-  doc.moveTo(0, y).lineTo(usableWidth, y).strokeColor('#e5e7eb').lineWidth(1).stroke();
+  doc.moveTo(marginLeft, y).lineTo(marginLeft + usableWidth, y).strokeColor('#e5e7eb').lineWidth(1).stroke();
   doc.moveDown(0.5);
 }
 
 function writeSvgImage(svgPath) {
-  // Draw SVG scaled to full width while maintaining 16:9 default ratio
+  // Draw SVG scaled to fit content width while maintaining 16:9 default ratio
   const raw = fs.readFileSync(svgPath, 'utf8');
   const width = usableWidth;
   const height = Math.round(width * (9 / 16));
-  ensureSpace(height + 16);
+  ensureSpace(height + 20);
   const yStart = doc.y + 8;
-  svgToPdf(doc, raw, 0, yStart, { width });
-  // Manually advance cursor
+  svgToPdf(doc, raw, marginLeft, yStart, { width });
+  // Optional border to distinguish image from background
+  doc.save().lineWidth(0.5).strokeColor('#dddddd').rect(marginLeft, yStart, width, height).stroke().restore();
+  // Advance cursor
   doc.y = yStart + height;
-  doc.moveDown(0.5);
+  doc.moveDown(0.75);
 }
 
 function parseImagePath(line) {
@@ -98,10 +100,13 @@ for (let i = 0; i < lines.length; i += 1) {
 
   // Headings
   if (line.startsWith('## ')) {
+    // Heading level 2
+    if (hasPoppins) doc.font(poppinsBold);
     writeText(line.replace(/^##\s+/, ''), 22);
     continue;
   }
   if (line.startsWith('### ')) {
+    if (hasPoppins) doc.font(poppinsBold);
     writeText(line.replace(/^###\s+/, ''), 16);
     continue;
   }
@@ -145,6 +150,7 @@ for (let i = 0; i < lines.length; i += 1) {
   // Bold-only lines (**text**) -> remove asterisks, keep content
   if (/^\*\*.*\*\*$/.test(line.trim())) {
     const content = line.trim().replace(/^\*\*(.*)\*\*$/, '$1');
+    if (hasPoppins) doc.font(poppinsBold);
     writeText(content, 12);
     continue;
   }
