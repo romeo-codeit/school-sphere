@@ -423,11 +423,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post('/api/users', async (req, res) => {
+  app.post('/api/users', auth, async (req, res) => {
+    const sessionUser: any = (req as any).user;
+    if (sessionUser?.prefs?.role !== 'admin') {
+      return res.status(403).json({ message: 'Admin access required' });
+    }
+
     const { email, password, name, role } = req.body;
 
     if (!email || !password || !name || !role) {
       return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Optional: restrict roles that admins can assign
+    const allowedAdminAssignableRoles = new Set(['admin', 'teacher', 'student', 'parent']);
+    if (!allowedAdminAssignableRoles.has(String(role))) {
+      return res.status(400).json({ message: 'Invalid role' });
     }
 
     try {
@@ -1877,6 +1888,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!email || !password || !name) {
         return res.status(400).json({ message: 'Email, password, and name are required' });
+      }
+
+      // Lock down allowed roles during self-registration
+      const allowedSelfRegistrationRoles = new Set(['student', 'guest']);
+      if (!allowedSelfRegistrationRoles.has(String(role))) {
+        return res.status(400).json({ message: 'Invalid role for self-registration' });
       }
 
       // Create user account
