@@ -296,7 +296,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       return res.json(result.documents);
     } catch (e) {
-      console.error(e);
+      logError('Failed to fetch meetings', e);
       return res.status(500).json({ message: 'Failed to fetch meetings' });
     }
   });
@@ -311,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       return res.json(page.documents);
     } catch (e) {
-      console.error(e);
+      logError('Failed to fetch meetings', e);
       return res.status(500).json({ message: 'Failed to fetch threads' });
     }
   });
@@ -328,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       return res.json(page.documents);
     } catch (e) {
-      console.error(e);
+      logError('Failed to fetch meetings', e);
       return res.status(500).json({ message: 'Failed to fetch conversations' });
     }
   });
@@ -352,7 +352,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const usersCombined = [...teachers.documents, ...students.documents].map(mapUser);
       return res.json(usersCombined);
     } catch (e) {
-      console.error(e);
+      logError('Failed to fetch meetings', e);
       return res.status(500).json({ message: 'Failed to fetch users' });
     }
   });
@@ -379,7 +379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await users.delete(String(userId));
       return res.json({ ok: true });
     } catch (e) {
-      console.error('Failed to delete account', e);
+      logError('Failed to delete account', e);
       return res.status(500).json({ message: 'Failed to delete account' });
     }
   });
@@ -390,7 +390,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'school', [Query.limit(1)]);
       return res.json(page);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch school settings' });
     }
   });
@@ -418,7 +418,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       return res.json(doc);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to update school settings' });
     }
   });
@@ -454,7 +454,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.status(201).json(newUser);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       return res.status(500).json({ message: 'Failed to create user' });
     }
   });
@@ -491,7 +491,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json(classes);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch teacher classes' });
     }
   });
@@ -545,7 +545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset
       });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch teacher students' });
     }
   });
@@ -556,7 +556,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const students = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.equal('classId', classId)]);
       res.json(students);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch students for the class' });
     }
   });
@@ -589,7 +589,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response = await databases.listDocuments(APPWRITE_DATABASE_ID!, String(collection), queries);
         res.json(response);
       } catch (error) {
-        console.error(error);
+        logError('Failed to fetch school settings', error);
         res.status(500).json({ message: `Failed to fetch ${collection}` });
       }
     });
@@ -612,7 +612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.json(response);
       } catch (error) {
-        console.error(error);
+        logError('Failed to fetch school settings', error);
         res.status(500).json({ message: `Failed to fetch ${collection}` });
       }
     });
@@ -654,7 +654,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response = await databases.createDocument(APPWRITE_DATABASE_ID!, String(collection), ID.unique(), req.body);
         res.status(201).json(response);
       } catch (error) {
-        console.error(error);
+        logError('Failed to fetch school settings', error);
         res.status(500).json({ message: `Failed to create ${collection}` });
       }
     });
@@ -699,7 +699,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
         res.json(response);
       } catch (error) {
-        console.error(error);
+        logError('Failed to fetch school settings', error);
         res.status(500).json({ message: `Failed to update ${collection}` });
       }
     });
@@ -725,7 +725,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await databases.deleteDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.status(204).send();
       } catch (error) {
-        console.error(error);
+        logError('Failed to fetch school settings', error);
         res.status(500).json({ message: `Failed to delete ${collection}` });
       }
     });
@@ -823,7 +823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ exams: examsWithQuestions, total });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch exams' });
     }
   });
@@ -900,7 +900,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       return res.json({ exams: visible, total: visible.length });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch assigned exams' });
     }
   });
@@ -959,7 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({ exams: standardizedExams, total: standardizedExams.length });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch available exams' });
     }
   });
@@ -1111,7 +1111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ ...exam, questions, questionCount: Array.isArray(questions) ? questions.length : 0 });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       // If Appwrite throws document_not_found, surface 404; else 500
       const msg = (error && typeof error === 'object' && 'type' in (error as any)) ? (error as any).type : '';
       if (msg === 'document_not_found') {
@@ -1149,7 +1149,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'exams', examId, { assignedTo: merged });
       res.json(updated);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to assign exam' });
     }
   });
@@ -1171,7 +1171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'exams', examId, { assignedTo: next });
       res.json(updated);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to unassign exam' });
     }
   });
@@ -1245,7 +1245,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.status(201).json(attempt);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to start attempt' });
     }
   });
@@ -1303,7 +1303,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.json(updated);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to submit attempt' });
     }
   });
@@ -1325,7 +1325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       res.json(attempts.documents);
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch attempts' });
     }
   });
@@ -1480,7 +1480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           : `All ${available.length} subjects available`
       });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to validate subjects' });
     }
   });
@@ -1535,7 +1535,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ subjects: subjectArray });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch subjects' });
     }
   });
@@ -1620,7 +1620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       items.sort((a, b) => Number(b) - Number(a));
       res.json({ years: items });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch years' });
     }
   });
@@ -1687,7 +1687,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ availability });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch year availability' });
     }
   });
@@ -1706,7 +1706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
       res.json({ ok: true, attempt: updated });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to autosave attempt' });
     }
   });
@@ -1759,7 +1759,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         perQuestion,
       });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to fetch attempt results' });
     }
   });
@@ -1793,18 +1793,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const averageScore = attemptCount ? totalScore / attemptCount : 0;
       res.json({ classId, averageScore, attemptCount });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to compute class analytics' });
     }
   });
 
   // DEBUG: Test Appwrite connectivity from backend
-  app.get('/api/debug/appwrite', async (req, res) => {
+  app.get('/api/debug/appwrite', auth, async (req, res) => {
     try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
       const result = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
       res.json({ success: true, count: result.documents.length });
     } catch (error) {
-      console.error('Appwrite connectivity test failed:', error);
+      logError('Appwrite connectivity test failed', error);
       let errorMsg = 'Unknown error';
       if (typeof error === 'object' && error && 'message' in error) {
         errorMsg = (error as any).message;
@@ -1818,8 +1822,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // DEBUG: List all exam types and subjects with question counts
-  app.get('/api/debug/exam-subjects', async (req, res) => {
+  app.get('/api/debug/exam-subjects', auth, async (req, res) => {
     try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
       const examsByType: Record<string, any[]> = {};
       let offset = 0;
       
@@ -1876,7 +1884,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ summary, details: examsByType });
     } catch (error) {
-      console.error('Failed to analyze exam subjects:', error);
+      logError('Failed to analyze exam subjects', error);
       res.status(500).json({ error: String(error) });
     }
   });
@@ -1921,7 +1929,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: role === 'guest' ? 'guest_created' : 'pending_approval'
       });
     } catch (error: any) {
-      console.error('Registration error:', error);
+      logError('Registration error', error);
       res.status(500).json({ message: error.message || 'Failed to create account' });
     }
   });
@@ -1963,7 +1971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({ subscriptionStatus: status, subscriptionExpiry: expiry, examAccess });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to get subscription status' });
     }
   });
@@ -2010,7 +2018,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionExpiry,
       });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to get user profile' });
     }
   });
@@ -2103,7 +2111,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       return res.json({ message: 'Subscription activated', subscriptionStatus: 'active', subscriptionExpiry: expiry.toISOString() });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to activate subscription' });
     }
   });
@@ -2129,7 +2137,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       return res.json({ codes });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to generate codes' });
     }
   });
@@ -2142,7 +2150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'activationCodes', [Query.limit(100)]);
       return res.json({ codes: page.documents, total: page.total });
     } catch (error) {
-      console.error(error);
+      logError('Failed to fetch school settings', error);
       res.status(500).json({ message: 'Failed to list codes' });
     }
   });
@@ -2163,7 +2171,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ accounts: result.documents, total: result.total });
     } catch (error) {
-      console.error('Error fetching pending accounts:', error);
+      logError('Error fetching pending accounts', error);
       res.status(500).json({ message: 'Failed to fetch pending accounts' });
     }
   });
@@ -2202,7 +2210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: 'Account approved successfully' });
     } catch (error) {
-      console.error('Error approving account:', error);
+      logError('Error approving account', error);
       res.status(500).json({ message: 'Failed to approve account' });
     }
   });
@@ -2238,17 +2246,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.json({ message: 'Account rejected' });
     } catch (error) {
-      console.error('Error rejecting account:', error);
+      logError('Error rejecting account', error);
       res.status(500).json({ message: 'Failed to reject account' });
     }
   });
 
   // DEBUG: Test Appwrite connectivity for students collection
-  app.get('/api/debug/students', async (req, res) => {
+  app.get('/api/debug/students', auth, async (req, res) => {
     try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
       const result = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.limit(1)]);
       res.json({ success: true, count: result.documents.length, student: result.documents[0] });
     } catch (error) {
+      logError('Failed to fetch students debug info', error);
       let errorMsg = 'Unknown error';
       if (typeof error === 'object' && error && 'message' in error) {
         errorMsg = (error as any).message;
@@ -2288,7 +2301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         counts,
       });
     } catch (error) {
-      console.error('Health endpoint error:', error);
+      logError('Health endpoint error', error);
       res.status(500).json({ status: 'error' });
     }
   });

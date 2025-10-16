@@ -45,7 +45,7 @@ app.use(helmet({
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       process.env.PRODUCTION_URL || '',
-      'https://yourdomain.com', // Replace with your actual domain
+      process.env.VITE_APP_URL || '',
     ].filter(Boolean)
   : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000'];
 
@@ -84,6 +84,10 @@ const authLimiter = rateLimit({
 
 // Apply rate limiting
 app.use('/api/', generalLimiter);
+
+// Apply auth rate limiting to auth routes
+app.use('/api/auth/', authLimiter);
+app.use('/api/users/register', authLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
