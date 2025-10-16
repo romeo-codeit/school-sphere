@@ -586,6 +586,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
             queries.push(Query.equal('userId', sessionUser.$id));
           }
         }
+        // Apply RBAC filters to sensitive collections
+        try {
+          const sessionUser: any = (req as any).user;
+          const role = sessionUser?.prefs?.role;
+          if ([ 'grades', 'payments', 'attendance' ].includes(String(collection))) {
+            if (role === 'student') {
+              const s = await databases.listDocuments(
+                APPWRITE_DATABASE_ID!,
+                'students',
+                [Query.equal('userId', String(sessionUser.$id)), Query.limit(1)],
+              );
+              if (s.total > 0) {
+                queries.push(Query.equal('studentId', String(s.documents[0].$id)));
+              } else {
+                return res.json({ documents: [], total: 0 });
+              }
+            } else if (role === 'parent') {
+              const kids = await databases.listDocuments(
+                APPWRITE_DATABASE_ID!,
+                'students',
+                [Query.equal('parentEmail', String(sessionUser.email)), Query.limit(100)],
+              );
+              const kidIds = kids.documents.map((d: any) => String(d.$id));
+              if (kidIds.length === 0) return res.json({ documents: [], total: 0 });
+              queries.push(Query.equal('studentId', kidIds));
+            }
+          }
+          if (collection === 'resources' && (role === 'student' || role === 'parent')) {
+            queries.push(Query.equal('isPublic', true));
+          }
+          if (collection === 'messages') {
+            const uid = String(sessionUser.$id);
+            const [bySender, byRecipient] = await Promise.all([
+              databases.listDocuments(APPWRITE_DATABASE_ID!, 'messages', [Query.equal('senderId', uid)]),
+              databases.listDocuments(APPWRITE_DATABASE_ID!, 'messages', [Query.equal('recipientId', uid)]),
+            ]);
+            const map: Record<string, any> = {};
+            for (const d of bySender.documents as any[]) map[String(d.$id)] = d;
+            for (const d of byRecipient.documents as any[]) map[String(d.$id)] = d;
+            const docs = Object.values(map);
+            return res.json({ documents: docs, total: docs.length });
+          }
+        } catch (e) {
+          // Fall through to default behavior on RBAC filter errors
+        }
         const response = await databases.listDocuments(APPWRITE_DATABASE_ID!, String(collection), queries);
         res.json(response);
       } catch (error) {
@@ -609,8 +654,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
           return res.json(doc);
         }
-        const response = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
-        res.json(response);
+        const sessionUser: any = (req as any).user;
+        const role = sessionUser?.prefs?.role;
+        const doc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+
+        // Ownership checks for sensitive collections
+        if ([ 'grades', 'payments', 'attendance' ].includes(String(collection))) {
+          if (role === 'student') {
+            try {
+              const s = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.equal('userId', String(sessionUser.$id)), Query.limit(1)]);
+              const studentId = s.total > 0 ? String(s.documents[0].$id) : null;
+              if (!studentId || doc.studentId !== studentId) return res.status(403).json({ message: 'Forbidden' });
+            } catch {
+              return res.status(403).json({ message: 'Forbidden' });
+            }
+          } else if (role === 'parent') {
+            try {
+              const kids = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [Query.equal('parentEmail', String(sessionUser.email)), Query.limit(100)]);
+              const kidIds = new Set(kids.documents.map((d: any) => String(d.$id)));
+              if (!kidIds.has(String(doc.studentId))) return res.status(403).json({ message: 'Forbidden' });
+            } catch {
+              return res.status(403).json({ message: 'Forbidden' });
+            }
+          }
+        }
+
+        if (collection === 'messages') {
+          const uid = String(sessionUser.$id);
+          if (!(doc.senderId === uid || doc.recipientId === uid || role === 'admin')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+
+        if (collection === 'resources') {
+          if ((role === 'student' || role === 'parent') && !doc.isPublic) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+
+        res.json(doc);
       } catch (error) {
         console.error(error);
         res.status(500).json({ message: `Failed to fetch ${collection}` });
@@ -624,6 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ message: 'Missing collection name' });
         }
         const sessionUser: any = (req as any).user;
+        const role = sessionUser?.prefs?.role;
         // Only admins can create teachers/teachersToClasses
         if ((collection === 'teachers' || collection === 'teachersToClasses') && sessionUser?.prefs?.role !== 'admin') {
           return res.status(403).json({ message: 'Admin access required' });
@@ -651,6 +734,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
           }
         }
+        // RBAC: only admin/teacher can create sensitive documents
+        if ([ 'grades', 'payments', 'attendance' ].includes(String(collection))) {
+          if (!(role === 'admin' || role === 'teacher')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        // Resources: only admin/teacher; stamp uploader
+        if (collection === 'resources') {
+          if (!(role === 'admin' || role === 'teacher')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+          req.body.uploadedBy = sessionUser.$id;
+          const isPublic = Boolean(req.body.isPublic);
+          const permissions = [
+            Permission.read(isPublic ? Role.any() : Role.users()),
+            Permission.update(Role.user(sessionUser.$id)),
+            Permission.delete(Role.user(sessionUser.$id)),
+          ];
+          const created = await databases.createDocument(
+            APPWRITE_DATABASE_ID!,
+            String(collection),
+            ID.unique(),
+            req.body,
+            permissions as any,
+          );
+          return res.status(201).json(created);
+        }
+        // Messages: enforce sender and document-level permissions for participants
+        if (collection === 'messages') {
+          req.body.senderId = sessionUser.$id;
+          const recipientId = String(req.body.recipientId || '');
+          const permissions = [
+            Permission.read(Role.user(sessionUser.$id)),
+            Permission.read(Role.user(recipientId)),
+            Permission.update(Role.user(sessionUser.$id)),
+            Permission.delete(Role.user(sessionUser.$id)),
+          ];
+          const created = await databases.createDocument(
+            APPWRITE_DATABASE_ID!,
+            String(collection),
+            ID.unique(),
+            req.body,
+            permissions as any,
+          );
+          return res.status(201).json(created);
+        }
+
         const response = await databases.createDocument(APPWRITE_DATABASE_ID!, String(collection), ID.unique(), req.body);
         res.status(201).json(response);
       } catch (error) {
@@ -696,6 +826,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(400).json({ message: 'Validation error', errors: parseResult.error.errors });
           }
         }
+        // RBAC for updates
+        const role = (req as any).user?.prefs?.role;
+        if ([ 'grades', 'payments', 'attendance' ].includes(String(collection))) {
+          if (!(role === 'admin' || role === 'teacher')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        if (collection === 'resources' && !(role === 'admin' || role === 'teacher')) {
+          const ownerDoc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (ownerDoc.uploadedBy !== (req as any).user.$id) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        if (collection === 'messages') {
+          const msg = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (!(msg.senderId === (req as any).user.$id || role === 'admin')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+
         const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
         res.json(response);
       } catch (error) {
@@ -722,6 +872,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(403).json({ message: 'Forbidden' });
           }
         }
+        // RBAC for deletes
+        const role = (req as any).user?.prefs?.role;
+        if ([ 'grades', 'payments', 'attendance' ].includes(String(collection))) {
+          if (!(role === 'admin' || role === 'teacher')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        if (collection === 'resources' && !(role === 'admin' || role === 'teacher')) {
+          const ownerDoc = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (ownerDoc.uploadedBy !== (req as any).user.$id) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+        if (collection === 'messages') {
+          const msg = await databases.getDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
+          if (!(msg.senderId === (req as any).user.$id || role === 'admin')) {
+            return res.status(403).json({ message: 'Forbidden' });
+          }
+        }
+
         await databases.deleteDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id));
         res.status(204).send();
       } catch (error) {

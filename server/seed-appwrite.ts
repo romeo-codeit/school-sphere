@@ -426,7 +426,8 @@ async function seedCollections() {
       if (error.code === 404) {
   // ...existing code...
         await databases.createCollection(APPWRITE_DATABASE_ID!, collection.id, collection.name, [
-          Permission.read(Role.any()),
+          // Default to authenticated-only visibility; fine-grained per-document ACLs will be set on creation
+          Permission.read(Role.users()),
           Permission.create(Role.users()),
           Permission.update(Role.users()),
           Permission.delete(Role.users()),
