@@ -21,7 +21,7 @@
   });
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { Client, Users, ID, Databases, Query } from 'node-appwrite';
+import { Client, Users, ID, Databases, Query, Permission, Role } from 'node-appwrite';
 import { auth } from './middleware';
 import { z } from 'zod';
   // Zod schema for student validation
