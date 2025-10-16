@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
-import { auth } from './middleware';
-import { logError } from './logger';
+import { auth } from '../middleware';
+import { logError } from '../logger';
 import { Client, Databases, Query } from 'node-appwrite';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;

@@ -9,7 +9,7 @@ export function useUsers() {
     queryKey: ['users'],
     queryFn: async () => {
       const jwt = await getJWT();
-      const headers = jwt ? { Authorization: `Bearer ${jwt}` } : {};
+      const headers: Record<string, string> = jwt ? { Authorization: `Bearer ${jwt}` } : {};
       const [studentsResponse, teachersResponse] = await Promise.all([
         fetch('/api/students', { headers }),
         fetch('/api/teachers', { headers }),

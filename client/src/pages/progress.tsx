@@ -17,7 +17,54 @@ import { ChevronsUpDown, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Grade, Attendance, ExamAttempt, Exam } from "../../../shared/schema";
+// Define types locally since shared schema was removed
+interface Grade {
+  id: string;
+  studentId: string;
+  subject: string;
+  score: number;
+  maxScore: number;
+  totalMarks: number;
+  grade: string;
+  semester: string;
+  academicYear: string;
+  createdAt: string;
+}
+
+interface Attendance {
+  id: string;
+  studentId: string;
+  date: string;
+  status: 'present' | 'absent' | 'late';
+  remarks?: string;
+  createdAt: string;
+}
+
+interface ExamAttempt {
+  id: string;
+  userId: string;
+  examId: string;
+  status: 'in_progress' | 'completed';
+  score?: number;
+  totalQuestions?: number;
+  correctAnswers?: number;
+  percentage?: number;
+  passed?: boolean;
+  startedAt: string;
+  submittedAt?: string;
+  timeSpent?: number;
+}
+
+interface Exam {
+  id: string;
+  title: string;
+  type: string;
+  subject: string;
+  year: string;
+  duration: number;
+  totalQuestions: number;
+  createdAt: string;
+}
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useProgressPerformanceTest, logProgressPerformanceMetrics } from '@/hooks/useProgressPerformanceTest';
@@ -266,14 +313,14 @@ export default function Progress() {
               </CardHeader>
               <CardContent>
                 {isLoadingAttendance ? <TableSkeleton columns={2} rows={2} /> : <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
-                  date: a.date ? new Date(a.date) : new Date(),
+                  date: a.date ? new Date(a.date).toISOString() : new Date().toISOString(),
                   id: a.$id,
-                  createdAt: a.createdAt ? new Date(a.createdAt) : null,
-                  studentId: a.studentId || null,
-                  classId: a.classId || null,
+                  createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+                  studentId: a.studentId || '',
+                  classId: a.classId || '',
                   status: a.status as any,
-                  remarks: a.remarks || null,
-                  markedBy: a.markedBy || null,
+                  remarks: a.remarks || '',
+                  markedBy: a.markedBy || '',
                 }))} />}
               </CardContent>
             </Card>

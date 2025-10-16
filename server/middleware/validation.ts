@@ -14,14 +14,14 @@ export const validateBody = (schema: ZodSchema) => {
           message: err.message
         }));
         
-        logError('Validation error', { errors: errorMessages, body: req.body });
+        logError(new Error('Validation error'), { errors: errorMessages, body: req.body });
         return res.status(400).json({
           message: 'Validation failed',
           errors: errorMessages
         });
       }
       
-      logError('Unexpected validation error', error);
+      logError(error as Error);
       return res.status(500).json({ message: 'Internal server error' });
     }
   };
@@ -39,14 +39,14 @@ export const validateQuery = (schema: ZodSchema) => {
           message: err.message
         }));
         
-        logError('Query validation error', { errors: errorMessages, query: req.query });
+        logError(new Error('Query validation error'), { errors: errorMessages, query: req.query });
         return res.status(400).json({
           message: 'Query validation failed',
           errors: errorMessages
         });
       }
       
-      logError('Unexpected query validation error', error);
+      logError(error as Error);
       return res.status(500).json({ message: 'Internal server error' });
     }
   };
@@ -64,14 +64,14 @@ export const validateParams = (schema: ZodSchema) => {
           message: err.message
         }));
         
-        logError('Params validation error', { errors: errorMessages, params: req.params });
+        logError(new Error('Params validation error'), { errors: errorMessages, params: req.params });
         return res.status(400).json({
           message: 'Parameter validation failed',
           errors: errorMessages
         });
       }
       
-      logError('Unexpected params validation error', error);
+      logError(error as Error);
       return res.status(500).json({ message: 'Internal server error' });
     }
   };

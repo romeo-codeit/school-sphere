@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
-import { auth } from './middleware';
-import { logError } from './logger';
+import { auth } from '../middleware';
+import { logError } from '../logger';
 import { Client, Users, ID, Databases, Query } from 'node-appwrite';
-import { validateBody } from './middleware/validation';
+import { validateBody } from '../middleware/validation';
 import { userCreationSchema, schoolSettingsSchema, activationCodeSchema } from '../validation/schemas';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;

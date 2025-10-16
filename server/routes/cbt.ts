@@ -1,9 +1,9 @@
 import { Request, Response } from 'express';
-import { auth } from './middleware';
-import { logError, logDebug } from './logger';
+import { auth } from '../middleware';
+import { logError, logDebug } from '../logger';
 import { Client, ID, Databases, Query } from 'node-appwrite';
 import { cache, cacheKeys, CACHE_TTL } from '../utils/cache';
-import { validateBody, validateQuery } from './middleware/validation';
+import { validateBody, validateQuery } from '../middleware/validation';
 import { 
   examAssignmentSchema, 
   examAttemptStartSchema, 
@@ -448,7 +448,7 @@ export const registerCBTRoutes = (app: any) => {
         totalQuestions = questions.length;
         
         for (const question of questions) {
-          const userAnswer = answers[question.id] || answers[question.$id];
+          const userAnswer = (answers as any)[question.id] || (answers as any)[question.$id];
           if (userAnswer === question.correctAnswer) {
             score++;
           }
@@ -543,7 +543,7 @@ export const registerCBTRoutes = (app: any) => {
             available: false,
             questionCount: 0,
             message: 'Error checking questions availability',
-            error: error.message
+            error: (error as Error).message
           };
         }
       }

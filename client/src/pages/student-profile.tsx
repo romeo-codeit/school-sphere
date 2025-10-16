@@ -307,14 +307,14 @@ export default function StudentProfile({ id }: StudentProfileProps) {
                   </div>
                 ) : (
                   <AttendanceSummary attendance={(attendance || []).map((a: any) => ({
-                    date: a.date ? new Date(a.date) : new Date(),
+                    date: a.date ? new Date(a.date).toISOString() : new Date().toISOString(),
                     id: a.$id,
-                    createdAt: a.createdAt ? new Date(a.createdAt) : null,
-                    studentId: a.studentId || null,
-                    classId: a.classId || null,
+                    createdAt: a.createdAt ? new Date(a.createdAt).toISOString() : new Date().toISOString(),
+                    studentId: a.studentId || '',
+                    classId: a.classId || '',
                     status: a.status as any,
-                    remarks: a.remarks || null,
-                    markedBy: a.markedBy || null,
+                    remarks: a.remarks || '',
+                    markedBy: a.markedBy || '',
                   }))} />
                 )}
               </CardContent>
