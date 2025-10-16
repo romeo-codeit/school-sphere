@@ -14,7 +14,6 @@ export function useUserSubscriptions() {
         return result.documents;
       } catch (error) {
         // If collection doesn't exist, return empty array
-        console.warn('userSubscriptions collection not found, returning empty array');
         return [];
       }
     },
@@ -34,7 +33,6 @@ export function useUserSubscription(userId: string) {
         return result.documents[0] || null;
       } catch (error) {
         // If collection doesn't exist, return null
-        console.warn('userSubscriptions collection not found for user:', userId);
         return null;
       }
     },

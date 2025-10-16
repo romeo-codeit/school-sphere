@@ -143,9 +143,6 @@ export default function SubjectsPage() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📚 Subjects Page Performance Testing available in console:');
-      console.log('  window.subjectsPerfTest.testPerformance() - Run performance test');
-      console.log('  window.subjectsPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

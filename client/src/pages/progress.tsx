@@ -31,7 +31,7 @@ interface Grade {
   createdAt: string;
 }
 
-interface Attendance {
+export interface Attendance {
   id: string;
   studentId: string;
   date: string;
@@ -197,9 +197,6 @@ export default function Progress() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📊 Progress Page Performance Testing available in console:');
-      console.log('  window.progressPerfTest.testPerformance() - Run performance test');
-      console.log('  window.progressPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 
@@ -215,7 +212,6 @@ export default function Progress() {
           if (student) setStudentIdForRole(student.$id);
         }
       } catch(e) {
-        console.error("Failed to fetch student for role", e);
       }
     };
     fetchStudentForRole();

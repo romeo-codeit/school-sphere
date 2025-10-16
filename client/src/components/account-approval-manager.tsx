@@ -70,7 +70,6 @@ export function AccountApprovalManager() {
       setSelectedAccount(null);
       setSelectedRole("student");
     } catch (error) {
-      console.error('Error approving account:', error);
       toast({
         title: "Approval Failed",
         description: "Failed to approve the account",
@@ -115,7 +114,6 @@ export function AccountApprovalManager() {
       setSelectedAccount(null);
       setRejectionReason("");
     } catch (error) {
-      console.error('Error rejecting account:', error);
       toast({
         title: "Rejection Failed",
         description: "Failed to reject the account",

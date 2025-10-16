@@ -40,9 +40,6 @@ const AttendanceReports: React.FC = () => {
           testPerformance: handlePerformanceTest,
           clearCache: handleClearCache,
         };
-        console.log('📊 Attendance Reports Performance Testing available in console:');
-        console.log('  window.attendanceReportsPerfTest.testPerformance() - Run performance test');
-        console.log('  window.attendanceReportsPerfTest.clearCache() - Clear cache and reload');
       }
     }, []);
 
@@ -233,7 +230,6 @@ const AttendanceReports: React.FC = () => {
         </div>
         );
     } catch (err) {
-        console.error('Attendance Reports page error:', err);
         return <div style={{color: 'red', padding: 24}}>A fatal error occurred in Attendance Reports page. Check the console for details.</div>;
     }
 };

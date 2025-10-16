@@ -26,15 +26,7 @@ export const registerDebugRoutes = (app: any) => {
       res.json({ success: true, count: result.documents.length });
     } catch (error) {
       logError('Appwrite connectivity test failed', error);
-      let errorMsg = 'Unknown error';
-      if (typeof error === 'object' && error && 'message' in error) {
-        errorMsg = (error as any).message;
-      } else if (typeof error === 'string') {
-        errorMsg = error;
-      } else if (error) {
-        errorMsg = String(error);
-      }
-      res.status(500).json({ success: false, error: errorMsg });
+      res.status(500).json({ message: 'Appwrite connectivity test failed' });
     }
   });
 
@@ -102,7 +94,7 @@ export const registerDebugRoutes = (app: any) => {
       res.json({ summary, details: examsByType });
     } catch (error) {
       logError('Failed to analyze exam subjects', error);
-      res.status(500).json({ error: String(error) });
+      res.status(500).json({ message: 'Failed to analyze exam subjects' });
     }
   });
 
@@ -117,15 +109,7 @@ export const registerDebugRoutes = (app: any) => {
       res.json({ success: true, count: result.documents.length, student: result.documents[0] });
     } catch (error) {
       logError('Failed to fetch students debug info', error);
-      let errorMsg = 'Unknown error';
-      if (typeof error === 'object' && error && 'message' in error) {
-        errorMsg = (error as any).message;
-      } else if (typeof error === 'string') {
-        errorMsg = error;
-      } else if (error) {
-        errorMsg = String(error);
-      }
-      res.status(500).json({ success: false, error: errorMsg });
+      res.status(500).json({ message: 'Failed to fetch students debug info' });
     }
   });
 };

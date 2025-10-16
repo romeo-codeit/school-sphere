@@ -51,13 +51,6 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
 
   // Auto-select English for JAMB when dialog opens and subjects load
   useEffect(() => {
-    console.log('[SubjectSelectionDialog] useEffect triggered:', { 
-      open, 
-      examType, 
-      availableLength: available.length, 
-      initialized,
-      currentSelected: selectedSubjects 
-    });
     
     if (open && examType === 'jamb' && available.length > 0 && !initialized) {
       // Look for English with flexible matching
@@ -70,24 +63,14 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
                lower.startsWith('english');
       });
       
-      console.log('[SubjectSelectionDialog] Looking for English in available:', { 
-        available, 
-        foundEnglish: english 
-      });
-      
       if (english) {
-        console.log('[SubjectSelectionDialog] ✅ Pre-selecting English:', english);
         setSelectedSubjects([english]);
-      } else {
-        console.warn('[SubjectSelectionDialog] ⚠️ English not found in available subjects!');
-        console.warn('[SubjectSelectionDialog] Available subjects are:', available);
       }
       setInitialized(true);
     }
     
     // Reset when dialog closes
     if (!open) {
-      console.log('[SubjectSelectionDialog] Dialog closing, resetting state');
       setSelectedSubjects([]);
       setError('');
       setValidationResult(null);
@@ -115,10 +98,8 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
       return;
     }
     
-    console.log('[SubjectSelectionDialog] Confirming with:', { examType, selectedSubjects, year });
     try {
       const result = await validateMutation.mutateAsync({ type: examType, selectedSubjects, year });
-      console.log('[SubjectSelectionDialog] Validation result:', result);
       
       // Store result and proceed even with partial availability
       setValidationResult(result);
@@ -139,7 +120,6 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
       onConfirm(selectedSubjects, { year });
       onOpenChange(false);
     } catch (err: any) {
-      console.error('Subject validation error:', err);
       const errorMsg = err?.message || 'Validation failed';
       setError(errorMsg);
     }

@@ -273,13 +273,7 @@ export const registerCBTRoutes = (app: any) => {
       res.json({ ...exam, questions, questionCount: Array.isArray(questions) ? questions.length : 0 });
     } catch (error) {
       logError('Failed to fetch exam', error);
-      // If Appwrite throws document_not_found, surface 404; else 500
-      const msg = (error && typeof error === 'object' && 'type' in (error as any)) ? (error as any).type : '';
-      if (msg === 'document_not_found') {
-        res.status(404).json({ message: 'Exam not found' });
-      } else {
-        res.status(500).json({ message: 'Failed to fetch exam' });
-      }
+      res.status(500).json({ message: 'Failed to fetch exam' });
     }
   });
 

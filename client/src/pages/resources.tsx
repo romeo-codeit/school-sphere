@@ -73,7 +73,6 @@ export default function Resources() {
         }
       } catch (e) {
         setStudentProfile(null);
-        console.error("Failed to fetch student profile for resources", e);
       }
     };
     fetchStudentProfile();

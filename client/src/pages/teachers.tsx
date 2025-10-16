@@ -95,9 +95,6 @@ export default function Teachers() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('👨‍🏫 Teachers Performance Testing available in console:');
-      console.log('  window.teachersPerfTest.testPerformance() - Run performance test');
-      console.log('  window.teachersPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

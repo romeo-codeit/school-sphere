@@ -41,7 +41,6 @@ export function useDashboard() {
           }
         }
       } catch (e) {
-        console.error("Failed to parse studentAttendances", e);
       }
     });
 

@@ -175,7 +175,6 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
     try {
       await logout();
     } catch (error) {
-      console.error(error);
     }
     setLocation('/login');
   };

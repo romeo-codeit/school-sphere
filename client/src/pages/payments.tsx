@@ -118,9 +118,6 @@ export default function Payments() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('💰 Payments Page Performance Testing available in console:');
-      console.log('  window.paymentsPerfTest.testPerformance() - Run performance test');
-      console.log('  window.paymentsPerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 

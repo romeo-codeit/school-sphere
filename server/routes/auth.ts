@@ -59,7 +59,7 @@ export const registerAuthRoutes = (app: any) => {
       });
     } catch (error: any) {
       logError('Registration error', error);
-      res.status(500).json({ message: error.message || 'Failed to create account' });
+      res.status(500).json({ message: 'Failed to create account' });
     }
   });
 

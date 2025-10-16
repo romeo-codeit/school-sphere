@@ -8,7 +8,7 @@ import { useStudents } from "@/hooks/useStudents";
 import { useGrades } from "@/hooks/useGrades";
 import { useAttendance } from "@/hooks/useAttendance";
 import { usePayments } from "@/hooks/usePayments";
-import { GradesChart, AttendanceSummary } from "./progress";
+import { GradesChart, AttendanceSummary, Attendance } from "./progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -107,9 +107,6 @@ export default function StudentProfile({ id }: StudentProfileProps) {
         clearCache: handleClearCache,
         studentId: id,
       };
-      console.log('📚 Student Profile Performance Testing available in console:');
-      console.log('  window.studentProfilePerfTest.testPerformance() - Run performance test');
-      console.log('  window.studentProfilePerfTest.clearCache() - Clear cache and reload');
     }
   }, [id]);
 

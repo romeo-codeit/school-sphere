@@ -207,7 +207,6 @@ export function useUsers() {
                 const response2 = await databases.listDocuments(DATABASE_ID, 'students');
                 return [...response.documents, ...response2.documents];
             } catch (e) {
-                console.error("Failed to fetch users. Ensure a 'profiles' collection is set up with appropriate permissions.");
                 return [];
             }
         },

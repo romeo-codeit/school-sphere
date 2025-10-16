@@ -62,9 +62,6 @@ export default function TeacherProfile({ id }: TeacherProfileProps) {
         clearCache: handleClearCache,
         teacherId: id,
       };
-      console.log('🔧 Teacher Profile Performance Testing available in console:');
-      console.log('  window.teacherProfilePerfTest.testPerformance() - Run performance test');
-      console.log('  window.teacherProfilePerfTest.clearCache() - Clear cache and reload');
     }
   }, [id]);
   const { hasPermission } = useRole();

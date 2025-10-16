@@ -46,7 +46,6 @@ export default function NoticesPage() {
       setShowModal(false);
       setNewNotice({ activity: "", date: "", category: "General" });
     } catch (error) {
-      console.error("Error creating notice:", error);
       // You might want to show an error toast here
     }
   };

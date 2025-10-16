@@ -127,7 +127,6 @@ export function SubscriptionManager() {
       setIsDialogOpen(false);
       setSelectedUser(null);
     } catch (error) {
-      console.error('Error updating subscription:', error);
       toast({
         title: "Error",
         description: "Failed to update subscription",

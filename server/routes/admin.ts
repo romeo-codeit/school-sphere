@@ -279,7 +279,7 @@ export const registerAdminRoutes = (app: any) => {
       });
     } catch (error) {
       logError('Health endpoint error', error);
-      res.status(500).json({ status: 'error' });
+      res.status(500).json({ message: 'Health check failed' });
     }
   });
 };

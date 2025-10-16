@@ -199,7 +199,6 @@ export default function ExamTaking() {
       // Enforce fullscreen upon attempt start
       await enterFullscreen();
     } catch (error: any) {
-      console.error('Failed to start exam attempt:', error);
       toast({
         title: "Error",
         description: error.message || "Failed to start exam. Please try again or contact support.",
@@ -269,7 +268,6 @@ export default function ExamTaking() {
       const id = (result && (result.$id || result.id)) || attemptId;
       if (id) setLocation(`/exams/attempts/${id}/results`);
     } catch (error: any) {
-      console.error('Failed to submit exam:', error);
       toast({
         title: "Submission Error",
         description: error.message || "Failed to submit exam. Your answers are saved locally. Please try again.",
@@ -711,7 +709,6 @@ export default function ExamTaking() {
                           className="max-w-full max-h-64 object-contain rounded-lg border shadow-sm"
                           loading="lazy"
                           onError={(e) => {
-                            console.warn('Failed to load question image:', currentFilteredQuestion.imageUrl);
                             e.currentTarget.style.display = 'none';
                           }}
                         />

@@ -51,9 +51,10 @@ if (NODE_ENV !== 'production') {
 }
 
 // Wrapper to send errors to Sentry
-const logError = (error: Error | string | unknown, context?: Record<string, any>) => {
+const logError = (error: Error | string | unknown, context?: Record<string, any> | unknown) => {
   let errorMessage: string;
   let errorObj: Error;
+  let contextObj: Record<string, any> = {};
   
   if (typeof error === 'string') {
     errorMessage = error;
@@ -66,11 +67,15 @@ const logError = (error: Error | string | unknown, context?: Record<string, any>
     errorObj = new Error(errorMessage);
   }
   
-  logger.error(errorMessage, { error: errorObj, ...context });
+  if (context && typeof context === 'object' && context !== null) {
+    contextObj = context as Record<string, any>;
+  }
+  
+  logger.error(errorMessage, { error: errorObj, ...contextObj });
   
   if (SENTRY_DSN && NODE_ENV === 'production') {
     Sentry.captureException(errorObj, {
-      extra: context,
+      extra: contextObj,
     });
   }
 };

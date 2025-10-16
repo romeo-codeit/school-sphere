@@ -33,7 +33,6 @@ export function useResources(filters: ResourceFilters = {}) {
         const classDoc = await databases.getDocument(DATABASE_ID, CLASSES_COLLECTION_ID, classId);
         className = classDoc.name;
       } catch (e) {
-        console.error(`Could not fetch class name for ID ${classId}`, e);
       }
 
       const publicPromise = databases.listDocuments(DATABASE_ID, RESOURCES_COLLECTION_ID, [Query.equal('isPublic', true)]);

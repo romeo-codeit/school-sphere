@@ -43,9 +43,6 @@ export default function HistoricalAttendance() {
         testPerformance: handlePerformanceTest,
         clearCache: handleClearCache,
       };
-      console.log('📈 Historical Attendance Performance Testing available in console:');
-      console.log('  window.historicalAttendancePerfTest.testPerformance() - Run performance test');
-      console.log('  window.historicalAttendancePerfTest.clearCache() - Clear cache and reload');
     }
   }, []);
 
