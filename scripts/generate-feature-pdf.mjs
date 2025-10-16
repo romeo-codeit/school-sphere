@@ -37,7 +37,11 @@ doc.pipe(stream);
 const { left: marginLeft, right: marginRight } = doc.page.margins;
 const pageWidth = doc.page.width;
 const usableWidth = pageWidth - marginLeft - marginRight; // text flush-left within margins
-const lineGap = 4; // compact spacing
+const lineGap = 5; // slightly more breathing room
+const paragraphSize = 14;
+const h2Size = 24;
+const h3Size = 18;
+const imageScale = 0.8; // scale images to 80% of content width
 
 function ensureSpace(extraHeight = 24) {
   if (doc.y + extraHeight > doc.page.height) {
@@ -45,11 +49,11 @@ function ensureSpace(extraHeight = 24) {
   }
 }
 
-function writeText(text, fontSize = 11, options = {}) {
+function writeText(text, fontSize = paragraphSize, options = {}) {
   doc.font(hasPoppins ? poppinsRegular : 'Helvetica');
   doc.fontSize(fontSize);
   ensureSpace(fontSize + lineGap);
-  doc.text(String(text), undefined, undefined, { width: usableWidth, align: 'left', lineGap, paragraphGap: 6, indent: 0, ...options });
+  doc.text(String(text), marginLeft, doc.y, { width: usableWidth, align: 'left', lineGap, paragraphGap: 8, indent: 0, ...options });
 }
 
 function writeRule() {
@@ -62,13 +66,14 @@ function writeRule() {
 function writeSvgImage(svgPath) {
   // Draw SVG scaled to fit content width while maintaining 16:9 default ratio
   const raw = fs.readFileSync(svgPath, 'utf8');
-  const width = usableWidth;
+  const width = Math.floor(usableWidth * imageScale);
   const height = Math.round(width * (9 / 16));
   ensureSpace(height + 20);
   const yStart = doc.y + 8;
-  svgToPdf(doc, raw, marginLeft, yStart, { width });
+  const x = marginLeft + Math.floor((usableWidth - width) / 2);
+  svgToPdf(doc, raw, x, yStart, { width });
   // Optional border to distinguish image from background
-  doc.save().lineWidth(0.5).strokeColor('#dddddd').rect(marginLeft, yStart, width, height).stroke().restore();
+  doc.save().lineWidth(0.5).strokeColor('#dddddd').rect(x, yStart, width, height).stroke().restore();
   // Advance cursor
   doc.y = yStart + height;
   doc.moveDown(0.75);
@@ -102,12 +107,12 @@ for (let i = 0; i < lines.length; i += 1) {
   if (line.startsWith('## ')) {
     // Heading level 2
     if (hasPoppins) doc.font(poppinsBold);
-    writeText(line.replace(/^##\s+/, ''), 22);
+    writeText(line.replace(/^##\s+/, ''), h2Size);
     continue;
   }
   if (line.startsWith('### ')) {
     if (hasPoppins) doc.font(poppinsBold);
-    writeText(line.replace(/^###\s+/, ''), 16);
+    writeText(line.replace(/^###\s+/, ''), h3Size);
     continue;
   }
 
@@ -121,11 +126,14 @@ for (let i = 0; i < lines.length; i += 1) {
           writeSvgImage(imgAbs);
         } else if (/(\.png|\.jpg|\.jpeg)$/i.test(imgAbs)) {
           // Raster image fallback (fixed-height placeholder)
-          const width = usableWidth;
+          const width = Math.floor(usableWidth * imageScale);
+          const height = Math.round(width * (9 / 16));
+          ensureSpace(height + 20);
           const yStart = doc.y + 8;
-          ensureSpace(200);
-          doc.image(imgAbs, 0, yStart, { width });
-          doc.y = yStart + 200;
+          const x = marginLeft + Math.floor((usableWidth - width) / 2);
+          doc.image(imgAbs, x, yStart, { width });
+          doc.save().lineWidth(0.5).strokeColor('#dddddd').rect(x, yStart, width, height).stroke().restore();
+          doc.y = yStart + height;
           doc.moveDown(0.5);
         }
       }
@@ -136,14 +144,14 @@ for (let i = 0; i < lines.length; i += 1) {
   // Bulleted list line: start with "- " — render bullet without indent
   if (line.startsWith('- ')) {
     const content = line.replace(/^-\s+/, '');
-    writeText(`• ${content}`, 11);
+    writeText(`• ${content}`, paragraphSize);
     continue;
   }
 
   // Numeric list like "1) " — render flush-left text
   if (/^\d+\)\s+/.test(line)) {
     const content = line.replace(/^\d+\)\s+/, '');
-    writeText(content, 11);
+    writeText(content, paragraphSize);
     continue;
   }
 
@@ -151,12 +159,12 @@ for (let i = 0; i < lines.length; i += 1) {
   if (/^\*\*.*\*\*$/.test(line.trim())) {
     const content = line.trim().replace(/^\*\*(.*)\*\*$/, '$1');
     if (hasPoppins) doc.font(poppinsBold);
-    writeText(content, 12);
+    writeText(content, paragraphSize);
     continue;
   }
 
   // Fallback: normal paragraph (strip inline bold markers)
-  writeText(line.replace(/\*\*(.*?)\*\*/g, '$1'), 11);
+  writeText(line.replace(/\*\*(.*?)\*\*/g, '$1'), paragraphSize);
 }
 
 doc.end();
