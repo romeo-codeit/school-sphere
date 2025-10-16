@@ -70,9 +70,6 @@ export default function Landing() {
               <button onClick={() => document.getElementById('benefits')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
                 Benefits
               </button>
-              <button onClick={() => document.getElementById('testimonials')?.scrollIntoView({ behavior: 'smooth' })} className="text-sm font-medium hover:text-primary transition-colors">
-                Testimonials
-              </button>
             </nav>
 
             <div className="flex items-center gap-2 sm:gap-3">
@@ -190,6 +187,15 @@ export default function Landing() {
                   onClick={() => navigate('/login')}
                 >
                   Sign In
+                </Button>
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  className="text-base h-12 px-8"
+                  onClick={() => navigate('/signup?guest=1')}
+                  data-testid="button-register-guest"
+                >
+                  Register as Guest
                 </Button>
               </motion.div>
 
@@ -506,80 +512,7 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Testimonials Section - New */}
-      <section id="testimonials" className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 bg-muted/30">
-        <div className="max-w-7xl mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <Badge variant="outline" className="mb-4 border-primary/30 bg-primary/5">
-              <MessageSquare className="w-3 h-3 mr-1 text-primary" />
-              Testimonials
-            </Badge>
-            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-6">
-              Loved by Educators
-              <br />
-              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                Across the Globe
-              </span>
-            </h2>
-          </motion.div>
-
-          <motion.div
-            variants={staggerContainer}
-            initial="initial"
-            whileInView="animate"
-            viewport={{ once: true }}
-            className="grid md:grid-cols-3 gap-6 lg:gap-8"
-          >
-            {[
-              {
-                name: "Sarah Mitchell",
-                role: "Senior Student",
-                quote: "The student portal makes it so easy to track my grades, attendance, and assignments. I love how everything is organized!",
-                rating: 5
-              },
-              {
-                name: "Michael Thompson",
-                role: "Mathematics Teacher",
-                quote: "Managing my classes and grading has never been easier. The analytics help me understand each student's progress better.",
-                rating: 5
-              },
-              {
-                name: "Patricia Davis",
-                role: "Parent",
-                quote: "I can stay updated on my child's performance and school activities in real-time. It's a game changer for parent involvement!",
-                rating: 5
-              }
-            ].map((testimonial, index) => (
-              <motion.div key={index} variants={fadeInUp}>
-                <Card className="h-full border-2 hover:border-primary/50 transition-all">
-                  <CardContent className="p-6">
-                    <div className="flex gap-1 mb-4">
-                      {[...Array(testimonial.rating)].map((_, i) => (
-                        <Star key={i} className="w-5 h-5 fill-yellow-500 text-yellow-500" />
-                      ))}
-                    </div>
-                    <p className="text-muted-foreground mb-6 italic">"{testimonial.quote}"</p>
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground font-bold">
-                        {testimonial.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <div className="font-semibold">{testimonial.name}</div>
-                        <div className="text-sm text-muted-foreground">{testimonial.role}</div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
+      {/* Testimonials removed for non‑SaaS landing simplification */}
 
       {/* Final CTA Section - Enhanced */}
       <section className="py-20 sm:py-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden">

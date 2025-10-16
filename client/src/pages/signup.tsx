@@ -63,7 +63,14 @@ export default function SignupPage() {
   const [showPendingMessage, setShowPendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
-  const [registerAsGuest, setRegisterAsGuest] = useState(false);
+  const [registerAsGuest, setRegisterAsGuest] = useState(() => {
+    try {
+      const url = new URL(window.location.href);
+      return url.searchParams.get('guest') === '1';
+    } catch {
+      return false;
+    }
+  });
 
   const passwordStrength = calculatePasswordStrength(password);
 

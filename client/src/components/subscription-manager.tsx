@@ -204,8 +204,9 @@ export function SubscriptionManager() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => window.location.href = '/admin/activation-codes'}
+              onClick={() => (window.history.pushState({}, '', '/admin/activation-codes'))}
               className="text-xs"
+              data-testid="button-manage-activation-codes"
             >
               Manage Codes →
             </Button>
