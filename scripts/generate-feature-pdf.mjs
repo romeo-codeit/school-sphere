@@ -27,7 +27,8 @@ const hasPoppins = fs.existsSync(poppinsRegular) && fs.existsSync(poppinsBold);
 // PDF setup with sensible page margins; no paragraph indentation
 const doc = new PDFDocument({
   size: 'A4',
-  margins: { top: 42, bottom: 42, left: 48, right: 48 },
+  // Make text start at the absolute left; keep a small right margin to avoid clipping
+  margins: { top: 42, bottom: 42, left: 0, right: 36 },
 });
 
 const stream = fs.createWriteStream(outPdfPath);
@@ -36,7 +37,7 @@ doc.pipe(stream);
 // Layout helpers
 const { left: marginLeft, right: marginRight } = doc.page.margins;
 const pageWidth = doc.page.width;
-const usableWidth = pageWidth - marginLeft - marginRight; // text flush-left within margins
+const usableWidth = pageWidth - marginLeft - marginRight; // text flush-left
 const lineGap = 5; // slightly more breathing room
 const paragraphSize = 14;
 const h2Size = 24;
@@ -53,7 +54,8 @@ function writeText(text, fontSize = paragraphSize, options = {}) {
   doc.font(hasPoppins ? poppinsRegular : 'Helvetica');
   doc.fontSize(fontSize);
   ensureSpace(fontSize + lineGap);
-  doc.text(String(text), marginLeft, doc.y, { width: usableWidth, align: 'left', lineGap, paragraphGap: 8, indent: 0, ...options });
+  // Always start from absolute left (x=0) and use full usable width
+  doc.text(String(text), 0, doc.y, { width: usableWidth, align: 'left', lineGap, paragraphGap: 8, indent: 0, ...options });
 }
 
 function writeRule() {
