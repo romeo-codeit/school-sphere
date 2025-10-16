@@ -13,7 +13,10 @@
     "db:push": "drizzle-kit push",
     "seed:appwrite": "tsx server/seed-appwrite.ts",
     "backup:db": "tsx scripts/backup-appwrite.ts",
-    "restore:db": "tsx scripts/restore-appwrite.ts"
+    "restore:db": "tsx scripts/restore-appwrite.ts",
+    "docs:screens": "node scripts/generate-doc-screenshots.mjs",
+    "docs:html": "node scripts/export-guide-to-pdf.mjs",
+    "docs:pdf": "node scripts/generate-feature-pdf.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -128,7 +131,9 @@
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
     "typescript": "5.6.3",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "pdfkit": "^0.15.0",
+    "svg-to-pdfkit": "^0.1.8"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
