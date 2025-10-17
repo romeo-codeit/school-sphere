@@ -9,17 +9,14 @@ export function useAuth() {
     try { return localStorage.getItem('appwrite_jwt'); } catch { return null; }
   });
 
-  // Fetch JWT from Appwrite
+  // Return JWT from local state/storage only; do not call account.createJWT() here to avoid CORS
   const getJWT = async () => {
     if (jwt) return jwt;
     try {
-      const { jwt: token } = await account.createJWT();
-      setJwt(token);
-      try { localStorage.setItem('appwrite_jwt', token); } catch {}
-      return token;
-    } catch (e) {
-      return null;
-    }
+      const token = localStorage.getItem('appwrite_jwt');
+      if (token) { setJwt(token); return token; }
+    } catch {}
+    return null;
   };
   const queryClient = useQueryClient();
 

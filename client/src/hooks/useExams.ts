@@ -13,7 +13,15 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['cbt-exams', type, limit, offset, withQuestions],
+    // Provide disk cache to avoid "loads afresh" feeling on remounts or reloads
     queryFn: async () => {
+      const cacheKey = (() => {
+        const t = type ?? 'all';
+        const l = String(limit ?? 'default');
+        const o = String(typeof offset === 'number' ? offset : 'none');
+        const wq = withQuestions ? 'wq1' : 'wq0';
+        return `cache:cbt:exams:${t}:${l}:${o}:${wq}`;
+      })();
       let url = API_URL;
       const query: string[] = [];
       if (type) query.push(`type=${encodeURIComponent(type)}`);
@@ -22,22 +30,52 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       if (!withQuestions) query.push(`withQuestions=false`);
       if (query.length > 0) url += `?${query.join('&')}`;
       let jwt = await getJWT();
-      let response = await fetch(url, {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-      });
+          let response = await fetch(url, {
+            headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+            credentials: 'include',
+          });
       // Auto-refresh JWT once on 401
       if (response.status === 401) {
         try {
-          const { jwt: fresh } = await account.createJWT();
-          try { localStorage.setItem('appwrite_jwt', fresh); } catch {}
-          jwt = fresh;
-          response = await fetch(url, { headers: { Authorization: `Bearer ${fresh}` } });
+              const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+              if (token) {
+                await fetch('/api/auth/jwt-cookie', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ jwt: token }),
+                  credentials: 'include',
+                });
+                response = await fetch(url, { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+              }
         } catch {}
       }
       if (!response.ok) {
+        // Fallback to cached data if available
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) return JSON.parse(cached);
+        } catch {}
         throw new Error('Failed to fetch exams');
       }
-      return await response.json(); // { exams, total }
+      const json = await response.json(); // { exams, total }
+      try { localStorage.setItem(cacheKey, JSON.stringify(json)); } catch {}
+      return json;
+    },
+    // Keep cached for longer to avoid frequent refetches between navigations
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 60 * 60 * 1000,    // 60 minutes
+    refetchOnWindowFocus: false,
+    // Hydrate from cache immediately to reduce jank on remount
+    initialData: () => {
+      try {
+        const t = type ?? 'all';
+        const l = String(limit ?? 'default');
+        const o = String(typeof offset === 'number' ? offset : 'none');
+        const wq = withQuestions ? 'wq1' : 'wq0';
+        const cacheKey = `cache:cbt:exams:${t}:${l}:${o}:${wq}`;
+        const cached = localStorage.getItem(cacheKey);
+        return cached ? JSON.parse(cached) : undefined;
+      } catch { return undefined; }
     },
   });
 

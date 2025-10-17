@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { isOnline, queueRequest } from '@/lib/offline';
+// Note: avoid calling account.createJWT() in hooks to prevent CORS issues when not authenticated
 
 const API_BASE = '/api/cbt';
 
@@ -11,10 +12,28 @@ export function useAssignedExams() {
     queryFn: async () => {
       const cacheKey = 'cache:cbt:exams:assigned';
       try {
-        const jwt = await getJWT();
-        const res = await fetch(`${API_BASE}/exams/assigned`, {
+        let jwt = await getJWT();
+        let res = await fetch(`${API_BASE}/exams/assigned`, {
           headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
         });
+        // On 401, try to refresh the HttpOnly cookie using any stored token
+        if (res.status === 401) {
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              res = await fetch(`${API_BASE}/exams/assigned`, {
+                headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+                credentials: 'include',
+              });
+            }
+          } catch {}
+        }
         if (!res.ok) throw new Error('Failed to fetch assigned exams');
         const data = (await res.json()) as { exams: any[]; total: number };
         try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
@@ -27,6 +46,15 @@ export function useAssignedExams() {
         throw e;
       }
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    initialData: () => {
+      try {
+        const raw = localStorage.getItem('cache:cbt:exams:assigned');
+        return raw ? JSON.parse(raw) : undefined;
+      } catch { return undefined; }
+    },
   });
 }
 
@@ -37,10 +65,28 @@ export function useAvailableExams() {
     queryFn: async () => {
       const cacheKey = 'cache:cbt:exams:available';
       try {
-        const jwt = await getJWT();
-        const res = await fetch(`${API_BASE}/exams/available`, {
+        let jwt = await getJWT();
+        let res = await fetch(`${API_BASE}/exams/available`, {
           headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+          credentials: 'include',
         });
+        if (res.status === 401) {
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              res = await fetch(`${API_BASE}/exams/available`, {
+                headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+                credentials: 'include',
+              });
+            }
+          } catch {}
+        }
         if (!res.ok) throw new Error('Failed to fetch available exams');
         const data = (await res.json()) as { exams: any[]; total: number; message?: string };
         try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
@@ -53,6 +99,15 @@ export function useAvailableExams() {
         throw e;
       }
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    initialData: () => {
+      try {
+        const raw = localStorage.getItem('cache:cbt:exams:available');
+        return raw ? JSON.parse(raw) : undefined;
+      } catch { return undefined; }
+    },
   });
 }
 
@@ -62,10 +117,28 @@ export function useAvailableSubjects(type?: string, enabled = true) {
     queryKey: ['cbt-subjects-available', type],
     enabled: !!type && enabled,
     queryFn: async () => {
-      const jwt = await getJWT();
-      const res = await fetch(`${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}` , {
+      let jwt = await getJWT();
+      let res = await fetch(`${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        credentials: 'include',
       });
+      if (res.status === 401) {
+        try {
+          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+          if (token) {
+            await fetch('/api/auth/jwt-cookie', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jwt: token }),
+              credentials: 'include',
+            });
+            res = await fetch(`${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}` , {
+              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+              credentials: 'include',
+            });
+          }
+        } catch {}
+      }
       if (!res.ok) throw new Error('Failed to fetch available subjects');
       return (await res.json()) as { subjects: string[] };
     },
@@ -78,13 +151,31 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
     queryKey: ['cbt-years-available', type, subjectsCsv],
     enabled: !!type && enabled,
     queryFn: async () => {
-      const jwt = await getJWT();
+      let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
-      const res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
+      let res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        credentials: 'include',
       });
+      if (res.status === 401) {
+        try {
+          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+          if (token) {
+            await fetch('/api/auth/jwt-cookie', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jwt: token }),
+              credentials: 'include',
+            });
+            res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
+              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+              credentials: 'include',
+            });
+          }
+        } catch {}
+      }
       if (!res.ok) throw new Error('Failed to fetch available years');
       return (await res.json()) as { years: string[] };
     },
@@ -97,13 +188,31 @@ export function useYearAvailability(type?: string, subjectsCsv?: string, enabled
     queryKey: ['cbt-years-availability', type, subjectsCsv],
     enabled: !!type && !!subjectsCsv && enabled,
     queryFn: async () => {
-      const jwt = await getJWT();
+      let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
-      const res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
+      let res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        credentials: 'include',
       });
+      if (res.status === 401) {
+        try {
+          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+          if (token) {
+            await fetch('/api/auth/jwt-cookie', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ jwt: token }),
+              credentials: 'include',
+            });
+            res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
+              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+              credentials: 'include',
+            });
+          }
+        } catch {}
+      }
       if (!res.ok) throw new Error('Failed to fetch year availability');
       return (await res.json()) as { 
         availability: Array<{
