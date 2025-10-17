@@ -185,9 +185,18 @@ const AttendanceReports: React.FC = () => {
                     <CardHeader><CardTitle className="text-base sm:text-lg">Recent Attendance Records</CardTitle></CardHeader>
                     <CardContent>
                         {/* Mobile: Card view */}
-                        <div className="grid grid-cols-1 gap-4 sm:hidden">
-                            {records.slice(0, 10).map(record => {
-                                const attendances = JSON.parse(record.studentAttendances);
+                                                <div className="grid grid-cols-1 gap-4 sm:hidden">
+                                                        {records.slice(0, 10).map(record => {
+                                                                let attendances: any[] = [];
+                                                                try {
+                                                                    if (record.studentAttendances) {
+                                                                        attendances = typeof record.studentAttendances === 'string'
+                                                                            ? JSON.parse(record.studentAttendances)
+                                                                            : Array.isArray(record.studentAttendances) ? record.studentAttendances : [];
+                                                                    }
+                                                                } catch (e) {
+                                                                    attendances = [];
+                                                                }
                                 const presentCount = attendances.filter((a: any) => a.status === 'present').length;
                                 const totalCount = attendances.length;
                                 const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
@@ -219,8 +228,17 @@ const AttendanceReports: React.FC = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {records.slice(0, 10).map(record => {
-                                        const attendances = JSON.parse(record.studentAttendances);
+                                                                        {records.slice(0, 10).map(record => {
+                                                                                let attendances: any[] = [];
+                                                                                try {
+                                                                                    if (record.studentAttendances) {
+                                                                                        attendances = typeof record.studentAttendances === 'string'
+                                                                                            ? JSON.parse(record.studentAttendances)
+                                                                                            : Array.isArray(record.studentAttendances) ? record.studentAttendances : [];
+                                                                                    }
+                                                                                } catch (e) {
+                                                                                    attendances = [];
+                                                                                }
                                         const presentCount = attendances.filter((a: any) => a.status === 'present').length;
                                         const totalCount = attendances.length;
                                         const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
@@ -242,10 +260,27 @@ const AttendanceReports: React.FC = () => {
             </div>
             </ErrorBoundary>
         </div>
-        );
-    } catch (err) {
-        return <div style={{color: 'red', padding: 24}}>A fatal error occurred in Attendance Reports page. Check the console for details.</div>;
-    }
+                );
+        } catch (err: any) {
+                return (
+                    <div className="p-6">
+                        <Card className="border-destructive/50">
+                            <CardHeader>
+                                <CardTitle className="text-destructive">Attendance Reports failed to render</CardTitle>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-muted-foreground">An unexpected error occurred rendering this page.</p>
+                                {err?.message && (
+                                    <div className="mt-4 text-xs bg-muted rounded p-3 overflow-auto">
+                                        <div className="font-medium mb-2">Error</div>
+                                        <pre>{String(err.message)}</pre>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </div>
+                );
+        }
 };
 
 export default AttendanceReports;
