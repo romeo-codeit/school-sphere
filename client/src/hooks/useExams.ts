@@ -65,8 +65,9 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
     staleTime: 10 * 60 * 1000, // 10 minutes
     gcTime: 60 * 60 * 1000,    // 60 minutes
     refetchOnWindowFocus: false,
-    // Hydrate from cache immediately to reduce jank on remount
+    // Hydrate from cache immediately to reduce jank on remount, but skip for full fetches to ensure fresh data
     initialData: () => {
+      if (limit === 'all') return undefined; // Force fresh fetch for full exam lists
       try {
         const t = type ?? 'all';
         const l = String(limit ?? 'default');
