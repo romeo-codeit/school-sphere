@@ -121,42 +121,127 @@ export const registerCBTRoutes = (app: any) => {
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      // Fetch ALL assignments for this user using cursor-based pagination
+      // Fetch ALL assignments for this user using cursor-based pagination.
+      // If the collection doesn't exist in this environment, gracefully fall back
+      // to scanning exams and filtering by embedded assignment metadata.
       const assignmentDocs: any[] = [];
-      let lastId: string | null = null;
-      while (true) {
-        const queries = [
+      let assignmentsAvailable = true;
+      try {
+        let lastId: string | null = null;
+        while (true) {
+          const queries = [
+            Query.equal('userId', String(userId)),
+            Query.orderAsc('$id'),
+            Query.limit(100),
+          ];
+          if (lastId) queries.push(Query.cursorAfter(lastId));
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
+          const docs = (page.documents || []) as any[];
+          if (docs.length === 0) break;
+          assignmentDocs.push(...docs);
+          lastId = String(docs[docs.length - 1].$id);
+        }
+      } catch (err: any) {
+        assignmentsAvailable = false;
+        console.error('examAssignments collection unavailable, using fallback:', err?.message || err);
+      }
+
+      if (assignmentsAvailable) {
+        // Build unique list of exam IDs
+        const examIds = Array.from(new Set(assignmentDocs.map((a: any) => a.examId).filter(Boolean)));
+        if (examIds.length === 0) {
+          return res.json({ exams: [], total: 0 });
+        }
+
+        // Get exam details (and minimal question info) for each assignment
+        const exams = await Promise.all(
+          examIds.map(async (examId: string) => {
+            try {
+              const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', String(examId));
+              // Determine question count without fetching all questions
+              let questionCount = 0;
+              if (Array.isArray((exam as any).questions)) {
+                questionCount = (exam as any).questions.length;
+              } else {
+                try {
+                  const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+                    Query.equal('examId', String(examId)),
+                    Query.limit(1),
+                  ]);
+                  questionCount = qRes.total || 0;
+                } catch {
+                  questionCount = 0;
+                }
+              }
+              return { ...exam, questionCount, hasQuestions: questionCount > 0 };
+            } catch {
+              // If an exam document is missing or inaccessible, skip it
+              return null as any;
+            }
+          })
+        );
+
+        const visible = exams.filter((exam: any) => exam && exam.hasQuestions);
+        return res.status(200).json({ exams: visible, total: visible.length });
+      }
+
+      // Fallback: no examAssignments collection. Derive visibility from exam docs' embedded assignment metadata.
+      let studentId: string | undefined;
+      let classId: string | undefined;
+      try {
+        const studentDocs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [
           Query.equal('userId', String(userId)),
-          Query.orderAsc('$id'),
-          Query.limit(100),
-        ];
-        if (lastId) queries.push(Query.cursorAfter(lastId));
-        const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
-        const docs = (page.documents || []) as any[];
-        if (docs.length === 0) break;
-        assignmentDocs.push(...docs);
-        lastId = String(docs[docs.length - 1].$id);
+          Query.limit(1),
+        ]);
+        if (studentDocs.total > 0) {
+          studentId = String(studentDocs.documents[0].$id);
+          classId = studentDocs.documents[0].classId ? String(studentDocs.documents[0].classId) : undefined;
+        }
+      } catch {}
+
+      // Pull all exams via cursor
+      const allExams: any[] = [];
+      try {
+        let lastId: string | null = null;
+        while (true) {
+          const queries = [Query.orderAsc('$id'), Query.limit(100)];
+          if (lastId) queries.push(Query.cursorAfter(lastId));
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', queries);
+          const batch = (page.documents || []) as any[];
+          if (batch.length === 0) break;
+          allExams.push(...batch);
+          lastId = String(batch[batch.length - 1].$id);
+        }
+      } catch (err: any) {
+        console.error('exams collection unavailable in fallback:', err?.message || err);
+        return res.status(200).json({ exams: [], total: 0 });
       }
 
-      // Build unique list of exam IDs
-      const examIds = Array.from(new Set(assignmentDocs.map((a: any) => a.examId).filter(Boolean)));
-      if (examIds.length === 0) {
-        return res.json({ exams: [], total: 0 });
-      }
+      const filtered = allExams.filter((e) => {
+        const assigned: string[] | undefined = (e as any).assignedTo;
+        const examType = (e as any).type ? String((e as any).type).toLowerCase() : '';
 
-      // Get exam details (and minimal question info) for each assignment
-      const exams = await Promise.all(
-        examIds.map(async (examId: string) => {
+        // Public internal exams
+        if (Array.isArray(assigned) && assigned.length === 0) return true;
+        // Exclude standardized practice exams from "Assigned to me"
+        if (['waec', 'neco', 'jamb'].includes(examType)) return false;
+        // Not public and no assignment metadata
+        if (assigned === undefined) return false;
+        // Visible if explicitly assigned to student or their class
+        return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
+      });
+
+      // Enrich with minimal question info
+      const withQInfo = await Promise.all(
+        filtered.map(async (exam: any) => {
           try {
-            const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', String(examId));
-            // Determine question count without fetching all questions
             let questionCount = 0;
-            if (Array.isArray((exam as any).questions)) {
-              questionCount = (exam as any).questions.length;
+            if (Array.isArray(exam.questions)) {
+              questionCount = exam.questions.length;
             } else {
               try {
                 const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-                  Query.equal('examId', String(examId)),
+                  Query.equal('examId', String(exam.$id)),
                   Query.limit(1),
                 ]);
                 questionCount = qRes.total || 0;
@@ -166,13 +251,12 @@ export const registerCBTRoutes = (app: any) => {
             }
             return { ...exam, questionCount, hasQuestions: questionCount > 0 };
           } catch {
-            // If an exam document is missing or inaccessible, skip it
             return null as any;
           }
         })
       );
 
-      const visible = exams.filter((exam: any) => exam && exam.hasQuestions);
+      const visible = withQInfo.filter((e: any) => e && e.hasQuestions);
       return res.status(200).json({ exams: visible, total: visible.length });
     } catch (error) {
       // Minimal additional logging for debugging
@@ -189,8 +273,23 @@ export const registerCBTRoutes = (app: any) => {
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      // Get all exams
-      const allExams = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1000)]);
+      // Get all exams with cursor-based pagination to avoid 100 cap
+      const allExams: any[] = [];
+      try {
+        let lastId: string | null = null;
+        while (true) {
+          const queries = [Query.orderAsc('$id'), Query.limit(100)];
+          if (lastId) queries.push(Query.cursorAfter(lastId));
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', queries);
+          const docs = (page.documents || []) as any[];
+          if (docs.length === 0) break;
+          allExams.push(...docs);
+          lastId = String(docs[docs.length - 1].$id);
+        }
+      } catch (err: any) {
+        console.error('exams collection unavailable:', err?.message || err);
+        return res.json({ exams: [], total: 0 });
+      }
       
       // Get user's assigned exams
       const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
@@ -202,7 +301,7 @@ export const registerCBTRoutes = (app: any) => {
       
       // Filter out assigned exams and add question count
       const availableExams = await Promise.all(
-        allExams.documents
+        allExams
           .filter((exam: any) => !assignedExamIds.has(exam.$id))
           .map(async (exam: any) => {
             let questionCount = 0;
