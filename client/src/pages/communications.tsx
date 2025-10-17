@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { useConversations, useChat, useUsers, useForum } from "@/hooks/useChat";
@@ -236,7 +237,12 @@ function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: 
                       <CommandGroup heading="Users">{isLoading ? <CommandItem>Loading...</CommandItem> :
                           users?.filter(u => u.$id !== currentUser?.$id).map(user => (
                           <CommandItem key={user.$id} onSelect={() => handleSelectUser(user)} className={cn(selectedUsers.some(su => su.$id === user.$id) && "bg-accent")}>
-                              {user.firstName ? `${user.firstName} ${user.lastName}` : user.name}
+                              <div className="flex items-center justify-between w-full">
+                                <span>{user.firstName ? `${user.firstName} ${user.lastName}` : user.name}</span>
+                                <Badge variant={user.role === 'teacher' ? 'primary' : 'secondary'} className="ml-2">
+                                  {user.role === 'teacher' ? 'Teacher' : user.role === 'student' ? 'Student' : user.role === 'parent' ? 'Parent' : 'Admin'}
+                                </Badge>
+                              </div>
                           </CommandItem>
                       ))}</CommandGroup>
                     </CommandList>

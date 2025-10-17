@@ -108,7 +108,7 @@ export function useConversations() {
       const response = await databases.listDocuments(
         DATABASE_ID,
         CONVERSATIONS_COLLECTION_ID,
-        [Query.equal('members', user.$id), Query.orderDesc('lastActivity')]
+        [Query.contains('members', [user.$id]), Query.orderDesc('lastActivity')]
       );
             return response.documents;
         },
