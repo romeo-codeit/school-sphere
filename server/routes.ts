@@ -1052,7 +1052,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           studentId = String(studentDocs.documents[0].$id);
           classId = studentDocs.documents[0].classId ? String(studentDocs.documents[0].classId) : undefined;
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error fetching student document:', error);
+        // Continue execution even if student document fetch fails
+      }
 
       // Fallback: if not student, allow teachers to see all for now (will refine in Phase 6)
       if (role === 'teacher') {
@@ -1070,10 +1073,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ exams: all, total: all.length });
       }
 
-      // Fetch all exams using cursor and filter in-memory for assignment
+      // Get user's assigned exams from examAssignments collection (individual assignments)
+      let assignedExamIds = new Set<string>();
+      try {
+        let lastId: string | null = null;
+        let assignmentCount = 0;
+        while (true) {
+          const queries = [Query.equal('userId', userId), Query.orderAsc('$id'), Query.limit(100)];
+          if (lastId) queries.push(Query.cursorAfter(lastId));
+          const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
+          if (assignments.documents.length === 0) break;
+          
+          assignments.documents.forEach((assignment: any) => {
+            assignedExamIds.add(String(assignment.examId));
+          });
+          
+          assignmentCount += assignments.documents.length;
+          lastId = String(assignments.documents[assignments.documents.length - 1].$id);
+        }
+        console.log(`Found ${assignmentCount} individual exam assignments for user ${userId}`);
+      } catch (error) {
+        console.error('Error fetching exam assignments:', error);
+        // Continue execution even if exam assignments fetch fails
+      }
+
+      // Fetch all exams using cursor and filter for both individual and bulk assignments
       let exams: any[] = [];
       {
         let lastId: string | null = null;
+        let examCount = 0;
         while (true) {
           const queries = [Query.orderAsc('$id'), Query.limit(100)];
           if (lastId) queries.push(Query.cursorAfter(lastId));
@@ -1081,12 +1109,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (page.documents.length === 0) break;
           const batch = page.documents as any[];
           exams.push(...batch);
+          examCount += batch.length;
           lastId = String(batch[batch.length - 1].$id);
         }
+        console.log(`Fetched ${examCount} total exams from database`);
       }
+      
       const visible = exams.filter((e) => {
         const assigned: string[] | undefined = (e as any).assignedTo;
         const examType = (e as any).type?.toLowerCase();
+        const examId = String(e.$id);
+
+        // Check if individually assigned via examAssignments collection
+        if (assignedExamIds.has(examId)) return true;
 
         // Public if assignedTo exists and is an empty array (internal exams only)
         if (Array.isArray(assigned) && assigned.length === 0) return true;
@@ -1100,9 +1135,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Visible if explicitly assigned to student or their class
         return (studentId && assigned.includes(String(studentId))) || (classId && assigned.includes(String(classId)));
       });
+      
+      console.log(`Returning ${visible.length} visible exams to user ${userId}`);
       return res.json({ exams: visible, total: visible.length });
     } catch (error) {
-      console.error(error);
+      console.error('Failed to fetch assigned exams:', error);
       res.status(500).json({ message: 'Failed to fetch assigned exams' });
     }
   });
