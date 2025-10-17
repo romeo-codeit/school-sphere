@@ -23,11 +23,11 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
   const hasData = data.some(d => d.value > 0);
 
   return (
-    <Card>
+    <Card className="h-[340px]">
       <CardHeader>
         <CardTitle>Students</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="h-[260px]">
         {!hasData ? (
           <EmptyState
             icon={Users}
@@ -36,7 +36,7 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
           />
         ) : (
           <>
-        <div className="w-full h-[300px]">
+        <div className="w-full h-[200px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
               innerRadius="70%"
