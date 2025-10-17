@@ -61,46 +61,42 @@ const AttendanceReports: React.FC = () => {
         fetchData();
     }, []);
 
-    const { overallStats, dailyTrend, classStats } = useMemo(() => {
-        if (records.length === 0) return { overallStats: { presentRate: 0, totalRecords: 0 }, dailyTrend: [], classStats: [] };
+    const { overallStats, dailyTrend, classStats, recentAggregates } = useMemo(() => {
+        if (records.length === 0) return { overallStats: { presentRate: 0, totalRecords: 0 }, dailyTrend: [], classStats: [], recentAggregates: [] };
 
         let totalPresent = 0;
         let totalStudents = 0;
         const dailyData: { [key: string]: { present: number, total: number } } = {};
         const classData: { [key: string]: { present: number, total: number } } = {};
+        const aggregates = new Map<string, { classId: string; date: string; present: number; total: number }>();
+        const classMap = new Map<string, string>((classes || []).map((c: any) => [String(c.$id), c.name]));
 
-        records.forEach(record => {
+        records.forEach((record: any) => {
+            if (!record?.date) return;
             const date = format(new Date(record.date), 'yyyy-MM-dd');
             if (!dailyData[date]) dailyData[date] = { present: 0, total: 0 };
 
-            const classId = record.classId;
+            const classId = String(record.classId || '');
+            if (!classId) return;
             if (!classData[classId]) classData[classId] = { present: 0, total: 0 };
 
-            // Guard against missing or invalid studentAttendances
-            let studentAttendances = [];
-            try {
-                if (record.studentAttendances) {
-                    studentAttendances = typeof record.studentAttendances === 'string' 
-                        ? JSON.parse(record.studentAttendances)
-                        : Array.isArray(record.studentAttendances) 
-                        ? record.studentAttendances 
-                        : [];
-                }
-            } catch (error) {
-                console.warn('Failed to parse studentAttendances:', error);
-                studentAttendances = [];
+            // Records are stored per student with a 'status' field
+            const status = String(record.status || '').toLowerCase();
+            if (status === 'present') {
+                totalPresent++;
+                dailyData[date].present++;
+                classData[classId].present++;
             }
+            totalStudents++;
+            dailyData[date].total++;
+            classData[classId].total++;
 
-            studentAttendances.forEach((att: any) => {
-                if (att.status === 'present') {
-                    totalPresent++;
-                    dailyData[date].present++;
-                    classData[classId].present++;
-                }
-                totalStudents++;
-                dailyData[date].total++;
-                classData[classId].total++;
-            });
+            // Build aggregates for Recent Attendance view
+            const key = `${classId}|${date}`;
+            const agg = aggregates.get(key) || { classId, date, present: 0, total: 0 };
+            agg.total += 1;
+            if (status === 'present') agg.present += 1;
+            aggregates.set(key, agg);
         });
 
         const overallStats = {
@@ -114,14 +110,25 @@ const AttendanceReports: React.FC = () => {
         })).slice(0, 7).reverse(); // Last 7 days
 
         const classStats = Object.keys(classData).map(classId => {
-            const classInfo = classes.find(c => c.$id === classId);
+            const name = classMap.get(String(classId)) || 'Unknown Class';
             return {
-                name: classInfo ? classInfo.name : 'Unknown Class',
+                name,
                 'Attendance (%)': classData[classId].total > 0 ? (classData[classId].present / classData[classId].total * 100) : 0,
             };
         });
 
-        return { overallStats, dailyTrend, classStats };
+        const recentAggregates = Array.from(aggregates.values())
+          .map(a => ({
+            classId: a.classId,
+            date: a.date,
+            presentCount: a.present,
+            totalCount: a.total,
+            rate: a.total > 0 ? Number(((a.present / a.total) * 100).toFixed(1)) : 0,
+          }))
+          .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+          .slice(0, 10);
+
+        return { overallStats, dailyTrend, classStats, recentAggregates };
     }, [records, classes]);
 
     const getClassName = (classId: string) => classes.find(c => c.$id === classId)?.name || 'Unknown';
@@ -186,25 +193,15 @@ const AttendanceReports: React.FC = () => {
                     <CardContent>
                         {/* Mobile: Card view */}
                                                 <div className="grid grid-cols-1 gap-4 sm:hidden">
-                                                        {records.slice(0, 10).map(record => {
-                                                                let attendances: any[] = [];
-                                                                try {
-                                                                    if (record.studentAttendances) {
-                                                                        attendances = typeof record.studentAttendances === 'string'
-                                                                            ? JSON.parse(record.studentAttendances)
-                                                                            : Array.isArray(record.studentAttendances) ? record.studentAttendances : [];
-                                                                    }
-                                                                } catch (e) {
-                                                                    attendances = [];
-                                                                }
-                                const presentCount = attendances.filter((a: any) => a.status === 'present').length;
-                                const totalCount = attendances.length;
-                                const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
+                                                    {recentAggregates.map(agg => {
+                                                        const presentCount = agg.presentCount;
+                                                        const totalCount = agg.totalCount;
+                                                        const rate = totalCount > 0 ? `${agg.rate}%` : 'N/A';
                                 return (
-                                    <Card key={record.$id} className="p-4">
+                                                            <Card key={`${agg.classId}-${agg.date}`} className="p-4">
                                         <div className="flex justify-between items-center mb-2">
-                                            <div className="font-medium text-base">{getClassName(record.classId)}</div>
-                                            <div className="text-sm text-muted-foreground">{format(new Date(record.date), 'PPP')}</div>
+                                                                    <div className="font-medium text-base">{getClassName(agg.classId)}</div>
+                                                                    <div className="text-sm text-muted-foreground">{format(new Date(agg.date), 'PPP')}</div>
                                         </div>
                                         <div className="grid grid-cols-3 gap-2 text-sm">
                                             <div><span className="font-medium">Present:</span> {presentCount}</div>
@@ -228,24 +225,14 @@ const AttendanceReports: React.FC = () => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                                                        {records.slice(0, 10).map(record => {
-                                                                                let attendances: any[] = [];
-                                                                                try {
-                                                                                    if (record.studentAttendances) {
-                                                                                        attendances = typeof record.studentAttendances === 'string'
-                                                                                            ? JSON.parse(record.studentAttendances)
-                                                                                            : Array.isArray(record.studentAttendances) ? record.studentAttendances : [];
-                                                                                    }
-                                                                                } catch (e) {
-                                                                                    attendances = [];
-                                                                                }
-                                        const presentCount = attendances.filter((a: any) => a.status === 'present').length;
-                                        const totalCount = attendances.length;
-                                        const rate = totalCount > 0 ? (presentCount / totalCount * 100).toFixed(1) + '%' : 'N/A';
+                                                                                                            {recentAggregates.map(agg => {
+                                                                                                                    const presentCount = agg.presentCount;
+                                                                                                                    const totalCount = agg.totalCount;
+                                                                                                                    const rate = totalCount > 0 ? `${agg.rate}%` : 'N/A';
                                         return (
-                                            <TableRow key={record.$id}>
-                                                <TableCell className="text-sm">{getClassName(record.classId)}</TableCell>
-                                                <TableCell className="text-sm">{format(new Date(record.date), 'PPP')}</TableCell>
+                                                                                                                            <TableRow key={`${agg.classId}-${agg.date}`}>
+                                                                                                                                    <TableCell className="text-sm">{getClassName(agg.classId)}</TableCell>
+                                                                                                                                    <TableCell className="text-sm">{format(new Date(agg.date), 'PPP')}</TableCell>
                                                 <TableCell className="text-sm">{presentCount}</TableCell>
                                                 <TableCell className="text-sm">{totalCount}</TableCell>
                                                 <TableCell className="text-sm"><Badge>{rate}</Badge></TableCell>
