@@ -5,58 +5,7 @@ import { isOnline, queueRequest } from '@/lib/offline';
 
 const API_BASE = '/api/cbt';
 
-export function useAssignedExams() {
-  const { getJWT } = useAuth();
-  return useQuery({
-    queryKey: ['cbt-exams-assigned'],
-    queryFn: async () => {
-      const cacheKey = 'cache:cbt:exams:assigned';
-      try {
-        let jwt = await getJWT();
-        let res = await fetch(`${API_BASE}/exams/assigned`, {
-          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-        });
-        // On 401, try to refresh the HttpOnly cookie using any stored token
-        if (res.status === 401) {
-          try {
-            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-            if (token) {
-              await fetch('/api/auth/jwt-cookie', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jwt: token }),
-                credentials: 'include',
-              });
-              res = await fetch(`${API_BASE}/exams/assigned`, {
-                headers: { ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
-                credentials: 'include',
-              });
-            }
-          } catch {}
-        }
-        if (!res.ok) throw new Error('Failed to fetch assigned exams');
-        const data = (await res.json()) as { exams: any[]; total: number };
-        try { localStorage.setItem(cacheKey, JSON.stringify(data)); } catch {}
-        return data;
-      } catch (e) {
-        try {
-          const raw = localStorage.getItem(cacheKey);
-          if (raw) return JSON.parse(raw);
-        } catch {}
-        throw e;
-      }
-    },
-    staleTime: 10 * 60 * 1000,
-    gcTime: 60 * 60 * 1000,
-    refetchOnWindowFocus: false,
-    initialData: () => {
-      try {
-        const raw = localStorage.getItem('cache:cbt:exams:assigned');
-        return raw ? JSON.parse(raw) : undefined;
-      } catch { return undefined; }
-    },
-  });
-}
+// Assigned exams feature removed
 
 export function useAvailableExams() {
   const { getJWT } = useAuth();

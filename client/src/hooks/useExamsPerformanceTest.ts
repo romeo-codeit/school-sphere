@@ -13,9 +13,9 @@ export function useExamsPerformanceTest() {
       const examsQueryStart = performance.now();
       const jwt = await getJWT();
       await queryClient.prefetchQuery({
-        queryKey: ['cbt-exams-assigned'],
+        queryKey: ['cbt-exams', 'all', 'all', 'none', 'wq0'],
         queryFn: async () => {
-          const res = await fetch('/api/cbt/exams/assigned', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch('/api/cbt/exams?limit=all&withQuestions=false', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -55,6 +55,7 @@ export function useExamsPerformanceTest() {
 
   const clearCache = () => {
     queryClient.removeQueries({ queryKey: ['cbt'] });
+    queryClient.removeQueries({ queryKey: ['cbt-exams-assigned'] });
     console.log('🧹 Exams cache cleared');
   };
 

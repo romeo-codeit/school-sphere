@@ -22,14 +22,14 @@ import {
 } from "@/components/ui/dialog";
 import { Upload, Search, FileText, Play, Clock, Users } from "lucide-react";
 import { useExams } from "@/hooks/useExams";
-import { useStartAttempt, useAssignedExams } from "@/hooks/useCBT";
+import { useStartAttempt } from "@/hooks/useCBT";
 import { useLocation } from "wouter";
 import { UploadExamForm } from "@/components/upload-exam-form";
 import { Loading } from "@/components/ui/loading";
 import { useQuery } from '@tanstack/react-query';
 import { SubjectSelectionDialog } from "@/components/exams/SubjectSelectionDialog";
 import { useToast } from "@/hooks/use-toast";
-import { AssignExamDialog } from "@/components/exams/AssignExamDialog";
+// Assigned exams feature removed
 import { useAuth } from "@/hooks/useAuth";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -114,11 +114,11 @@ function ExamsPage() {
   const [selectedExamForPreview, setSelectedExamForPreview] = useState<any | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [subjectSelectionExam, setSubjectSelectionExam] = useState<any | null>(null);
-  const [assignExamId, setAssignExamId] = useState<string | null>(null);
+  // Assigned exams feature removed
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const startAttemptMutation = useStartAttempt();
-  const { data: assignedData } = useAssignedExams();
+  // Assigned exams feature removed
 
   // Guests: fetch subscription state to gate UI
   const [guestSubActive, setGuestSubActive] = React.useState<boolean | null>(null);
@@ -356,43 +356,11 @@ function ExamsPage() {
               <div className="overflow-x-auto">
                 <TabsList>
                   <TabsTrigger value="all">All School Exams</TabsTrigger>
-                  <TabsTrigger value="assigned">Assigned to Me</TabsTrigger>
                   <TabsTrigger value="internal">Internal</TabsTrigger>
                 </TabsList>
               </div>
             </Tabs>
-            {selectedType === 'assigned' && (
-              <Card className="mb-6">
-                <CardHeader>
-                  <CardTitle>Assigned Exams</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!assignedData ? (
-                    <div className="text-center py-8"><Loading text="Loading assigned exams..." /></div>
-                  ) : assignedData.exams.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">No assigned exams yet.</div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {assignedData.exams.map((exam: any) => (
-                        <Card key={exam.$id} className="p-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <div>
-                              <div className="font-semibold text-base">{exam.title}</div>
-                              <div className="text-xs text-muted-foreground">{exam.subject}</div>
-                            </div>
-                            <Badge variant="outline" className="text-xs">{String(exam.type).toUpperCase()}</Badge>
-                          </div>
-                          <div className="text-sm mb-1"><span className="font-medium">Duration:</span> {exam.duration || 0} mins</div>
-                          <div className="flex gap-2 mt-2 justify-end">
-                            <Button size="sm" onClick={() => handleStartExam(exam)}><Play className="w-3 h-3 mr-1" />Start</Button>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {/* Assigned exams section removed */}
 
             {/* Exams List: Mobile Card view and Desktop Table view */}
             {isAllLoading ? (
@@ -471,9 +439,7 @@ function ExamsPage() {
                             <TableCell>
                               <div className="flex flex-wrap items-center gap-2">
                                 <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => handlePreviewExam(exam)}><FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Preview</Button>
-                                {(role === 'admin' || role === 'teacher') && (
-                                  <Button variant="outline" size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => setAssignExamId(exam.$id)}><Users className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Assign</Button>
-                                )}
+                                {/* Assign button removed with assigned exams feature */}
                                 <Button size="sm" className="w-full sm:w-auto text-xs sm:text-sm" onClick={() => handleStartExam(exam)}><Play className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />Start</Button>
                               </div>
                             </TableCell>
