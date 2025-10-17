@@ -114,71 +114,71 @@ export const registerCBTRoutes = (app: any) => {
     }
   });
 
-  // Get assigned exams for a user
+  // Get assigned exams for the authenticated user
   app.get('/api/cbt/exams/assigned', auth, async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
-      const role = sessionUser?.prefs?.role;
-      const isDev = process.env.NODE_ENV !== 'production';
-      const isAdmin = role === 'admin';
-
-      if (!isAdmin && !isDev) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      // Get user's assigned exams
-      const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
-        Query.equal('userId', userId),
-        Query.limit(100)
-      ]);
+      // Fetch ALL assignments for this user using cursor-based pagination
+      const assignmentDocs: any[] = [];
+      let lastId: string | null = null;
+      while (true) {
+        const queries = [
+          Query.equal('userId', String(userId)),
+          Query.orderAsc('$id'),
+          Query.limit(100),
+        ];
+        if (lastId) queries.push(Query.cursorAfter(lastId));
+        const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
+        const docs = (page.documents || []) as any[];
+        if (docs.length === 0) break;
+        assignmentDocs.push(...docs);
+        lastId = String(docs[docs.length - 1].$id);
+      }
 
-      const examIds = assignments.documents.map((a: any) => a.examId);
-      
+      // Build unique list of exam IDs
+      const examIds = Array.from(new Set(assignmentDocs.map((a: any) => a.examId).filter(Boolean)));
       if (examIds.length === 0) {
         return res.json({ exams: [], total: 0 });
       }
 
-      // Get exam details
+      // Get exam details (and minimal question info) for each assignment
       const exams = await Promise.all(
         examIds.map(async (examId: string) => {
           try {
-            const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
-            
-            // Check question count
+            const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', String(examId));
+            // Determine question count without fetching all questions
             let questionCount = 0;
-            if (Array.isArray(exam.questions)) {
-              questionCount = exam.questions.length;
+            if (Array.isArray((exam as any).questions)) {
+              questionCount = (exam as any).questions.length;
             } else {
               try {
                 const qRes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-                  Query.equal('examId', examId),
-                  Query.limit(1)
+                  Query.equal('examId', String(examId)),
+                  Query.limit(1),
                 ]);
                 questionCount = qRes.total || 0;
-              } catch (e) {
+              } catch {
                 questionCount = 0;
               }
             }
-            
-            return {
-              ...exam,
-              questionCount,
-              hasQuestions: questionCount > 0
-            };
-          } catch (e) {
-            return null;
+            return { ...exam, questionCount, hasQuestions: questionCount > 0 };
+          } catch {
+            // If an exam document is missing or inaccessible, skip it
+            return null as any;
           }
         })
       );
 
-      const visible = exams.filter(exam => exam !== null && exam.hasQuestions);
-      return res.json({ exams: visible, total: visible.length });
+      const visible = exams.filter((exam: any) => exam && exam.hasQuestions);
+      return res.status(200).json({ exams: visible, total: visible.length });
     } catch (error) {
+      // Minimal additional logging for debugging
+      console.error((error as any)?.message || error);
       logError('Failed to fetch assigned exams', error);
-      res.status(500).json({ message: 'Failed to fetch assigned exams' });
+      return res.status(500).json({ message: 'Failed to fetch assigned exams' });
     }
   });
 
