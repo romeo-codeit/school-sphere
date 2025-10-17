@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useNoticesPerformanceTest } from "@/hooks/useNoticesPerformanceTest";
@@ -219,17 +220,13 @@ export default function NoticesPage() {
         ) : filtered.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="p-4 bg-muted rounded-full mb-4">
-                  <Bell className="w-12 h-12 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No Notices Found</h3>
-                <p className="text-muted-foreground">
-                  {search || selectedCategory !== "All" 
-                    ? "Try adjusting your filters" 
-                    : "No notices have been posted yet"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Bell}
+                title="No Notices Found"
+                description={search || selectedCategory !== "All" 
+                  ? "Try adjusting your filters to see more notices." 
+                  : "No notices have been posted yet. New notices will appear here when published."}
+              />
             </CardContent>
           </Card>
         ) : (

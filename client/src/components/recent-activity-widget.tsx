@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Bell } from "lucide-react";
 import { formatDistanceToNow, isValid } from 'date-fns';
+import { EmptyState } from "@/components/ui/empty-state";
 
 interface Activity {
   $id: string;
@@ -31,6 +32,18 @@ export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) 
         <CardTitle>Recent Activity</CardTitle>
       </CardHeader>
       <CardContent>
+        {activities.length === 0 ? (
+          <EmptyState
+            icon={Bell}
+            title="No Recent Activity"
+            description="Activity will appear here as things happen in your school."
+            action={{
+              label: "View All Activities",
+              onClick: () => setLocation('/activities')
+            }}
+          />
+        ) : (
+          <>
         <ul className="space-y-4">
           {activities.map((activity) => (
             <li key={activity.$id} className="flex items-start space-x-2 sm:space-x-4">
@@ -46,10 +59,9 @@ export function RecentActivityWidget({ activities }: RecentActivityWidgetProps) 
             </li>
           ))}
         </ul>
-        {activities.length === 0 && (
-          <p className="text-center text-muted-foreground py-4">No recent activities</p>
-        )}
         <Button variant="outline" className="w-full mt-4" onClick={() => setLocation('/activities')}>View All</Button>
+        </>
+        )}
       </CardContent>
     </Card>
   );

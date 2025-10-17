@@ -4,6 +4,8 @@ import { buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useNotices } from "@/hooks/useNotices";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Calendar } from "lucide-react";
 
 export function EventCalendar() {
   const { notices, isLoading } = useNotices();
@@ -80,7 +82,13 @@ export function EventCalendar() {
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No upcoming events.</p>
+            <div className="py-4">
+              <EmptyState
+                icon={Calendar}
+                title="No Events"
+                description="No upcoming events scheduled."
+              />
+            </div>
           )}
         </div>
       </CardContent>

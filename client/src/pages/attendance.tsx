@@ -9,9 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/hooks/use-toast';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Calendar } from 'lucide-react';
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useAttendancePerformanceTest, logAttendancePerformanceMetrics } from '@/hooks/useAttendancePerformanceTest';
@@ -83,7 +84,13 @@ const StudentAttendanceView: React.FC = () => {
                 <CardHeader><CardTitle className="text-lg sm:text-xl">Attendance History</CardTitle></CardHeader>
                 <CardContent>
                 {isLoading ? <TableSkeleton columns={2} rows={5} /> :
-                  studentHistory.length === 0 ? <p className="text-center py-4 text-muted-foreground">No attendance records found.</p> :
+                  studentHistory.length === 0 ? (
+                    <EmptyState
+                      icon={Calendar}
+                      title="No Attendance Records"
+                      description="You don't have any attendance records yet. Your attendance will appear here once it's been taken."
+                    />
+                  ) : (
                   <>
                     {/* Mobile: Card view */}
                     <div className="grid grid-cols-1 gap-4 sm:hidden">
@@ -123,7 +130,7 @@ const StudentAttendanceView: React.FC = () => {
                       </Table>
                     </div>
                   </>
-                }
+                )}
               </CardContent>
             </Card>
             </ErrorBoundary>

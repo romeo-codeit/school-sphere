@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -670,9 +671,11 @@ export default function Payments() {
             {isLoading ? (
               <TableSkeleton columns={7} rows={5} />
             ) : filteredPayments.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? "No payments found matching your search." : "No payments found."}
-              </div>
+              <EmptyState
+                icon={CreditCard}
+                title={searchQuery ? "No Payments Found" : "No Payments Yet"}
+                description={searchQuery ? "Try adjusting your search or filter criteria." : "Payment records will appear here once students start making payments."}
+              />
             ) : (
               <>
                 {/* Mobile: Card view */}

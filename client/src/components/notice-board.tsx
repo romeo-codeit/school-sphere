@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { MoreHorizontal, Rss, BookOpen, Mic, LucideIcon, FileText, Calendar } from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
 // import { EventCalendar as Calendar } from "@/components/event-calendar";
 import { format } from 'date-fns';
 
@@ -48,6 +49,13 @@ export function NoticeBoard({ notices }: NoticeBoardProps) {
         </div>
       </CardHeader>
       <CardContent>
+        {notices.length === 0 ? (
+          <EmptyState
+            icon={Rss}
+            title="No Notices Yet"
+            description="Check back later for important announcements and updates."
+          />
+        ) : (
         <ul className="space-y-4">
           {notices.map((notice) => {
             const Icon = getIconForActivity(notice.activity, notice.category);
@@ -71,6 +79,7 @@ export function NoticeBoard({ notices }: NoticeBoardProps) {
             )
           })}
         </ul>
+        )}
       </CardContent>
     </Card>
   );

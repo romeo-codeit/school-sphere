@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useActivitiesPerformanceTest } from "@/hooks/useActivitiesPerformanceTest";
@@ -217,17 +218,13 @@ export default function ActivitiesPage() {
         ) : filtered.length === 0 ? (
           <Card>
             <CardContent className="pt-6">
-              <div className="flex flex-col items-center justify-center py-12 text-center">
-                <div className="p-4 bg-muted rounded-full mb-4">
-                  <Activity className="w-12 h-12 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">No Activities Found</h3>
-                <p className="text-muted-foreground">
-                  {search || selectedType !== "All" 
-                    ? "Try adjusting your filters" 
-                    : "No activities have been recorded yet"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Activity}
+                title="No Activities Found"
+                description={search || selectedType !== "All" 
+                  ? "Try adjusting your filters to see more activities." 
+                  : "No activities have been recorded yet. Activities will appear here as they occur."}
+              />
             </CardContent>
           </Card>
         ) : (

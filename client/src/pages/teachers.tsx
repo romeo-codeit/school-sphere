@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useTeachers } from "@/hooks/useTeachers";
@@ -131,7 +132,15 @@ export default function Teachers() {
               {isLoading ? (
                 <TableSkeleton columns={4} rows={5} />
               ) : !teachers || teachers.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No teachers found." : "No teachers have been added."}</div>
+                <EmptyState
+                  icon={UserCheck}
+                  title={searchQuery ? "No Teachers Found" : "No Teachers Yet"}
+                  description={searchQuery ? "Try adjusting your search criteria." : "Get started by adding your first teacher to the system."}
+                  action={!searchQuery ? {
+                    label: "Add Teacher",
+                    onClick: () => setIsFormOpen(true)
+                  } : undefined}
+                />
               ) : (
                 <>
                   {/* Mobile: Card view */}

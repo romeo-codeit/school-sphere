@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useConversations, useChat, useUsers, useForum } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
 import { PlusCircle, Send, MessageSquare, MessageCircle, ArrowLeft, MoreHorizontal, Edit, Trash2 } from "lucide-react";
@@ -168,12 +169,18 @@ function ForumList({ onSelectThread }: { onSelectThread: (thread: any) => void }
               </Card>
             ))}
           </div>
-        ) :
+        ) : threads && threads.length === 0 ? (
+          <EmptyState
+            icon={MessageSquare}
+            title="No Forum Discussions"
+            description="There are no forum threads yet. Be the first to start a discussion!"
+          />
+        ) : (
          threads?.map((thread: any) => (
           <Card key={thread.$id} onClick={() => onSelectThread(thread)} className="cursor-pointer hover:bg-muted/50 mb-4">
             <CardHeader><CardTitle>{thread.title}</CardTitle><CardDescription>Created {formatDistanceToNow(new Date(thread.$createdAt))} ago</CardDescription></CardHeader>
           </Card>
-        ))}
+        )))}
       </CardContent>
     </Card>
   );
@@ -277,13 +284,21 @@ function ConversationList({ onSelect, selectedConversationId }: { onSelect: (id:
                       </div>
                     ))}
                   </div>
-                ) :
+                ) : conversations && conversations.length === 0 ? (
+                  <div className="p-4">
+                    <EmptyState
+                      icon={MessageCircle}
+                      title="No Conversations"
+                      description="Start a new chat to connect with teachers, students, or parents."
+                    />
+                  </div>
+                ) : (
                  conversations?.map(conv => (
                     <div key={conv.$id} onClick={() => onSelect(conv.$id)} className={cn("p-4 border-b cursor-pointer hover:bg-muted/50", selectedConversationId === conv.$id && "bg-accent")}>
                         <p className="font-semibold">{getConversationName(conv)}</p>
                         <p className="text-sm text-muted-foreground truncate">{conv.lastMessage || "No messages yet."}</p>
                     </div>
-                ))}
+                )))}
             </div>
             <div className="p-4 border-t">
                 <NewChatDialog onConversationCreated={onSelect} />

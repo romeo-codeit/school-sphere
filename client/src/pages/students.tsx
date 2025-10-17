@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -21,7 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
+import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
@@ -156,7 +157,15 @@ export default function Students() {
                   Error loading students: {error.message}
                 </div>
               ) : !students || students.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground text-base sm:text-lg">{searchQuery ? "No students found." : "No students have been added."}</div>
+                <EmptyState
+                  icon={Users}
+                  title={searchQuery ? "No Students Found" : "No Students Yet"}
+                  description={searchQuery ? "Try adjusting your search criteria." : "Get started by adding your first student to the system."}
+                  action={!searchQuery ? {
+                    label: "Add Student",
+                    onClick: () => setIsFormOpen(true)
+                  } : undefined}
+                />
               ) : (
                 <>
                   {/* Mobile: Card view */}

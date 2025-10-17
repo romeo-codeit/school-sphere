@@ -3,6 +3,7 @@ import { TopNav } from "@/components/top-nav";
 import { StatsCard } from "@/components/stats-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Users,
   UserCheck,
@@ -214,7 +215,28 @@ export function AdminDashboard() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
           <Card>
             <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Weekly Attendance</CardTitle></CardHeader>
-            <CardContent>{attendanceLoading ? <p className="text-sm sm:text-base">Loading...</p> : <ResponsiveContainer width="100%" height={300}><BarChart data={chartData} barSize={10}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="name" axisLine={false} tickLine={false} /><YAxis axisLine={false} tickLine={false} /><Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)'}} /><Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} /><Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} /></BarChart></ResponsiveContainer>}</CardContent>
+            <CardContent>
+              {attendanceLoading ? (
+                <p className="text-sm sm:text-base">Loading...</p>
+              ) : chartData.length === 0 || chartData.every(d => d.present === 0 && d.absent === 0) ? (
+                <EmptyState
+                  icon={BarChart3}
+                  title="No Attendance Data"
+                  description="Attendance records will appear here once students start checking in."
+                />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={chartData} barSize={10}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} />
+                    <YAxis axisLine={false} tickLine={false} />
+                    <Tooltip cursor={{fill: 'transparent'}} contentStyle={{backgroundColor: 'var(--card)', border: '1px solid var(--border)', borderRadius: 'var(--radius)'}} />
+                    <Bar dataKey="present" fill="var(--primary)" name="Present" shape={<RoundedBar />} />
+                    <Bar dataKey="absent" fill="var(--secondary)" name="Absent" shape={<RoundedBar />} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
           </Card>
           <div className="w-full"><StudentsProgressChart data={studentGenderData} /></div>
           <div className="w-full"><EventCalendar /></div>

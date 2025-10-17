@@ -11,6 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -226,8 +227,19 @@ export default function Resources() {
             </div>
 
             {isLoading ? <TableSkeleton rows={8} columns={4} /> :
-             filteredResources.length === 0 ? <div className="text-center py-8 text-muted-foreground">No resources found.</div> :
-             (
+             filteredResources.length === 0 ? (
+              <EmptyState
+                icon={BookOpen}
+                title="No Resources Available"
+                description={searchQuery || selectedType !== 'all' || selectedSubject !== 'all' 
+                  ? "No resources match your filters. Try adjusting your search criteria."
+                  : "There are no learning resources uploaded yet. Check back later or contact your teacher."}
+                action={hasPermission('resources', 'create') ? {
+                  label: "Upload Resource",
+                  onClick: () => setIsFormOpen(true)
+                } : undefined}
+              />
+             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                 {filteredResources.map((resource: any) => {
                   const Icon = getTypeIcon(resource.type);

@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -368,9 +369,13 @@ function ExamsPage() {
             {isAllLoading ? (
               <TableSkeleton columns={5} rows={5} />
             ) : paginatedExams.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? "No exams found matching your search." : "No exams available."}
-              </div>
+              <EmptyState
+                icon={FileText}
+                title="No Exams Found"
+                description={searchQuery 
+                  ? "No exams found matching your search. Try adjusting your filters." 
+                  : "No exams are currently available. Check back later or contact your teacher."}
+              />
             ) : (
               <>
                 {/* Mobile: Card view */}

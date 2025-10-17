@@ -6,6 +6,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Users } from "lucide-react";
 
 interface StudentsProgressChartProps {
   data: {
@@ -18,6 +20,7 @@ interface StudentsProgressChartProps {
 export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
   const maleData = data.find(d => d.name.toLowerCase() === 'male');
   const femaleData = data.find(d => d.name.toLowerCase() === 'female');
+  const hasData = data.some(d => d.value > 0);
 
   return (
     <Card>
@@ -25,6 +28,14 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
         <CardTitle>Students</CardTitle>
       </CardHeader>
       <CardContent>
+        {!hasData ? (
+          <EmptyState
+            icon={Users}
+            title="No Student Data"
+            description="Student demographics will appear here once students are enrolled."
+          />
+        ) : (
+          <>
         <div className="w-full h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
@@ -64,6 +75,8 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
             </div>
           )}
         </div>
+        </>
+        )}
       </CardContent>
     </Card>
   );

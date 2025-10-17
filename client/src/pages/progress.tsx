@@ -1,5 +1,6 @@
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
@@ -13,7 +14,7 @@ import { getStudentByParentEmail } from "@/lib/api/students";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Check } from "lucide-react";
+import { ChevronsUpDown, Check, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -80,7 +81,13 @@ export function GradesChart({ grades }: { grades: Grade[] }) {
   }, [grades]);
 
   if (!grades || grades.length === 0) {
-    return <p>No grades available.</p>;
+    return (
+      <EmptyState
+        icon={TrendingUp}
+        title="No Grades Available"
+        description="No academic grades have been recorded yet. Grades will appear here once they are entered by your teacher."
+      />
+    );
   }
 
   return (

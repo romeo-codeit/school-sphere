@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
@@ -366,9 +367,15 @@ export default function Messages() {
               {isLoading ? (
                 <div className="text-center py-8">Loading messages...</div>
               ) : filteredMessages.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? "No messages found matching your search." : "No messages found."}
-                </div>
+                <EmptyState
+                  icon={MessageSquare}
+                  title={searchQuery ? "No Messages Found" : "No Messages Yet"}
+                  description={searchQuery ? "Try adjusting your search criteria." : "Your inbox is empty. Start a conversation by sending a message."}
+                  action={!searchQuery ? {
+                    label: "Compose Message",
+                    onClick: () => setIsComposeOpen(true)
+                  } : undefined}
+                />
               ) : (
                 <div className="space-y-4">
                   {filteredMessages.map((message: any) => (
