@@ -108,7 +108,7 @@ export function useConversations() {
       const response = await databases.listDocuments(
         DATABASE_ID,
         CONVERSATIONS_COLLECTION_ID,
-        [Query.contains('members', [user.$id]), Query.orderDesc('lastActivity')]
+        [Query.contains('members', [user.$id]), Query.orderDesc('$createdAt')]
       );
             return response.documents;
         },
@@ -169,21 +169,22 @@ export function useChat(conversationId: string) {
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: any) => {
         const message = await databases.createDocument(DATABASE_ID, CHAT_MESSAGES_COLLECTION_ID, ID.unique(), messageData);
-        // Update the conversation's last activity
-        await databases.updateDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, message.conversationId, {
-            lastMessage: message.content,
-            lastActivity: new Date().toISOString(),
-        });
+        // Update the conversation's last message (if lastMessage attribute exists)
+        try {
+          await databases.updateDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, message.conversationId, {
+              lastMessage: message.content,
+          });
+        } catch (e) {
+          // Ignore if lastMessage attribute doesn't exist
+          console.log('Note: lastMessage attribute not available in conversations collection');
+        }
         return message;
     },
   });
 
   const createConversationMutation = useMutation({
       mutationFn: async (conversationData: { members: string[], name?: string, isGroup?: boolean }) => {
-          return await databases.createDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, ID.unique(), {
-              ...conversationData,
-              lastActivity: new Date().toISOString(),
-          });
+          return await databases.createDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, ID.unique(), conversationData);
       }
   });
 

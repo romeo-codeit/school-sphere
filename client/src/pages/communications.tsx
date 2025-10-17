@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { EmptyState } from "@/components/ui/empty-state";
 import { useConversations, useChat, useUsers, useForum } from "@/hooks/useChat";
 import { useAuth } from "@/hooks/useAuth";
-import { PlusCircle, Send, MessageSquare, MessageCircle, ArrowLeft, MoreHorizontal, Edit, Trash2 } from "lucide-react";
+import { PlusCircle, Send, MessageSquare, MessageCircle, ArrowLeft, MoreHorizontal, Edit, Trash2, Search, Users, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -191,6 +191,7 @@ function ForumList({ onSelectThread }: { onSelectThread: (thread: any) => void }
 
 function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: string) => void }) {
     const [open, setOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState("");
     const { users, isLoading } = useUsers();
     const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
     const { createConversation } = useChat("");
@@ -210,54 +211,178 @@ function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: 
 
         try {
             const newConversation = await createConversation({ members: memberIds, isGroup, name: conversationName });
-            toast({ title: "Success", description: "Conversation started." });
+            toast({ title: "Success", description: "Conversation started successfully!" });
             setOpen(false);
             setSelectedUsers([]);
+            setSearchQuery("");
             onConversationCreated(newConversation!.$id);
         } catch (error: any) {
-            toast({ title: "Error", description: error.message, variant: "destructive" });
+            toast({ title: "Error", description: error.message || "Failed to start conversation", variant: "destructive" });
+        }
+    };
+
+    const getInitials = (name: string) => {
+        return name
+            .split(' ')
+            .map(n => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2);
+    };
+
+    const filteredUsers = users?.filter(u => {
+        if (u.$id === currentUser?.$id) return false;
+        const fullName = u.firstName ? `${u.firstName} ${u.lastName}` : u.name;
+        return fullName.toLowerCase().includes(searchQuery.toLowerCase());
+    }) || [];
+
+    const getRoleBadgeColor = (role: string) => {
+        switch (role) {
+            case 'teacher': return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300';
+            case 'student': return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300';
+            case 'parent': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300';
+            default: return 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300';
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild><Button variant="outline" className="w-full"><PlusCircle className="w-4 h-4 mr-2" /> New Chat</Button></DialogTrigger>
-            <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-hidden flex flex-col">
-                <DialogHeader className="px-6 pt-6 pb-4">
-                  <DialogTitle className="text-xl sm:text-2xl">Start a new conversation</DialogTitle>
-                  <DialogDescription className="text-sm text-muted-foreground mt-2">
-                    Search and select users to start chatting
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="px-6 flex-1 overflow-y-auto">
-                  <Command>
-                    <CommandInput placeholder="Search for users..." />
-                    <CommandList>
-                      <CommandEmpty>No users found.</CommandEmpty>
-                      <CommandGroup heading="Users">{isLoading ? <CommandItem>Loading...</CommandItem> :
-                          users?.filter(u => u.$id !== currentUser?.$id).map(user => (
-                          <CommandItem key={user.$id} onSelect={() => handleSelectUser(user)} className={cn(selectedUsers.some(su => su.$id === user.$id) && "bg-accent")}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{user.firstName ? `${user.firstName} ${user.lastName}` : user.name}</span>
-                                <Badge variant={user.role === 'teacher' ? 'primary' : 'secondary'} className="ml-2">
-                                  {user.role === 'teacher' ? 'Teacher' : user.role === 'student' ? 'Student' : user.role === 'parent' ? 'Parent' : 'Admin'}
-                                </Badge>
-                              </div>
-                          </CommandItem>
-                      ))}</CommandGroup>
-                    </CommandList>
-                  </Command>
-                  <div className="p-3 mt-3 text-sm bg-muted/50 rounded-md">
-                    <span className="font-medium">Selected:</span> {selectedUsers.map(u => u.firstName || u.name).join(', ') || 'None'}
-                  </div>
-                </div>
-                <DialogFooter className="px-6 pb-6 pt-4 border-t flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-                  <Button variant="outline" onClick={() => setOpen(false)} className="w-full sm:w-auto">Cancel</Button>
-                  <Button onClick={handleCreateConversation} disabled={selectedUsers.length === 0} className="w-full sm:w-auto">
+            <DialogTrigger asChild>
+                <Button className="w-full">
                     <MessageCircle className="w-4 h-4 mr-2" />
-                    Start Chat
-                  </Button>
-                </DialogFooter>
+                    New Message
+                </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] h-[600px] p-0 gap-0 overflow-hidden flex flex-col">
+                {/* Header */}
+                <div className="px-6 py-4 border-b">
+                    <DialogTitle className="text-2xl font-semibold">New Message</DialogTitle>
+                    <DialogDescription className="text-sm text-muted-foreground mt-1">
+                        Select people to start a conversation
+                    </DialogDescription>
+                </div>
+
+                {/* Search Bar */}
+                <div className="px-6 py-4 border-b">
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="pl-9 h-10"
+                        />
+                    </div>
+                </div>
+
+                {/* Selected Users Pills */}
+                {selectedUsers.length > 0 && (
+                    <div className="px-6 py-3 border-b bg-muted/30">
+                        <div className="flex flex-wrap gap-2">
+                            {selectedUsers.map(user => (
+                                <div
+                                    key={user.$id}
+                                    className="flex items-center gap-2 pl-3 pr-2 py-1.5 bg-primary text-primary-foreground rounded-full text-sm font-medium"
+                                >
+                                    <span>{user.firstName || user.name}</span>
+                                    <button
+                                        onClick={() => handleSelectUser(user)}
+                                        className="hover:bg-primary-foreground/20 rounded-full p-0.5 transition-colors"
+                                    >
+                                        <Trash2 className="h-3 w-3" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* User List */}
+                <div className="flex-1 overflow-y-auto">
+                    {isLoading ? (
+                        <div className="flex items-center justify-center h-full">
+                            <div className="text-muted-foreground">Loading users...</div>
+                        </div>
+                    ) : filteredUsers.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center px-6">
+                            <Users className="h-12 w-12 text-muted-foreground mb-3 opacity-50" />
+                            <p className="text-muted-foreground">
+                                {searchQuery ? 'No users found' : 'No users available'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="py-2">
+                            {filteredUsers.map(user => {
+                                const isSelected = selectedUsers.some(su => su.$id === user.$id);
+                                const fullName = user.firstName ? `${user.firstName} ${user.lastName}` : user.name;
+                                const roleLabel = user.role === 'teacher' ? 'Teacher' : user.role === 'student' ? 'Student' : user.role === 'parent' ? 'Parent' : 'Admin';
+
+                                return (
+                                    <div
+                                        key={user.$id}
+                                        onClick={() => handleSelectUser(user)}
+                                        className={cn(
+                                            "flex items-center gap-3 px-6 py-3 cursor-pointer transition-colors",
+                                            isSelected ? "bg-accent/50" : "hover:bg-accent/30"
+                                        )}
+                                    >
+                                        {/* Avatar */}
+                                        <div className={cn(
+                                            "flex items-center justify-center w-11 h-11 rounded-full font-semibold text-sm",
+                                            user.role === 'teacher' ? 'bg-blue-100 text-blue-700' :
+                                            user.role === 'student' ? 'bg-green-100 text-green-700' :
+                                            user.role === 'parent' ? 'bg-purple-100 text-purple-700' :
+                                            'bg-gray-100 text-gray-700'
+                                        )}>
+                                            {getInitials(fullName)}
+                                        </div>
+
+                                        {/* User Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="font-medium text-sm truncate">{fullName}</div>
+                                            <div className={cn(
+                                                "inline-block px-2 py-0.5 rounded-full text-xs font-medium mt-1",
+                                                getRoleBadgeColor(user.role)
+                                            )}>
+                                                {roleLabel}
+                                            </div>
+                                        </div>
+
+                                        {/* Checkbox */}
+                                        <div className={cn(
+                                            "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                            isSelected ? "bg-primary border-primary" : "border-muted-foreground/30"
+                                        )}>
+                                            {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t bg-muted/20">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm text-muted-foreground">
+                            {selectedUsers.length > 0 ? (
+                                <span>{selectedUsers.length} {selectedUsers.length === 1 ? 'person' : 'people'} selected</span>
+                            ) : (
+                                <span>Select people to continue</span>
+                            )}
+                        </div>
+                        <Button
+                            onClick={handleCreateConversation}
+                            disabled={selectedUsers.length === 0}
+                            size="lg"
+                            className="min-w-[120px]"
+                        >
+                            <Send className="w-4 h-4 mr-2" />
+                            Start Chat
+                        </Button>
+                    </div>
+                </div>
             </DialogContent>
         </Dialog>
     );
