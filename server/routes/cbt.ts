@@ -118,24 +118,42 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/exams/assigned', auth, async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
-      const role = sessionUser?.prefs?.role;
-      const isDev = process.env.NODE_ENV !== 'production';
-      const isAdmin = role === 'admin';
-
-      if (!isAdmin && !isDev) {
-        return res.status(403).json({ message: 'Access denied' });
+      const userId = sessionUser?.$id;
+      
+      if (!userId) {
+        return res.status(401).json({ message: 'Unauthorized' });
       }
 
-      const userId = sessionUser?.$id;
-      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+      logDebug('Fetching assigned exams', { userId, role: sessionUser?.prefs?.role });
 
-      // Get user's assigned exams
-      const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
-        Query.equal('userId', userId),
-        Query.limit(100)
-      ]);
+      // Fetch ALL exam assignments with pagination (Appwrite caps at 100 per query)
+      const allAssignments: any[] = [];
+      let lastId: string | null = null;
+      let hasMore = true;
 
-      const examIds = assignments.documents.map((a: any) => a.examId);
+      while (hasMore) {
+        const queries = [
+          Query.equal('userId', userId),
+          Query.limit(100),
+          Query.orderAsc('$id')
+        ];
+        
+        if (lastId) {
+          queries.push(Query.cursorAfter(lastId));
+        }
+
+        const batch = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
+        allAssignments.push(...batch.documents);
+        
+        hasMore = batch.documents.length === 100;
+        if (hasMore && batch.documents.length > 0) {
+          lastId = batch.documents[batch.documents.length - 1].$id;
+        }
+      }
+
+      logDebug('Fetched exam assignments', { count: allAssignments.length });
+
+      const examIds = allAssignments.map((a: any) => a.examId);
       
       if (examIds.length === 0) {
         return res.json({ exams: [], total: 0 });
@@ -159,6 +177,7 @@ export const registerCBTRoutes = (app: any) => {
                 ]);
                 questionCount = qRes.total || 0;
               } catch (e) {
+                logDebug('Failed to get question count for exam', { examId, error: e });
                 questionCount = 0;
               }
             }
@@ -169,16 +188,23 @@ export const registerCBTRoutes = (app: any) => {
               hasQuestions: questionCount > 0
             };
           } catch (e) {
+            logDebug('Failed to get exam details', { examId, error: e });
             return null;
           }
         })
       );
 
       const visible = exams.filter(exam => exam !== null && exam.hasQuestions);
+      logDebug('Returning assigned exams', { total: visible.length });
+      
       return res.json({ exams: visible, total: visible.length });
     } catch (error) {
       logError('Failed to fetch assigned exams', error);
-      res.status(500).json({ message: 'Failed to fetch assigned exams' });
+      console.error('Assigned exams endpoint error:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch assigned exams',
+        error: process.env.NODE_ENV !== 'production' ? (error as Error).message : undefined
+      });
     }
   });
 
@@ -189,20 +215,55 @@ export const registerCBTRoutes = (app: any) => {
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      // Get all exams
-      const allExams = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1000)]);
-      
-      // Get user's assigned exams
-      const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
-        Query.equal('userId', userId),
-        Query.limit(100)
-      ]);
+      // Get all exams with pagination
+      const allExams: any[] = [];
+      let lastExamId: string | null = null;
+      let hasMoreExams = true;
 
-      const assignedExamIds = new Set(assignments.documents.map((a: any) => a.examId));
+      while (hasMoreExams) {
+        const queries = [Query.limit(100), Query.orderAsc('$id')];
+        if (lastExamId) {
+          queries.push(Query.cursorAfter(lastExamId));
+        }
+
+        const batch = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', queries);
+        allExams.push(...batch.documents);
+        
+        hasMoreExams = batch.documents.length === 100;
+        if (hasMoreExams && batch.documents.length > 0) {
+          lastExamId = batch.documents[batch.documents.length - 1].$id;
+        }
+      }
+      
+      // Get user's assigned exams with pagination
+      const allAssignments: any[] = [];
+      let lastAssignmentId: string | null = null;
+      let hasMoreAssignments = true;
+
+      while (hasMoreAssignments) {
+        const queries = [
+          Query.equal('userId', userId),
+          Query.limit(100),
+          Query.orderAsc('$id')
+        ];
+        if (lastAssignmentId) {
+          queries.push(Query.cursorAfter(lastAssignmentId));
+        }
+
+        const batch = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', queries);
+        allAssignments.push(...batch.documents);
+        
+        hasMoreAssignments = batch.documents.length === 100;
+        if (hasMoreAssignments && batch.documents.length > 0) {
+          lastAssignmentId = batch.documents[batch.documents.length - 1].$id;
+        }
+      }
+
+      const assignedExamIds = new Set(allAssignments.map((a: any) => a.examId));
       
       // Filter out assigned exams and add question count
       const availableExams = await Promise.all(
-        allExams.documents
+        allExams
           .filter((exam: any) => !assignedExamIds.has(exam.$id))
           .map(async (exam: any) => {
             let questionCount = 0;
@@ -232,7 +293,11 @@ export const registerCBTRoutes = (app: any) => {
       return res.json({ exams: standardizedExams, total: standardizedExams.length });
     } catch (error) {
       logError('Failed to fetch available exams', error);
-      res.status(500).json({ message: 'Failed to fetch available exams' });
+      console.error('Available exams endpoint error:', error);
+      res.status(500).json({ 
+        message: 'Failed to fetch available exams',
+        error: process.env.NODE_ENV !== 'production' ? (error as Error).message : undefined
+      });
     }
   });
 
