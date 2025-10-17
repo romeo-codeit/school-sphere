@@ -238,37 +238,44 @@ export function SubscriptionManager() {
           </div>
 
           {/* User List with Custom Scrollbar */}
-          <SimpleBar style={{ maxHeight: '256px' }}>
-            <div className="space-y-2 pr-2">
-              {subscriptionUsers.slice(0, 10).map((user) => (
-                <div 
-                  key={user.userId} 
-                  className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">
-                      {user.firstName} {user.lastName}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {getStatusBadge(user.subscriptionStatus)}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedUser(user);
-                        setIsDialogOpen(true);
-                      }}
-                      className="text-xs"
-                    >
-                      Edit
-                    </Button>
-                  </div>
-                </div>
-              ))}
+          {subscriptionUsers.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <p className="text-sm">No subscription data found.</p>
+              <p className="text-xs mt-2">Users will appear here once subscriptions are created.</p>
             </div>
-          </SimpleBar>
+          ) : (
+            <SimpleBar style={{ maxHeight: '256px' }}>
+              <div className="space-y-2 pr-2">
+                {subscriptionUsers.slice(0, 10).map((user) => (
+                  <div 
+                    key={user.userId} 
+                    className="flex items-center justify-between p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-sm truncate">
+                        {user.firstName} {user.lastName}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">{user.email}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {getStatusBadge(user.subscriptionStatus)}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setIsDialogOpen(true);
+                        }}
+                        className="text-xs"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SimpleBar>
+          )}
         </CardContent>
       </Card>
 

@@ -15,19 +15,21 @@ interface StudentsProgressChartProps {
     value: number;
     fill: string;
   }[];
+  height?: number;
+  contentHeight?: number;
 }
 
-export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
+export function StudentsProgressChart({ data, height = 440, contentHeight = 360 }: StudentsProgressChartProps) {
   const maleData = data.find(d => d.name.toLowerCase() === 'male');
   const femaleData = data.find(d => d.name.toLowerCase() === 'female');
   const hasData = data.some(d => d.value > 0);
 
   return (
-    <Card className="h-[340px]">
+    <Card className={`h-[${height}px]`}>
       <CardHeader>
         <CardTitle>Students</CardTitle>
       </CardHeader>
-      <CardContent className="h-[260px]">
+      <CardContent className={`h-[${contentHeight}px]`}>
         {!hasData ? (
           <EmptyState
             icon={Users}
@@ -36,7 +38,7 @@ export function StudentsProgressChart({ data }: StudentsProgressChartProps) {
           />
         ) : (
           <>
-        <div className="w-full h-[200px]">
+        <div className="w-full h-[260px]">
           <ResponsiveContainer width="100%" height="100%">
             <RadialBarChart
               innerRadius="70%"

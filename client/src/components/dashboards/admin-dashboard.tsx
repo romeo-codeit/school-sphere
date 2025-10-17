@@ -213,11 +213,11 @@ export function AdminDashboard() {
         </div>
 
         {/* Charts and Widgets */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 px-4 sm:px-6 lg:px-8">
-          {/* First Row: Attendance and Students (equal height) */}
-          <Card className="h-[340px]">
+  <div className="grid grid-cols-1 lg:grid-cols-3 gap-x-4 gap-y-4 sm:gap-x-6 sm:gap-y-4 px-4 sm:px-6 lg:px-8 items-stretch">
+          {/* First Row: Attendance and Students (max height for perfect alignment) */}
+          <Card className="h-[440px]">
             <CardHeader><CardTitle className="text-base sm:text-lg lg:text-xl">Weekly Attendance</CardTitle></CardHeader>
-            <CardContent className="h-[260px]">
+            <CardContent className="h-[360px]">
               {attendanceLoading ? (
                 <p className="text-sm sm:text-base">Loading...</p>
               ) : chartData.length === 0 || chartData.every(d => d.present === 0 && d.absent === 0) ? (
@@ -241,14 +241,14 @@ export function AdminDashboard() {
             </CardContent>
           </Card>
 
-          {/* Students Widget - Equal height */}
-          <StudentsProgressChart data={studentGenderData} />
+          {/* Students Widget - Max height for perfect alignment */}
+          <StudentsProgressChart data={studentGenderData} height={440} contentHeight={360} />
 
           {/* Notice Calendar - Full height */}
           <div className="row-span-2"><EventCalendar /></div>
 
-          {/* Second Row: Daily Inspiration spanning 2 columns */}
-          <div className="lg:col-span-2"><QuickTipsWidget /></div>
+          {/* Second Row: Daily Inspiration spanning 2 columns, reduced height */}
+          <div className="lg:col-span-2"><QuickTipsWidget height={220} contentHeight={140} /></div>
         </div>
 
         {/* Notices and Recent Activity */}
