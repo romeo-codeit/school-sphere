@@ -924,10 +924,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let exams: any[] = [];
       let total = 0;
       if (fetchAll) {
+        // Get total count first
+        const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
+        console.log(`Total exams in database: ${totalQuery.total}`);
         // Cursor-based pagination to avoid offset limits on large datasets
         let lastId: string | null = null;
+        let batchCount = 0;
         while (true) {
-          const queries = [Query.orderAsc('$id'), Query.limit(100)];
+          const queries = [Query.orderAsc('$id'), Query.limit(500)];
           if (lastId) queries.push(Query.cursorAfter(lastId));
           const result = await databases.listDocuments(
             APPWRITE_DATABASE_ID!,
@@ -938,8 +942,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const batch = result.documents as any[];
           exams.push(...batch);
           lastId = String(batch[batch.length - 1].$id);
+          batchCount++;
+          console.log(`Fetched batch ${batchCount}, total exams so far: ${exams.length}, lastId: ${lastId}`);
           // Avoid relying on total when using cursors
         }
+        console.log(`Total exams fetched: ${exams.length}`);
         // Apply optional type filter client-side to reduce payload returned
         if (typeFilter) {
           exams = exams.filter((e) => String((e as any).type || '').toLowerCase() === typeFilter);
@@ -1020,18 +1027,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Admins (and any user in dev) can see all exams
       if (isAdmin || isDev) {
+        // Get total count first
+        const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
+        console.log(`Assigned: Total exams in database: ${totalQuery.total}`);
         // Fetch all via cursor to avoid 100 cap
         let all: any[] = [];
         let lastId: string | null = null;
+        let batchCount = 0;
         while (true) {
-          const queries = [Query.orderAsc('$id'), Query.limit(100)];
+          const queries = [Query.orderAsc('$id'), Query.limit(500)];
           if (lastId) queries.push(Query.cursorAfter(lastId));
           const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', queries);
           if (page.documents.length === 0) break;
           const batch = page.documents as any[];
           all.push(...batch);
           lastId = String(batch[batch.length - 1].$id);
+          batchCount++;
+          console.log(`Assigned: Fetched batch ${batchCount}, total exams so far: ${all.length}, lastId: ${lastId}`);
         }
+        console.log(`Assigned: Total exams fetched: ${all.length}`);
         return res.json({ exams: all, total: all.length });
       }
 
@@ -1151,17 +1165,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Fetch all exams via cursor, then filter for standardized types
+      // Get total count first
+      const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
+      console.log(`Available: Total exams in database: ${totalQuery.total}`);
       let all: any[] = [];
       let lastId: string | null = null;
+      let batchCount = 0;
       while (true) {
-        const queries = [Query.orderAsc('$id'), Query.limit(100)];
+        const queries = [Query.orderAsc('$id'), Query.limit(500)];
         if (lastId) queries.push(Query.cursorAfter(lastId));
         const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', queries);
         if (page.documents.length === 0) break;
         const batch = page.documents as any[];
         all.push(...batch);
         lastId = String(batch[batch.length - 1].$id);
+        batchCount++;
+        console.log(`Available: Fetched batch ${batchCount}, total exams so far: ${all.length}, lastId: ${lastId}`);
       }
+      console.log(`Available: Total exams fetched: ${all.length}`);
       const standardizedExams = all.filter((exam: any) =>
         ['waec', 'neco', 'jamb'].includes(String(exam.type || '').toLowerCase())
       );

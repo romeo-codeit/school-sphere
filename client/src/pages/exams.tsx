@@ -30,6 +30,7 @@ import { useQuery } from '@tanstack/react-query';
 import { SubjectSelectionDialog } from "@/components/exams/SubjectSelectionDialog";
 import { useToast } from "@/hooks/use-toast";
 // Assigned exams feature removed
+import { AssignExamDialog } from "@/components/exams/AssignExamDialog";
 import { useAuth } from "@/hooks/useAuth";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -115,6 +116,7 @@ function ExamsPage() {
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [subjectSelectionExam, setSubjectSelectionExam] = useState<any | null>(null);
   // Assigned exams feature removed
+  const [assignExamId, setAssignExamId] = useState<string | null>(null);
   const [, navigate] = useLocation();
   const { toast } = useToast();
   const startAttemptMutation = useStartAttempt();
@@ -476,7 +478,7 @@ function ExamsPage() {
           onConfirm={handleSubjectSelectionConfirm}
         />
         {assignExamId && (
-          <AssignExamDialog examId={assignExamId} open={!!assignExamId} onOpenChange={(open) => !open && setAssignExamId(null)} />
+          <AssignExamDialog examId={assignExamId} open={!!assignExamId} onOpenChange={(open: boolean) => !open && setAssignExamId(null)} />
         )}
         <Dialog open={isUploadFormOpen} onOpenChange={setIsUploadFormOpen}>
           <DialogContent className="max-w-3xl">
