@@ -22,7 +22,11 @@ export function useUsers() {
       const studentsData = await studentsResponse.json();
       const teachersData = await teachersResponse.json();
 
-      const allUsers = [...studentsData.documents, ...teachersData.documents];
+      // Explicitly set role based on collection
+      const students = studentsData.documents.map((s: any) => ({ ...s, role: s.role || 'student' }));
+      const teachers = teachersData.documents.map((t: any) => ({ ...t, role: t.role || 'teacher' }));
+
+      const allUsers = [...students, ...teachers];
       return allUsers;
     },
   });

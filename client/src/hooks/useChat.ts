@@ -105,12 +105,27 @@ export function useConversations() {
         queryKey: ['conversations', user?.$id],
         queryFn: async () => {
             if (!user?.$id) return [];
-      const response = await databases.listDocuments(
-        DATABASE_ID,
-        CONVERSATIONS_COLLECTION_ID,
-        [Query.contains('members', [user.$id]), Query.orderDesc('$createdAt')]
-      );
-            return response.documents;
+      try {
+        // Try to sort by lastActivity first (if attribute exists)
+        const response = await databases.listDocuments(
+          DATABASE_ID,
+          CONVERSATIONS_COLLECTION_ID,
+          [Query.contains('members', [user.$id]), Query.orderDesc('lastActivity')]
+        );
+        return response.documents;
+      } catch (error: any) {
+        // Fallback to $createdAt if lastActivity doesn't exist yet
+        if (error?.message?.includes('lastActivity')) {
+          console.log('Note: lastActivity attribute not found. Using $createdAt for sorting. See docs/ADD_LASTACTIVITY_ATTRIBUTE.md');
+          const response = await databases.listDocuments(
+            DATABASE_ID,
+            CONVERSATIONS_COLLECTION_ID,
+            [Query.contains('members', [user.$id]), Query.orderDesc('$createdAt')]
+          );
+          return response.documents;
+        }
+        throw error;
+      }
         },
         enabled: !!user?.$id,
     });
@@ -169,14 +184,22 @@ export function useChat(conversationId: string) {
   const sendMessageMutation = useMutation({
     mutationFn: async (messageData: any) => {
         const message = await databases.createDocument(DATABASE_ID, CHAT_MESSAGES_COLLECTION_ID, ID.unique(), messageData);
-        // Update the conversation's last message (if lastMessage attribute exists)
+        // Update the conversation's last activity and message (if attributes exist)
         try {
-          await databases.updateDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, message.conversationId, {
-              lastMessage: message.content,
-          });
-        } catch (e) {
-          // Ignore if lastMessage attribute doesn't exist
-          console.log('Note: lastMessage attribute not available in conversations collection');
+          const updateData: any = {};
+          
+          // Try to update lastActivity if it exists
+          updateData.lastActivity = new Date().toISOString();
+          
+          // Try to update lastMessage if it exists
+          updateData.lastMessage = message.content.substring(0, 100); // Limit preview length
+          
+          await databases.updateDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, message.conversationId, updateData);
+        } catch (e: any) {
+          // Log but don't fail if attributes don't exist yet
+          if (e?.message?.includes('lastActivity') || e?.message?.includes('lastMessage')) {
+            console.log('Note: Optional conversation attributes not available. See docs/ADD_LASTACTIVITY_ATTRIBUTE.md');
+          }
         }
         return message;
     },
@@ -184,7 +207,16 @@ export function useChat(conversationId: string) {
 
   const createConversationMutation = useMutation({
       mutationFn: async (conversationData: { members: string[], name?: string, isGroup?: boolean }) => {
-          return await databases.createDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, ID.unique(), conversationData);
+          // Try to add lastActivity if the attribute exists
+          const dataWithActivity: any = { ...conversationData };
+          
+          try {
+            dataWithActivity.lastActivity = new Date().toISOString();
+          } catch (e) {
+            // Attribute doesn't exist yet, that's okay
+          }
+          
+          return await databases.createDocument(DATABASE_ID, CONVERSATIONS_COLLECTION_ID, ID.unique(), dataWithActivity);
       }
   });
 
