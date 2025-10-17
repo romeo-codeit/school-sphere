@@ -76,7 +76,21 @@ const AttendanceReports: React.FC = () => {
             const classId = record.classId;
             if (!classData[classId]) classData[classId] = { present: 0, total: 0 };
 
-            const studentAttendances = JSON.parse(record.studentAttendances);
+            // Guard against missing or invalid studentAttendances
+            let studentAttendances = [];
+            try {
+                if (record.studentAttendances) {
+                    studentAttendances = typeof record.studentAttendances === 'string' 
+                        ? JSON.parse(record.studentAttendances)
+                        : Array.isArray(record.studentAttendances) 
+                        ? record.studentAttendances 
+                        : [];
+                }
+            } catch (error) {
+                console.warn('Failed to parse studentAttendances:', error);
+                studentAttendances = [];
+            }
+
             studentAttendances.forEach((att: any) => {
                 if (att.status === 'present') {
                     totalPresent++;
