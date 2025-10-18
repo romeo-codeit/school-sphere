@@ -94,18 +94,19 @@ export default function TakeAttendance() {
       return;
     }
 
-    if (Object.keys(attendance).length === 0) {
-      toast({ title: "Error", description: "No attendance data to submit.", variant: "destructive" });
+    if (!students || students.length === 0) {
+      toast({ title: "Error", description: "No students in this class.", variant: "destructive" });
       return;
     }
 
     try {
-      const attendancePromises = Object.keys(attendance).map(studentId =>
+      // Create attendance records for all students (use stored status or default to 'present')
+      const attendancePromises = students.map((student: any) =>
         createAttendance({
           classId: classIdToUse,
           date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-          studentId: studentId,
-          status: attendance[studentId] || 'present', // Default to 'present' if no status is set
+          studentId: student.$id,
+          status: attendance[student.$id] || 'present', // Default to 'present' if not explicitly set
         })
       );
 
