@@ -51,8 +51,9 @@ const AttendanceReports: React.FC = () => {
                     getAllClasses()
                 ]);
                 setRecords(attendanceResponse.documents);
-                setClasses(classesResponse);
+                setClasses(classesResponse as any[]);
             } catch (error) {
+                console.error('Fetch error:', error);
                 toast({ title: "Error", description: "Failed to fetch attendance reports data.", variant: "destructive" });
             } finally {
                 setIsLoading(false);
@@ -69,7 +70,9 @@ const AttendanceReports: React.FC = () => {
         const dailyData: { [key: string]: { present: number, total: number } } = {};
         const classData: { [key: string]: { present: number, total: number } } = {};
         const aggregates = new Map<string, { classId: string; date: string; present: number; total: number }>();
-        const classMap = new Map<string, string>((classes || []).map((c: any) => [String(c.$id), c.name]));
+        // Build class map for lookup
+        const classArray = Array.isArray(classes) ? classes : [];
+        const classMap = new Map<string, string>(classArray.map((c: any) => [String(c.$id), c.name]));
 
         records.forEach((record: any) => {
             if (!record?.date) return;
@@ -131,7 +134,11 @@ const AttendanceReports: React.FC = () => {
         return { overallStats, dailyTrend, classStats, recentAggregates };
     }, [records, classes]);
 
-    const getClassName = (classId: string) => classes.find(c => c.$id === classId)?.name || 'Unknown';
+    const getClassName = (classId: string) => {
+        if (!classes || classes.length === 0) return 'Unknown Class';
+        const found = classes.find((c: any) => c.$id === classId);
+        return found?.name || 'Unknown Class';
+    };
 
     if (isLoading) {
         return <div className="p-6">Loading reports...</div>;

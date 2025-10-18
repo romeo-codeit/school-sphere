@@ -720,15 +720,11 @@ async function seedDemoData() {
       }
     }
 
-    // Seed classes (force reseed)
+    // Seed classes (only add, never delete)
   const dbId = APPWRITE_DATABASE_ID!;
   const classesCollection = await databases.listDocuments(dbId, 'classes');
-  if (classesCollection.total > 0) {
-    for (const cls of classesCollection.documents) {
-      await databases.deleteDocument(dbId, 'classes', cls.$id);
-      await delay(10);
-    }
-  }
+  // Only create classes if none exist (never delete existing classes)
+  const classesToCreate = classesCollection.total === 0;
   const classData = [
     { name: 'JSS 1', teacherId: teacherUserId },
     { name: 'JSS 2', teacherId: teacherUserId },
@@ -743,20 +739,17 @@ async function seedDemoData() {
     { name: 'SS 3 Arts', teacherId: teacherUserId },
     { name: 'SS 3 Commercial', teacherId: teacherUserId },
   ];
-  for (const c of classData) {
-    await databases.createDocument(dbId, 'classes', ID.unique(), c);
-    await delay(100);
+  if (classesToCreate) {
+    for (const c of classData) {
+      await databases.createDocument(dbId, 'classes', ID.unique(), c);
+      await delay(100);
+    }
   }
   const seededClasses = await databases.listDocuments(dbId, 'classes');
 
-    // Seed students (force reseed)
+    // Seed students (only add, never delete)
   const studentsCollection = await databases.listDocuments(dbId, 'students');
-  if (studentsCollection.total > 0) {
-    for (const student of studentsCollection.documents) {
-      await databases.deleteDocument(dbId, 'students', student.$id);
-      await delay(10);
-    }
-  }
+  const studentsToCreate = studentsCollection.total === 0;
   const studentData = [
     // JSS 1 (6 students)
     { userId: studentUserId, studentId: 'S001', firstName: 'Chinedu', lastName: 'Okafor', email: 'chinedu.okafor@school.ng', class: seededClasses.documents[0].$id, status: 'active', gender: 'male', parentName: 'Mrs. Okafor', parentPhone: '08031234567', parentEmail: 'mrs.okafor@school.ng' },
@@ -797,20 +790,17 @@ async function seedDemoData() {
     // SS 3 Arts (1 student)
     { userId: ID.unique(), studentId: 'S023', firstName: 'Obianuju', lastName: 'Nduka', email: 'obianuju.nduka@school.ng', class: seededClasses.documents[10].$id, status: 'active', gender: 'female', parentName: 'Mr. Nduka', parentPhone: '08231234567', parentEmail: 'mr.nduka@school.ng' },
   ];
-  for (const student of studentData) {
-    const search = [student.firstName, student.lastName, student.email, student.studentId, student.class, student.status, student.gender].filter(Boolean).join(' ');
-    await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
-    await delay(100);
-  }
-
-    // Seed teachers (force reseed)
-  const teachersCollection = await databases.listDocuments(dbId, 'teachers');
-  if (teachersCollection.total > 0) {
-    for (const teacher of teachersCollection.documents) {
-      await databases.deleteDocument(dbId, 'teachers', teacher.$id);
-      await delay(10);
+  if (studentsToCreate) {
+    for (const student of studentData) {
+      const search = [student.firstName, student.lastName, student.email, student.studentId, student.class, student.status, student.gender].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'students', ID.unique(), { ...student, search });
+      await delay(100);
     }
   }
+
+    // Seed teachers (only add, never delete)
+  const teachersCollection = await databases.listDocuments(dbId, 'teachers');
+  const teachersToCreate = teachersCollection.total === 0;
   const teacherData = [
     { userId: teacherUserId, employeeId: 'T001', firstName: 'Olufemi', lastName: 'Adeyemi', email: 'olufemi.adeyemi@school.ng', subjects: ['Mathematics', 'Physics'], status: 'active', gender: 'male', classIds: [seededClasses.documents[0].$id, seededClasses.documents[1].$id] },
     { userId: ID.unique(), employeeId: 'T002', firstName: 'Grace', lastName: 'Nnamdi', email: 'grace.nnamdi@school.ng', subjects: ['English Language', 'Literature in English'], status: 'active', gender: 'female', classIds: [seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
@@ -825,16 +815,48 @@ async function seedDemoData() {
     { userId: ID.unique(), employeeId: 'T011', firstName: 'Obinna', lastName: 'Madu', email: 'obinna.madu@school.ng', subjects: ['Computer Studies', 'Basic Technology'], status: 'active', gender: 'male', classIds: [seededClasses.documents[0].$id, seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
     { userId: ID.unique(), employeeId: 'T012', firstName: 'Ifunanya', lastName: 'Onyeka', email: 'ifunanya.onyeka@school.ng', subjects: ['Home Economics', 'Physical and Health Education'], status: 'active', gender: 'female', classIds: [seededClasses.documents[1].$id, seededClasses.documents[2].$id] },
   ];
-  for (const teacher of teacherData) {
-    const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
-    await databases.createDocument(dbId, 'teachers', ID.unique(), { ...teacher, search });
-    await delay(100);
+  if (teachersToCreate) {
+    for (const teacher of teacherData) {
+      const search = [teacher.firstName, teacher.lastName, teacher.email, teacher.employeeId, ...(teacher.subjects || []), teacher.status, teacher.gender, ...(teacher.classIds || [])].filter(Boolean).join(' ');
+      await databases.createDocument(dbId, 'teachers', ID.unique(), { ...teacher, search });
+      await delay(100);
+    }
   }
   // IMPORTANT: Do NOT touch exams or questions in this seeding flow
 
   const seededStudents = await databases.listDocuments(dbId, 'students');
   const seededExams = await databases.listDocuments(dbId, 'exams');
   const seededTeachers = await databases.listDocuments(dbId, 'teachers');
+
+  // Seed attendance records (normalized) - ALWAYS reseed to ensure classIds match current classes
+  const attendanceRecordsCollection = await databases.listDocuments(dbId, 'attendanceRecords');
+  // Delete old attendance records to resync with current classes
+  if (attendanceRecordsCollection.total > 0) {
+    for (const record of attendanceRecordsCollection.documents) {
+      await databases.deleteDocument(dbId, 'attendanceRecords', record.$id);
+      await delay(10);
+    }
+  }
+  // Now create fresh attendance records with correct classIds
+  if (seededStudents.total > 0) {
+    for (const aClass of seededClasses.documents) {
+      const classStudents = await databases.listDocuments(dbId, 'students', [
+        Query.equal('classId', aClass.$id)
+      ]);
+      if (classStudents.total > 0) {
+        for (const student of classStudents.documents) {
+          const attendanceRecord = {
+            classId: aClass.$id,
+            date: new Date().toISOString(),
+            studentId: student.$id,
+            status: 'present',
+          };
+          await databases.createDocument(dbId, 'attendanceRecords', ID.unique(), attendanceRecord);
+          await delay(20);
+        }
+      }
+    }
+  }
 
     // Seed exam attempts
   const examAttemptsCollection = await databases.listDocuments(dbId, 'examAttempts');
@@ -866,28 +888,6 @@ async function seedDemoData() {
             await delay(100);
         }
     }
-
-  // Seed attendance records (normalized)
-  const attendanceRecordsCollection = await databases.listDocuments(dbId, 'attendanceRecords');
-  if (attendanceRecordsCollection.total === 0 && seededClasses.total > 0) {
-    for (const aClass of seededClasses.documents) {
-            const classStudents = await databases.listDocuments(dbId, 'students', [
-        Query.equal('classId', aClass.$id)
-      ]);
-      if (classStudents.total > 0) {
-        for (const student of classStudents.documents) {
-          const attendanceRecord = {
-            classId: aClass.$id,
-            date: new Date().toISOString(),
-            studentId: student.$id,
-            status: 'present',
-          };
-                    await databases.createDocument(dbId, 'attendanceRecords', ID.unique(), attendanceRecord);
-          await delay(20);
-        }
-      }
-    }
-  }
 
     // Seed messages
   const messagesCollection = await databases.listDocuments(dbId, 'messages');
