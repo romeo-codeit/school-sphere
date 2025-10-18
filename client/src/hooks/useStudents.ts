@@ -22,19 +22,39 @@ export function useStudents(filters: StudentFilters = {}) {
     queryKey,
     enabled,
     queryFn: async () => {
-      const queries = [
-          Query.limit(limit),
-          Query.offset((page - 1) * limit),
-          Query.orderDesc('$createdAt'),
+      const baseQueries = [
+        Query.limit(limit),
+        Query.offset((page - 1) * limit),
+        Query.orderDesc('$createdAt'),
       ];
       if (search) {
-          queries.push(Query.search('search', search));
-      }
-      if (classId) {
-          queries.push(Query.equal('class', classId));
+        baseQueries.push(Query.search('search', search));
       }
 
-      const response = await databases.listDocuments(DATABASE_ID, 'students', queries);
+      // If classId is specified, fetch by both 'classId' (new schema) and legacy 'class', then merge
+      if (classId) {
+        const q1 = [...baseQueries, Query.equal('classId', classId)];
+        const q2 = [...baseQueries, Query.equal('class', classId)];
+
+        const [res1, res2] = await Promise.all([
+          databases.listDocuments(DATABASE_ID, 'students', q1).catch(() => ({ documents: [], total: 0 } as any)),
+          databases.listDocuments(DATABASE_ID, 'students', q2).catch(() => ({ documents: [], total: 0 } as any)),
+        ]);
+
+        // Merge by $id to avoid duplicates when both fields exist
+        const map = new Map<string, any>();
+        for (const d of [...res1.documents, ...res2.documents]) {
+          map.set(String((d as any).$id), d);
+        }
+        const merged = Array.from(map.values());
+        // Emulate pagination after merge
+        const start = (page - 1) * limit;
+        const paged = merged.slice(start, start + limit);
+        return { documents: paged, total: merged.length } as any;
+      }
+
+      // No class filter: single query
+      const response = await databases.listDocuments(DATABASE_ID, 'students', baseQueries);
       return response;
     },
   });

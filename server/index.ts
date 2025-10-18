@@ -6,6 +6,7 @@ import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
 import { logger, logError, logInfo, Sentry } from "./logger";
+import { validateEnv } from "./utils/envCheck";
 
 const app = express();
 
@@ -13,6 +14,9 @@ const app = express();
 if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
   app.use(Sentry.setupExpressErrorHandler(app) as any);
 }
+
+// Validate environment early
+validateEnv();
 
 // Security Headers - Helmet
 app.use(helmet({
@@ -88,6 +92,16 @@ app.use('/api/', generalLimiter);
 // Apply auth rate limiting to auth routes
 app.use('/api/auth/', authLimiter);
 app.use('/api/users/register', authLimiter);
+
+// Apply stricter rate limiting to payment routes
+const paymentsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20, // fewer requests for payment operations
+  message: 'Too many payment-related requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/payments', paymentsLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

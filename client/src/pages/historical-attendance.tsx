@@ -62,9 +62,19 @@ export default function HistoricalAttendance() {
     }
   };
 
+  // Refetch attendance when notified by Take Attendance page
+  React.useEffect(() => {
+    const handler = () => {
+      if (selectedClassId) fetchAttendance(selectedClassId);
+    };
+    window.addEventListener('attendanceSubmitted', handler);
+    return () => window.removeEventListener('attendanceSubmitted', handler);
+  }, [selectedClassId]);
+
   return (
-    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
+    <>
       <TopNav title="Historical Attendance" subtitle="View past attendance records for your classes" showGoBackButton={true} />
+      <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       <div className="py-6">
         <ErrorBoundary>
           <Card>
@@ -147,6 +157,7 @@ export default function HistoricalAttendance() {
         </Card>
         </ErrorBoundary>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

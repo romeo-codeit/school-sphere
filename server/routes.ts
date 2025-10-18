@@ -41,6 +41,7 @@ import { z } from 'zod';
     status: z.string(),
   });
 import { logInfo, logWarn, logError, logDebug } from './logger';
+import NotificationService from './services/notificationService';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
@@ -252,6 +253,7 @@ const client = new Client()
 
 const users = new Users(client);
 const databases = new Databases(client);
+const notificationService = new NotificationService(databases);
 
 const collections = [
   'students',
@@ -845,8 +847,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return res.status(403).json({ message: 'Forbidden' });
           }
         }
+        // Special handling for payments to emit notifications on status change
+        let previousPayment: any | null = null;
+        if (collection === 'payments') {
+          try {
+            previousPayment = await databases.getDocument(APPWRITE_DATABASE_ID!, 'payments', String(req.params.id));
+          } catch {}
+        }
 
         const response = await databases.updateDocument(APPWRITE_DATABASE_ID!, String(collection), String(req.params.id), req.body);
+
+        // After-update hook for payments
+        if (collection === 'payments' && previousPayment) {
+          try {
+            const newStatus = String((response as any).status || '');
+            const oldStatus = String(previousPayment.status || '');
+            if (oldStatus !== 'paid' && newStatus === 'paid') {
+              const amount = Number((response as any).amount || 0);
+              const reference = String((response as any).transactionId || (response as any).$id || '');
+              const studentId = String((response as any).studentId || '');
+
+              // Find student to get userId and name
+              if (studentId) {
+                try {
+                  const studentDoc: any = await databases.getDocument(APPWRITE_DATABASE_ID!, 'students', studentId);
+                  const studentUserId = String(studentDoc.userId || '');
+                  const studentName = [studentDoc.firstName, studentDoc.lastName].filter(Boolean).join(' ') || 'Student';
+
+                  if (studentUserId) {
+                    await notificationService.notifyPaymentConfirmed(studentUserId, amount, reference);
+                  }
+
+                  // Notify admins as well
+                  try {
+                    const admins = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [Query.equal('role', 'admin'), Query.limit(50)]);
+                    await Promise.all(
+                      admins.documents.map((admin: any) =>
+                        notificationService
+                          .notifyAdminPaymentReceived(String(admin.userId), studentName, amount, reference)
+                          .catch((e) => logError('Admin payment notification failed', e))
+                      )
+                    );
+                  } catch (e) {
+                    logError('Failed to load admins for payment notification', e);
+                  }
+                } catch (e) {
+                  logError('Failed to notify payment confirmation (student lookup)', e);
+                }
+              }
+            }
+          } catch (e) {
+            logError('Payment post-update hook failed', e);
+          }
+        }
+
         res.json(response);
       } catch (error) {
         console.error(error);

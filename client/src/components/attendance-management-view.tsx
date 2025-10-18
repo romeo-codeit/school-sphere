@@ -43,7 +43,7 @@ export function AttendanceManagementView() {
       const studentAttendances = JSON.parse(record.studentAttendances);
 
       return studentAttendances.map((att: any) => {
-        const studentInfo = students.find(s => s.$id === att.studentId);
+        const studentInfo = students.find((s: any) => s.$id === att.studentId);
         return {
           id: `${record.$id}-${att.studentId}`,
           date: record.date,

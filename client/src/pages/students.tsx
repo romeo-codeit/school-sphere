@@ -26,13 +26,16 @@ import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
 import { useStudents } from "@/hooks/useStudents";
-import { useClasses } from "@/hooks/useClasses";
+// Fetch all classes directly to avoid role-based filtering in useClasses
+import { useQuery } from "@tanstack/react-query";
+import { getAllClasses } from "@/lib/api/attendance";
 import { useLocation } from "wouter";
 import { useDebounce } from "@/hooks/useDebounce";
 import { Loading } from "@/components/ui/loading";
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
 import { useStudentsPerformanceTest, logStudentsPerformanceMetrics } from '@/hooks/useStudentsPerformanceTest';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Students() {
   // Page title and subtitle
@@ -45,6 +48,7 @@ export default function Students() {
   // Students data
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(undefined);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -85,13 +89,43 @@ export default function Students() {
     createStudent,
     updateStudent,
     deleteStudent,
-  } = useStudents({ search: searchQuery, page: currentPage, limit: 10 });
+  } = useStudents({ search: searchQuery, page: currentPage, limit: 10, classId: selectedClassId });
   const totalPages = total ? Math.ceil(total / 10) : 1;
 
   // Fetch classes
-  const { classes } = useClasses();
+  const { data: classes, isLoading: classesLoading } = useQuery({
+    queryKey: ['classes','all'],
+    queryFn: getAllClasses,
+  });
   // Build classMap for quick lookup
-  const classMap = classes ? Object.fromEntries(classes.map((c: any) => [c.$id, c.name])) : {};
+  const sortedClasses = Array.isArray(classes) ? [...classes].sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || ''))) : [];
+  const classMap = sortedClasses.length ? Object.fromEntries(sortedClasses.map((c: any) => [c.$id, c.name])) : {};
+
+  const getClassName = (student: any) => {
+    const arr = Array.isArray(classes) ? (classes as any[]) : [];
+
+    // Prefer classId lookup
+    const cid = String(student?.classId || '').trim();
+    if (cid && arr.length > 0) {
+      const foundById = arr.find((c) => String(c.$id) === cid);
+      if (foundById?.name) return foundById.name;
+    }
+
+    // Fallbacks for legacy fields
+    const raw = String(student?.className || student?.class || '').trim();
+    if (raw) {
+      // If raw looks like an id, try to resolve to a name
+      const byId = arr.find((c) => String(c.$id) === raw);
+      if (byId?.name) return byId.name;
+      // Or match by name (case-insensitive)
+      const byName = arr.find((c) => String(c.name || '').toLowerCase() === raw.toLowerCase());
+      if (byName?.name) return byName.name;
+      // Last resort: do NOT show ids; match attendance reports fallback
+      return 'Unknown Class';
+    }
+
+    return 'N/A';
+  };
 
   // Utility for badge variant
   const getStatusVariant = (status: string) => {
@@ -149,6 +183,26 @@ export default function Students() {
                     className="pl-10 w-full text-sm sm:text-base"
                   />
                 </div>
+                <div>
+                  <Select onValueChange={(val) => {
+                    setSelectedClassId(val === 'ALL' ? undefined : val);
+                    setCurrentPage(1);
+                  }} value={selectedClassId || 'ALL'}>
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder={classesLoading ? 'Loading classes…' : 'Filter by class'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Classes</SelectItem>
+                      {classesLoading ? (
+                        <SelectItem value="loading" disabled>Loading…</SelectItem>
+                      ) : (
+                        (sortedClasses || []).map((c: any) => (
+                          <SelectItem key={c.$id} value={c.$id}>{c.name || 'Unknown Class'}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               {isLoading ? (
                 <TableSkeleton columns={5} rows={5} />
@@ -180,7 +234,7 @@ export default function Students() {
                           <Badge variant={getStatusVariant(student.status)}>{student.status}</Badge>
                         </div>
                         <div className="text-sm mb-1"><span className="font-medium">Student ID:</span> {student.studentId}</div>
-                        <div className="text-sm mb-1"><span className="font-medium">Class:</span> {classMap && classMap[student.classId] ? classMap[student.classId] : 'N/A'}</div>
+                        <div className="text-sm mb-1"><span className="font-medium">Class:</span> {getClassName(student)}</div>
                         <div className="flex gap-2 mt-2 justify-end">
                           <TooltipProvider>
                             <Tooltip>
@@ -229,7 +283,7 @@ export default function Students() {
                                 <div className="text-xs sm:text-sm text-muted-foreground">{student.email}</div>
                               </TableCell>
                               <TableCell>{student.studentId}</TableCell>
-                              <TableCell>{classMap && classMap[student.classId] ? classMap[student.classId] : 'N/A'}</TableCell>
+                              <TableCell>{getClassName(student)}</TableCell>
                               <TableCell><Badge variant={getStatusVariant(student.status)}>{student.status}</Badge></TableCell>
                               <TableCell className="text-right">
                                 <DropdownMenu>

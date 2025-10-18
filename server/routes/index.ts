@@ -3,6 +3,7 @@ import { registerAuthRoutes } from './auth';
 import { registerAdminRoutes } from './admin';
 import { registerCBTRoutes } from './cbt';
 import { registerDebugRoutes } from './debug';
+import { registerAttendanceRoutes } from './attendance';
 
 export const registerRoutes = async (app: Express) => {
   // Register all domain-specific routes
@@ -10,6 +11,7 @@ export const registerRoutes = async (app: Express) => {
   registerAdminRoutes(app);
   registerCBTRoutes(app);
   registerDebugRoutes(app);
+  registerAttendanceRoutes(app);
 
   // Health check endpoint
   app.get('/health', (req, res) => {

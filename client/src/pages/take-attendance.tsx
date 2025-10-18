@@ -39,6 +39,28 @@ export default function TakeAttendance() {
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const { students, isLoading: studentsLoading } = useStudents({ classId: selectedClassId || undefined });
   const { createAttendance } = useAttendance();
+  const [attendanceAlreadySubmitted, setAttendanceAlreadySubmitted] = useState(false);
+  const [checkingAttendance, setCheckingAttendance] = useState(false);
+  useEffect(() => {
+    async function checkExistingAttendance() {
+      if (!selectedClassId) {
+        setAttendanceAlreadySubmitted(false);
+        return;
+      }
+      setCheckingAttendance(true);
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        // Use Appwrite API directly to check for any attendance records for this class/date
+        const response = await import('@/lib/api/attendance').then(api => api.getAttendanceRecordsForDate(selectedClassId, today));
+        setAttendanceAlreadySubmitted(response.length > 0);
+      } catch (err) {
+        setAttendanceAlreadySubmitted(false);
+      } finally {
+        setCheckingAttendance(false);
+      }
+    }
+    checkExistingAttendance();
+  }, [selectedClassId]);
   const { toast } = useToast();
   const [attendance, setAttendance] = useState<{ [studentId: string]: string }>({});
 
@@ -99,6 +121,11 @@ export default function TakeAttendance() {
       return;
     }
 
+    if (attendanceAlreadySubmitted) {
+      toast({ title: "Already Submitted", description: "Attendance for this class has already been submitted today.", variant: "destructive" });
+      return;
+    }
+
     try {
       // Create attendance records for all students (use stored status or default to 'present')
       const attendancePromises = students.map((student: any) =>
@@ -114,15 +141,17 @@ export default function TakeAttendance() {
 
       toast({ title: "Success", description: "Attendance submitted successfully." });
       setAttendance({});
+      // Notify Historical Attendance page to refetch
+      window.dispatchEvent(new Event('attendanceSubmitted'));
     } catch (error: any) {
       toast({ title: "Error", description: `Failed to submit attendance: ${error.message}`, variant: "destructive" });
     }
-
   };
 
   return (
-    <div className="space-y-6 px-4 sm:px-6 lg:px-8">
-  <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
+    <>
+      <TopNav title="Take Attendance" subtitle="Mark student attendance for a class" showGoBackButton={true} />
+      <div className="space-y-6 px-4 sm:px-6 lg:px-8">
       <div className="py-6">
         <ErrorBoundary>
           <Card>
@@ -214,8 +243,11 @@ export default function TakeAttendance() {
                     </TableBody>
                   </Table>
                 </div>
-                <div className="flex justify-end p-4 mt-4">
-                  <Button onClick={handleSubmit} className="w-full sm:w-auto">Submit Attendance</Button>
+                <div className="flex flex-col gap-2 p-4 mt-4">
+                  {attendanceAlreadySubmitted ? (
+                    <div className="text-red-600 text-center font-medium">Attendance for this class has already been submitted today.</div>
+                  ) : null}
+                  <Button onClick={handleSubmit} className="w-full sm:w-auto" disabled={attendanceAlreadySubmitted || checkingAttendance}>Submit Attendance</Button>
                 </div>
               </>) :
              <p className="text-center text-muted-foreground p-8">
@@ -229,6 +261,7 @@ export default function TakeAttendance() {
         </Card>
         </ErrorBoundary>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

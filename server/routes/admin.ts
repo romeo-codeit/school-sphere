@@ -4,6 +4,7 @@ import { logError } from '../logger';
 import { Client, Users, ID, Databases, Query } from 'node-appwrite';
 import { validateBody } from '../middleware/validation';
 import { userCreationSchema, schoolSettingsSchema, activationCodeSchema } from '../validation/schemas';
+import NotificationService from '../services/notificationService';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
@@ -16,6 +17,7 @@ const client = new Client()
 
 const users = new Users(client);
 const databases = new Databases(client);
+const notificationService = new NotificationService(databases);
 
 export const registerAdminRoutes = (app: any) => {
   // Admin-only user management
@@ -192,6 +194,7 @@ export const registerAdminRoutes = (app: any) => {
       }
 
       const userId = req.params.userId;
+  const { role } = (req.body || {}) as { role?: string };
       if (!userId) return res.status(400).json({ message: 'User ID is required' });
 
       // Update user profile to approved
@@ -204,11 +207,28 @@ export const registerAdminRoutes = (app: any) => {
         return res.status(404).json({ message: 'User profile not found' });
       }
 
-      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profiles.documents[0].$id, {
+  const profileDoc: any = profiles.documents[0];
+  const requestedRole = typeof role === 'string' ? role.trim() : undefined;
+  const assignedRole = requestedRole && requestedRole.length > 0 ? requestedRole : profileDoc.role || 'student';
+
+      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileDoc.$id, {
         accountStatus: 'approved',
         approvedAt: new Date().toISOString(),
         approvedBy: sessionUser.$id,
+        role: assignedRole,
       });
+
+      try {
+        await users.updatePrefs(userId, { role: assignedRole });
+      } catch (error) {
+        logError('Failed to update user role during approval', error);
+      }
+
+      try {
+        await notificationService.notifyAccountApproved(userId, assignedRole);
+      } catch (error) {
+        logError('Failed to send account approval notification', error);
+      }
 
       res.json({ message: 'Account approved successfully' });
     } catch (error) {
@@ -225,6 +245,7 @@ export const registerAdminRoutes = (app: any) => {
       }
 
       const userId = req.params.userId;
+  const { reason } = (req.body || {}) as { reason?: string };
       if (!userId) return res.status(400).json({ message: 'User ID is required' });
 
       // Update user profile to rejected
@@ -237,11 +258,21 @@ export const registerAdminRoutes = (app: any) => {
         return res.status(404).json({ message: 'User profile not found' });
       }
 
+      const safeReason = typeof reason === 'string' ? reason.trim() : undefined;
+
       await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profiles.documents[0].$id, {
         accountStatus: 'rejected',
         rejectedAt: new Date().toISOString(),
         rejectedBy: sessionUser.$id,
+        rejectionReason: safeReason || null,
       });
+
+      try {
+        const reasonForNotification = safeReason ? safeReason.slice(0, 180) : undefined;
+        await notificationService.notifyAccountRejected(userId, reasonForNotification);
+      } catch (error) {
+        logError('Failed to send account rejection notification', error);
+      }
 
       res.json({ message: 'Account rejected' });
     } catch (error) {

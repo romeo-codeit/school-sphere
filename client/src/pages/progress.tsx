@@ -264,7 +264,7 @@ export default function Progress() {
                     className="w-full sm:w-[250px] justify-between"
                   >
                     {selectedStudentId
-                      ? students?.find(student => student.$id === selectedStudentId)?.firstName + ' ' + students?.find(student => student.$id === selectedStudentId)?.lastName
+                      ? students?.find((student: any) => student.$id === selectedStudentId)?.firstName + ' ' + students?.find((student: any) => student.$id === selectedStudentId)?.lastName
                       : "Select student..."}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                   </Button>
@@ -274,7 +274,7 @@ export default function Progress() {
                     <CommandInput placeholder="Search student..." />
                     <CommandEmpty>No student found.</CommandEmpty>
                     <CommandGroup>
-                      {students?.map(student => (
+                      {students?.map((student: any) => (
                         <CommandItem
                           key={student.$id}
                           value={student.$id}

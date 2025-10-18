@@ -4,6 +4,7 @@ import { logError, logInfo } from '../logger';
 import { Client, Users, ID, Databases, Query } from 'node-appwrite';
 import { validateBody } from '../middleware/validation';
 import { userRegistrationSchema, subscriptionActivationSchema } from '../validation/schemas';
+import NotificationService from '../services/notificationService';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
@@ -16,6 +17,7 @@ const client = new Client()
 
 const users = new Users(client);
 const databases = new Databases(client);
+const notificationService = new NotificationService(databases);
 
 export const registerAuthRoutes = (app: any) => {
   // User registration endpoint that creates user profiles with pending approval
@@ -49,6 +51,37 @@ export const registerAuthRoutes = (app: any) => {
       };
 
       await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
+
+      if (role !== 'guest') {
+        try {
+          await notificationService.notifyAccountPendingReview(newUser.$id, role);
+        } catch (notifyError) {
+          logError('Failed to send pending review notification', notifyError);
+        }
+
+        try {
+          const admins = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
+            Query.equal('role', 'admin'),
+            Query.limit(100),
+          ]);
+
+          const adminIds = admins.documents
+            .map((doc: any) => doc.userId)
+            .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
+
+          if (adminIds.length > 0) {
+            await Promise.all(
+              adminIds.map((adminId) =>
+                notificationService.notifyAdminNewUser(adminId, name, email, role).catch((error) => {
+                  logError('Failed to notify admin of new user', error);
+                })
+              )
+            );
+          }
+        } catch (error) {
+          logError('Failed to load admin profiles for notification', error);
+        }
+      }
 
       res.json({
         message: role === 'guest'
@@ -183,8 +216,15 @@ export const registerAuthRoutes = (app: any) => {
       const expiry = new Date();
       expiry.setDate(expiry.getDate() + 30); // 30 days from now
 
-      // Update user profile
-      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', userId, {
+      // Update user profile (find by userId field, then update by document $id)
+      const profileDocs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
+        Query.equal('userId', userId),
+        Query.limit(1)
+      ]);
+      if (profileDocs.documents.length === 0) {
+        return res.status(404).json({ message: 'User profile not found' });
+      }
+      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileDocs.documents[0].$id, {
         subscriptionStatus: 'active',
         subscriptionExpiry: expiry.toISOString(),
       });
@@ -195,6 +235,13 @@ export const registerAuthRoutes = (app: any) => {
         usedBy: userId,
         usedAt: new Date().toISOString(),
       });
+
+      try {
+        const planName = String(activationCode.codeType || 'Subscription');
+        await notificationService.notifySubscriptionActivated(userId, planName, expiry.toISOString());
+      } catch (error) {
+        logError('Failed to send subscription activation notification', error);
+      }
 
       return res.json({ message: 'Subscription activated', subscriptionStatus: 'active', subscriptionExpiry: expiry.toISOString() });
     } catch (error) {

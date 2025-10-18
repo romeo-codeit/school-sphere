@@ -4,6 +4,7 @@ import { logError, logDebug } from '../logger';
 import { Client, ID, Databases, Query } from 'node-appwrite';
 import { cache, cacheKeys, CACHE_TTL } from '../utils/cache';
 import { validateBody, validateQuery } from '../middleware/validation';
+import NotificationService from '../services/notificationService';
 import {
   examAttemptStartSchema,
   examAttemptSubmitSchema,
@@ -25,6 +26,7 @@ const client = new Client()
   .setKey(process.env.APPWRITE_API_KEY!);
 
 const databases = new Databases(client);
+const notificationService = new NotificationService(databases);
 
 export const registerCBTRoutes = (app: any) => {
   // Get exams (CBT focus). Supports filters and full pagination.
@@ -292,9 +294,11 @@ export const registerCBTRoutes = (app: any) => {
       // Calculate score
       let score = 0;
       let totalQuestions = 0;
+      let examTitle = 'Exam';
       
       try {
         const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', attempt.examId);
+        examTitle = String((exam as any).title || exam.$id || 'Exam');
         const questions = Array.isArray(exam.questions) ? exam.questions : [];
         
         totalQuestions = questions.length;
@@ -324,6 +328,12 @@ export const registerCBTRoutes = (app: any) => {
         percentage: percentage,
         passed: passed,
       });
+
+      try {
+        await notificationService.notifyExamSubmitted(user.$id, examTitle, score, totalQuestions, attemptId);
+      } catch (error) {
+        logError('Failed to send exam submission notification', error);
+      }
 
       res.json(updated);
     } catch (error) {

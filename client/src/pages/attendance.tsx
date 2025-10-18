@@ -168,8 +168,8 @@ const AttendanceHubView: React.FC = () => {
 
   return (
     <>
-      <TopNav title="Attendance Management" subtitle="Manage all attendance-related tasks" />
-      <div className="space-y-6">
+  <TopNav title="Attendance Management" subtitle="Manage all attendance-related tasks" />
+  <div className="space-y-6">
         <div className="py-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-4 sm:px-6 lg:px-8">
           {availableLinks.map((link) => (
             <Link href={link.href} key={link.href}>
