@@ -86,12 +86,28 @@ export function useExams(params?: { type?: string; limit?: number | string; offs
       queryKey: ['cbt-exams', examId],
       queryFn: async () => {
         if (!examId) return null;
-        const jwt = await getJWT();
+        
         // Handle URLs with query params (for practice sessions)
         const url = examId.includes('?') ? `${API_URL}/${examId}` : `${API_URL}/${examId}`;
-        const response = await fetch(url, {
-          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+        
+        // Try without auth first
+        let response = await fetch(url, {
+          credentials: 'include',
         });
+        
+        // If that fails, try with JWT
+        if (!response.ok && response.status === 401) {
+          try {
+            const jwt = await getJWT();
+            response = await fetch(url, {
+              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+              credentials: 'include',
+            });
+          } catch (e) {
+            // Continue with original response
+          }
+        }
+        
         if (!response.ok) {
           throw new Error('Failed to fetch exam');
         }

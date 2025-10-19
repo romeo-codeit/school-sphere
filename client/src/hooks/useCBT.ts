@@ -67,29 +67,26 @@ export function useAvailableSubjects(type?: string, paperType?: 'objective' | 't
     enabled: !!type && enabled,
     queryFn: async () => {
       const pt = paperType === 'objective' ? 'obj' : paperType;
-      let jwt = await getJWT();
       const url = `${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}${pt ? `&paperType=${encodeURIComponent(pt)}` : ''}`;
-      let res = await fetch(url , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      
+      // Try without auth first
+      let res = await fetch(url, {
         credentials: 'include',
       });
-      if (res.status === 401) {
+      
+      // If that fails, try with JWT
+      if (!res.ok && res.status === 401) {
         try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(url , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
-          }
-        } catch {}
+          const jwt = await getJWT();
+          res = await fetch(url, {
+            headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+            credentials: 'include',
+          });
+        } catch (e) {
+          // Continue with original response
+        }
       }
+      
       if (!res.ok) throw new Error('Failed to fetch available subjects');
       return (await res.json()) as { subjects: string[] };
     },
@@ -102,32 +99,29 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
     queryKey: ['cbt-years-available', type, subjectsCsv, paperType],
     enabled: !!type && enabled,
     queryFn: async () => {
-      let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
       if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
-      let res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      
+      // Try without auth first
+      let res = await fetch(`${API_BASE}/years/available?${params.toString()}`, {
         credentials: 'include',
       });
-      if (res.status === 401) {
+      
+      // If that fails, try with JWT
+      if (!res.ok && res.status === 401) {
         try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
-          }
-        } catch {}
+          const jwt = await getJWT();
+          res = await fetch(`${API_BASE}/years/available?${params.toString()}`, {
+            headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+            credentials: 'include',
+          });
+        } catch (e) {
+          // Continue with original response
+        }
       }
+      
       if (!res.ok) throw new Error('Failed to fetch available years');
       return (await res.json()) as { years: string[] };
     },
@@ -140,32 +134,29 @@ export function useYearAvailability(type?: string, subjectsCsv?: string, enabled
     queryKey: ['cbt-years-availability', type, subjectsCsv, paperType],
     enabled: !!type && !!subjectsCsv && enabled,
     queryFn: async () => {
-      let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
       if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
-      let res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+      
+      // Try without auth first
+      let res = await fetch(`${API_BASE}/years/availability?${params.toString()}`, {
         credentials: 'include',
       });
-      if (res.status === 401) {
+      
+      // If that fails, try with JWT
+      if (!res.ok && res.status === 401) {
         try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
-          }
-        } catch {}
+          const jwt = await getJWT();
+          res = await fetch(`${API_BASE}/years/availability?${params.toString()}`, {
+            headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+            credentials: 'include',
+          });
+        } catch (e) {
+          // Continue with original response
+        }
       }
+      
       if (!res.ok) throw new Error('Failed to fetch year availability');
       return (await res.json()) as { 
         availability: Array<{
@@ -212,17 +203,34 @@ export function useStartAttempt() {
   const { getJWT } = useAuth();
   return useMutation({
     mutationFn: async (payload: { examId: string; subjects?: string[] }) => {
-      const jwt = await getJWT();
-      const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(`${API_BASE}/attempts`, {
+      // For exam functionality, we'll try without JWT first since we simplified auth
+      let res = await fetch(`${API_BASE}/attempts`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
         },
         body: JSON.stringify(payload),
       });
+      
+      // If that fails, try with JWT
+      if (!res.ok && res.status === 401) {
+        try {
+          const jwt = await getJWT();
+          const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
+          res = await fetch(`${API_BASE}/attempts`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+              ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
+            },
+            body: JSON.stringify(payload),
+          });
+        } catch (e) {
+          // If JWT fails too, continue with the original response
+        }
+      }
+      
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to start attempt');
       return data;

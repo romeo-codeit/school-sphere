@@ -201,7 +201,13 @@ export default function ExamTaking() {
   const handleStartAttempt = async () => {
     if (!examId) return;
     try {
-      const attempt = await startAttempt(examId);
+      // For practice sessions, pass subjects and other parameters
+      const attemptData: any = { examId };
+      if (practiceType && subjects.length > 0) {
+        attemptData.subjects = subjects;
+      }
+      
+      const attempt = await startAttempt(attemptData);
       setAttemptId(attempt.$id);
       // Enforce fullscreen upon attempt start
       await enterFullscreen();
