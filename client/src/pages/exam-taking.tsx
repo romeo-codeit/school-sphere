@@ -71,10 +71,11 @@ export default function ExamTaking() {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Phase 3: Security & Fullscreen
+  // Simplified Security & Fullscreen
   const [isFullscreenDialogOpen, setIsFullscreenDialogOpen] = useState(false);
   const [isTabSwitchDialogOpen, setIsTabSwitchDialogOpen] = useState(false);
   const [timerPaused, setTimerPaused] = useState(false);
+  const [securityWarnings, setSecurityWarnings] = useState(0);
   // Phase 4: Advanced timer & autosave
   const [showTenMinuteWarning, setShowTenMinuteWarning] = useState(false);
   const [isOffline, setIsOffline] = useState<boolean>(typeof navigator !== 'undefined' ? !navigator.onLine : false);
@@ -201,7 +202,15 @@ export default function ExamTaking() {
   const handleStartAttempt = async () => {
     if (!examId) return;
     try {
-      const attempt = await startAttempt(examId);
+      // For practice sessions, pass subjects and other parameters
+      const attemptData: any = { examId };
+      if (practiceType && subjects.length > 0) {
+        attemptData.subjects = subjects;
+        if (year) attemptData.year = year;
+        if (paperType) attemptData.paperType = paperType;
+      }
+      
+      const attempt = await startAttempt(attemptData);
       setAttemptId(attempt.$id);
       // Enforce fullscreen upon attempt start
       await enterFullscreen();
@@ -331,6 +340,7 @@ export default function ExamTaking() {
       const active = isInFullscreen();
       if (!active && attemptId) {
         setTimerPaused(true);
+        setSecurityWarnings(prev => prev + 1);
         setIsFullscreenDialogOpen(true);
       }
     };
@@ -351,6 +361,7 @@ export default function ExamTaking() {
     const onVisibility = () => {
       if (document.hidden && attemptId) {
         setTimerPaused(true);
+        setSecurityWarnings(prev => prev + 1);
         setIsTabSwitchDialogOpen(true);
       }
     };
@@ -617,6 +628,12 @@ export default function ExamTaking() {
               <div className="text-xs text-destructive flex items-center gap-1" role="alert" aria-live="assertive">
                 <span className="inline-block w-2 h-2 bg-destructive rounded-full"></span>
                 Offline: answers saved locally, timer paused.
+              </div>
+            )}
+            {securityWarnings > 0 && (
+              <div className="text-xs text-yellow-600 flex items-center gap-1" role="alert" aria-live="assertive">
+                <span className="inline-block w-2 h-2 bg-yellow-600 rounded-full"></span>
+                Security warnings: {securityWarnings}
               </div>
             )}
             <div className="flex gap-2">

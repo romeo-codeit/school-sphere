@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { auth } from '../middleware';
+import { sessionAuth, examSecurity } from '../middleware/sessionAuth';
 import { logError, logDebug } from '../logger';
+import { fetchPracticeExamQuestions } from '../utils/practiceExam';
 import { Client, ID, Databases, Query } from 'node-appwrite';
 import { cache, cacheKeys, CACHE_TTL } from '../utils/cache';
 import { validateBody, validateQuery } from '../middleware/validation';
@@ -179,6 +181,90 @@ export const registerCBTRoutes = (app: any) => {
     try {
       const examId = String(req.params.id || '').trim();
       logDebug('GET /api/cbt/exams/:id', { id: examId });
+
+      // Handle practice sessions (synthetic examId like 'practice-jamb')
+      if (examId.startsWith('practice-')) {
+        const type = examId.replace('practice-', '');
+        const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
+        const yearParam = req.query.year ? String(req.query.year) : undefined;
+        const paperTypeParam = req.query.paperType ? (String(req.query.paperType) as 'objective' | 'theory' | 'obj') : undefined;
+        const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
+
+        if (selectedSubjects.length === 0) {
+          return res.status(400).json({ message: 'At least one subject must be selected for practice exams' });
+        }
+
+        // Generate practice exam
+        const questions = await fetchPracticeExamQuestions(databases, type, selectedSubjects, yearParam, paperTypeParam);
+
+        if (questions.length === 0) {
+          return res.status(404).json({ message: 'No questions found for the selected subjects and criteria' });
+        }
+
+        // Sample questions for practice mode - limit to reasonable amounts
+        const sample = <T,>(arr: T[], n: number): T[] => {
+          if (arr.length <= n) return arr;
+          const out: T[] = [];
+          const used = new Set<number>();
+          while (out.length < n) {
+            const idx = Math.floor(Math.random() * arr.length);
+            if (!used.has(idx)) { used.add(idx); out.push(arr[idx]); }
+          }
+          return out;
+        };
+
+        let finalQuestions = questions;
+
+        // JAMB: ~12-13 questions per subject (4 subjects = ~50 total, similar to real exam)
+        if (type === 'jamb') {
+          const questionsPerSubject = Math.max(10, Math.floor(50 / selectedSubjects.length));
+          const subjectGroups = new Map<string, any[]>();
+          questions.forEach((q: any) => {
+            const subj = String(q.subject || '').trim();
+            if (!subjectGroups.has(subj)) subjectGroups.set(subj, []);
+            subjectGroups.get(subj)!.push(q);
+          });
+          
+          finalQuestions = [];
+          selectedSubjects.forEach(subj => {
+            const subjQuestions = subjectGroups.get(subj) || [];
+            finalQuestions.push(...sample(subjQuestions, questionsPerSubject));
+          });
+        } else if (type === 'waec' || type === 'neco') {
+          // WAEC/NECO: ~15-20 questions per subject
+          const questionsPerSubject = Math.max(15, Math.floor(60 / selectedSubjects.length));
+          const subjectGroups = new Map<string, any[]>();
+          questions.forEach((q: any) => {
+            const subj = String(q.subject || '').trim();
+            if (!subjectGroups.has(subj)) subjectGroups.set(subj, []);
+            subjectGroups.get(subj)!.push(q);
+          });
+          
+          finalQuestions = [];
+          selectedSubjects.forEach(subj => {
+            const subjQuestions = subjectGroups.get(subj) || [];
+            finalQuestions.push(...sample(subjQuestions, questionsPerSubject));
+          });
+        }
+
+        // Shuffle questions
+        finalQuestions = finalQuestions.sort(() => Math.random() - 0.5);
+
+        const practiceExam = {
+          $id: examId,
+          title: `${type.toUpperCase()} Practice Session`,
+          type: type,
+          subject: selectedSubjects.join(', '),
+          year: yearParam || 'Mixed',
+          duration: Math.max(60, Math.ceil(finalQuestions.length * 1.5)), // ~1.5 minutes per question
+          questions: finalQuestions,
+          questionCount: finalQuestions.length,
+          isActive: true,
+          createdAt: new Date().toISOString(),
+        };
+
+        return res.json(practiceExam);
+      }
 
       // Basic validation for missing/placeholder ids
       if (!examId || examId === 'undefined' || examId === 'null' || examId.length < 10) {
@@ -428,7 +514,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available subjects (derived from exams collection)
-  app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/cbt/subjects/available', sessionAuth, validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
@@ -486,7 +572,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available years (union across selected subjects) derived from exams
-  app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/cbt/years/available', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
@@ -515,10 +601,16 @@ export const registerCBTRoutes = (app: any) => {
       let allYears: Set<string> = new Set();
       let offset = 0;
       let lastTotal = Number.POSITIVE_INFINITY;
-      while (true) {
-        let docs: any[] = [];
-        let pageCount = 0;
+      
+      // Add error handling and retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
         try {
+          let docs: any[] = [];
+          let pageCount = 0;
+          
           const page = await databases.listDocuments(
             APPWRITE_DATABASE_ID!,
             'exams',
@@ -527,27 +619,38 @@ export const registerCBTRoutes = (app: any) => {
           docs = (page.documents || []) as any[];
           pageCount = docs.length;
           lastTotal = typeof (page as any).total === 'number' ? (page as any).total : lastTotal;
-        } catch (e) {
-          // Fail gracefully for this page and stop looping
-          return res.status(500).json({ message: 'Failed to fetch years' });
-        }
-        if (docs.length === 0) break;
-        for (const doc of docs) {
-          const docType = normalize((doc as any).type || '');
-          const titleLower = normalize((doc as any).title || '');
-          if (!(docType === type || titleLower.includes(type))) continue;
-          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
-          const subj = canonicalSubject((doc as any).subject || '');
-          const year = String((doc as any).year || '').trim();
-          if (!year) continue;
-          if (subjectFilters.length > 0) {
-            if (subjectFilters.includes(subj)) addYear(subj, year);
-          } else {
-            allYears.add(year);
+          
+          if (docs.length === 0) break;
+          
+          for (const doc of docs) {
+            const docType = normalize((doc as any).type || '');
+            const titleLower = normalize((doc as any).title || '');
+            if (!(docType === type || titleLower.includes(type))) continue;
+            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            const subj = canonicalSubject((doc as any).subject || '');
+            const year = String((doc as any).year || '').trim();
+            if (!year) continue;
+            if (subjectFilters.length > 0) {
+              if (subjectFilters.includes(subj)) addYear(subj, year);
+            } else {
+              allYears.add(year);
+            }
           }
+          
+          offset += pageCount;
+          if (offset >= lastTotal) break;
+          retryCount = 0; // Reset retry count on successful page
+        } catch (e) {
+          retryCount++;
+          logError(`Failed to fetch years (attempt ${retryCount})`, e);
+          if (retryCount >= maxRetries) {
+            // Return cached data or empty result instead of error
+            logError('Max retries exceeded for years fetch, returning empty result', e);
+            return res.json({ years: [] });
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
-        offset += pageCount;
-        if (offset >= lastTotal) break;
       }
 
       let items: string[] = [];
@@ -571,7 +674,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get year availability per subject (array of entries) derived from exams
-  app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/cbt/years/availability', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
@@ -596,10 +699,16 @@ export const registerCBTRoutes = (app: any) => {
 
       let offset = 0;
       let lastTotal2 = Number.POSITIVE_INFINITY;
-      while (true) {
-        let docs: any[] = [];
-        let pageCount = 0;
+      
+      // Add error handling and retry logic
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
         try {
+          let docs: any[] = [];
+          let pageCount = 0;
+          
           const page = await databases.listDocuments(
             APPWRITE_DATABASE_ID!,
             'exams',
@@ -608,23 +717,35 @@ export const registerCBTRoutes = (app: any) => {
           docs = (page.documents || []) as any[];
           pageCount = docs.length;
           lastTotal2 = typeof (page as any).total === 'number' ? (page as any).total : lastTotal2;
+          
+          if (docs.length === 0) break;
+          
+          for (const doc of docs) {
+            const docType = normalize((doc as any).type || '');
+            const titleLower = normalize((doc as any).title || '');
+            if (!(docType === type || titleLower.includes(type))) continue;
+            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            const subj = canonicalSubject((doc as any).subject || '');
+            const year = String((doc as any).year || '').trim();
+            if (!year || !subjectFilters.includes(subj)) continue;
+            if (!yearToSubjects.has(year)) yearToSubjects.set(year, new Set());
+            yearToSubjects.get(year)!.add(subj);
+          }
+          
+          offset += pageCount;
+          if (offset >= lastTotal2) break;
+          retryCount = 0; // Reset retry count on successful page
         } catch (e) {
-          return res.status(500).json({ message: 'Failed to fetch year availability' });
+          retryCount++;
+          logError(`Failed to fetch year availability (attempt ${retryCount})`, e);
+          if (retryCount >= maxRetries) {
+            // Return cached data or empty result instead of error
+            logError('Max retries exceeded for year availability fetch, returning empty result', e);
+            return res.json({ availability: [] });
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
         }
-        if (docs.length === 0) break;
-        for (const doc of docs) {
-          const docType = normalize((doc as any).type || '');
-          const titleLower = normalize((doc as any).title || '');
-          if (!(docType === type || titleLower.includes(type))) continue;
-          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
-          const subj = canonicalSubject((doc as any).subject || '');
-          const year = String((doc as any).year || '').trim();
-          if (!year || !subjectFilters.includes(subj)) continue;
-          if (!yearToSubjects.has(year)) yearToSubjects.set(year, new Set());
-          yearToSubjects.get(year)!.add(subj);
-        }
-        offset += pageCount;
-        if (offset >= lastTotal2) break;
       }
 
       const availability = Array.from(yearToSubjects.entries())
