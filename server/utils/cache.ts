@@ -44,7 +44,8 @@ export const cache = new SimpleCache();
 // Cache key generators
 export const cacheKeys = {
   exams: (filters?: any) => `exams:${JSON.stringify(filters || {})}`,
-  subjects: (type: string) => `subjects:${type}`,
+  // bump subjects cache key version to invalidate old shape
+  subjects: (type: string) => `subjects:v2:${type}`,
   years: (type: string, subjects: string[]) => `years:${type}:${subjects.sort().join(',')}`,
   analytics: (classId: string) => `analytics:${classId}`,
   userProfile: (userId: string) => `user:${userId}`,

@@ -683,7 +683,10 @@ export default function Payments() {
                   {filteredPayments.map((payment: any) => (
                     <Card key={payment.$id} className="p-4 relative">
                       {/* Status badge at top right */}
-                      <div className="absolute top-2 right-2 z-10">
+                      <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+                        {payment.offline && (
+                          <Badge variant="outline" className="px-2 py-1 text-xs">Offline</Badge>
+                        )}
                         <Badge variant={
                           payment.status === 'paid' ? 'primary' : 
                           payment.status === 'overdue' ? 'destructive' : 'secondary'
@@ -707,7 +710,7 @@ export default function Payments() {
                             <TooltipContent><p>View</p></TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
-                        {payment.status === 'pending' && (
+                        {payment.status === 'pending' && !payment.offline && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -752,7 +755,7 @@ export default function Payments() {
                           <TableCell>
                             <div className="flex gap-2">
                               <Button size="icon" variant="outline" data-testid={`button-view-payment-${payment.$id}`}><Eye /></Button>
-                              {payment.status === 'pending' && (
+                              {payment.status === 'pending' && !payment.offline && (
                                 <Button size="icon" variant="outline" data-testid={`button-mark-paid-${payment.$id}`}>✔</Button>
                               )}
                             </div>

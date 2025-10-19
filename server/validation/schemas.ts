@@ -78,13 +78,15 @@ export const examQuerySchema = z.object({
 });
 
 export const subjectQuerySchema = z.object({
-  type: z.string().min(1, 'Type is required')
+  type: z.string().min(1, 'Type is required'),
+  paperType: z.string().optional(),
 });
 
 export const yearQuerySchema = z.object({
   type: z.string().min(1, 'Type is required'),
   subject: z.union([z.string(), z.array(z.string())]).optional(),
-  subjects: z.string().optional()
+  subjects: z.string().optional(),
+  paperType: z.string().optional(),
 });
 
 export const attemptQuerySchema = z.object({

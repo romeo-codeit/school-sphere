@@ -126,7 +126,7 @@ setInterval(() => {
 }, 5 * 60 * 1000); // Run cleanup every 5 minutes
 
 // Optimized function to fetch questions for practice exams
-async function fetchPracticeExamQuestions(type: string, selectedSubjects: string[], yearParam?: string): Promise<any[]> {
+async function fetchPracticeExamQuestions(type: string, selectedSubjects: string[], yearParam?: string, paperTypeParam?: 'objective' | 'theory' | 'obj'): Promise<any[]> {
   const normalize = (s: string) => String(s || '').trim().toLowerCase();
   const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
   const canonicalSubject = (s: string) => {
@@ -139,12 +139,18 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
   const canonicalSelectedSubjects = selectedSubjects.map(s => canonicalSubject(s));
   const allQuestions: any[] = [];
 
-  // Build database queries for better performance
-  const examQueries = [Query.equal('type', type)];
+  // Build database queries, filter type in-memory to be resilient to data variants
+  const examQueries: any[] = [];
 
   // Add year filter if specified
   if (yearParam) {
     examQueries.push(Query.equal('year', yearParam));
+  }
+
+  // If a paper type filter is requested (WAEC/NECO), add it if present in schema
+  if (paperTypeParam) {
+    const pt = (paperTypeParam === 'obj' ? 'obj' : paperTypeParam);
+    try { examQueries.push(Query.equal('paper_type', pt)); } catch {}
   }
 
   // Fetch all exams matching the type and year criteria
@@ -162,6 +168,10 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
 
     // Filter exams by subject in memory (since Appwrite doesn't support complex subject filtering)
     for (const exam of examResults.documents) {
+      const docType = normalize((exam as any).type || '');
+      const titleLower = normalize((exam as any).title || '');
+      const typeMatches = docType === type || titleLower.includes(type);
+      if (!typeMatches) continue;
       const examSubjectRaw = String((exam as any).subject || '');
       const examSubject = canonicalSubject(examSubjectRaw);
 
@@ -191,6 +201,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
           correctAnswer: correct,
           explanation: (q as any).explanation ?? undefined,
           imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
+          answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
           subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
         };
         questions.push(mapped);
@@ -218,6 +229,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
             correctAnswer: correct,
             explanation: (q as any).explanation ?? undefined,
             imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
+            answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
             subject: (canonicalSubject(examSubjectRaw) === 'english') ? 'English' : (exam as any).subject,
           };
           questions.push(mapped);
@@ -980,7 +992,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (fetchAll) {
         // Get total count first
         const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
-        console.log(`Total exams in database: ${totalQuery.total}`);
+        
         // Cursor-based pagination to avoid offset limits on large datasets
         let lastId: string | null = null;
         let batchCount = 0;
@@ -997,10 +1009,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           exams.push(...batch);
           lastId = String(batch[batch.length - 1].$id);
           batchCount++;
-          console.log(`Fetched batch ${batchCount}, total exams so far: ${exams.length}, lastId: ${lastId}`);
+          
           // Avoid relying on total when using cursors
         }
-        console.log(`Total exams fetched: ${exams.length}`);
+        
         // Apply optional type filter client-side to reduce payload returned
         if (typeFilter) {
           exams = exams.filter((e) => String((e as any).type || '').toLowerCase() === typeFilter);
@@ -1083,7 +1095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (isAdmin || isDev) {
         // Get total count first
         const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
-        console.log(`Assigned: Total exams in database: ${totalQuery.total}`);
+        
         // Fetch all via cursor to avoid 100 cap
         let all: any[] = [];
         let lastId: string | null = null;
@@ -1097,9 +1109,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           all.push(...batch);
           lastId = String(batch[batch.length - 1].$id);
           batchCount++;
-          console.log(`Assigned: Fetched batch ${batchCount}, total exams so far: ${all.length}, lastId: ${lastId}`);
+          
         }
-        console.log(`Assigned: Total exams fetched: ${all.length}`);
+        
         return res.json({ exams: all, total: all.length });
       }
 
@@ -1221,7 +1233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Fetch all exams via cursor, then filter for standardized types
       // Get total count first
       const totalQuery = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'exams', [Query.limit(1)]);
-      console.log(`Available: Total exams in database: ${totalQuery.total}`);
+      
       let all: any[] = [];
       let lastId: string | null = null;
       let batchCount = 0;
@@ -1234,9 +1246,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         all.push(...batch);
         lastId = String(batch[batch.length - 1].$id);
         batchCount++;
-        console.log(`Available: Fetched batch ${batchCount}, total exams so far: ${all.length}, lastId: ${lastId}`);
+        
       }
-      console.log(`Available: Total exams fetched: ${all.length}`);
+      
       const standardizedExams = all.filter((exam: any) =>
         ['waec', 'neco', 'jamb'].includes(String(exam.type || '').toLowerCase())
       );
@@ -1252,7 +1264,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/cbt/exams/:id', auth, async (req, res) => {
     try {
       const examId = String(req.params.id || '').trim();
-      logDebug('GET /api/cbt/exams/:id', { id: examId });
+      
 
       // Basic validation for missing/placeholder ids
       if (!examId || examId === 'undefined' || examId === 'null') {
@@ -1264,6 +1276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
         const yearParam = req.query.year ? String(req.query.year) : undefined;
+  const paperTypeParam = req.query.paperType ? (String(req.query.paperType) as 'objective' | 'theory' | 'obj') : undefined;
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
 
         if (selectedSubjects.length === 0) {
@@ -1275,14 +1288,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const cachedExam = getCachedExam(cacheKey);
 
         if (cachedExam) {
-          logDebug('Serving cached practice exam', { cacheKey });
+          
           return res.json(cachedExam);
         }
 
         logInfo('Generating new practice exam', { type, subjects: selectedSubjects, year: yearParam });
 
         // Fetch questions using optimized function
-        const questions = await fetchPracticeExamQuestions(type, selectedSubjects, yearParam);
+  const questions = await fetchPracticeExamQuestions(type, selectedSubjects, yearParam, paperTypeParam);
 
         if (questions.length === 0) {
           return res.status(404).json({ message: 'No questions found for the selected subjects and criteria' });
@@ -1342,6 +1355,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           isPractice: true,
           selectedSubjects,
           year: yearParam,
+          paperType: paperTypeParam,
         };
 
         // Cache the result
@@ -1350,9 +1364,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json(practiceExam);
       }
 
-      // Debug: If ?debug=1, fetch only one exam, no questions
+  // If ?debug=1, fetch only one exam, no questions
       if (req.query.debug === '1') {
-        logDebug('Debug mode: fetching only one exam (no questions)');
+        
         const result = await databases.listDocuments(
           APPWRITE_DATABASE_ID!,
           'exams',
@@ -1371,6 +1385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         correctAnswer: q?.correctAnswer ?? q?.answer ?? '',
         explanation: q?.explanation ?? undefined,
         imageUrl: toCDNUrl(q?.imageUrl ?? q?.image),
+        answerUrl: q?.answerUrl ?? q?.answer_url ?? undefined,
         subject,
       });
 
@@ -1748,7 +1763,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message: `No questions found for any selected subject${year ? ` in year ${year}` : ''}. Try selecting a different year or subjects.`,
           insufficient, 
           availability,
-          debug: { totalExamsScanned, matchingExams }
         });
       }
 
@@ -1797,7 +1811,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         page.documents.forEach((doc: any) => {
           const docType = String(doc.type || '').toLowerCase();
-          if (docType === type && doc.subject) {
+          const titleLower = String(doc.title || '').toLowerCase();
+          if ((docType === type || titleLower.includes(type)) && doc.subject) {
             const subjRaw = String(doc.subject);
             const key = isEnglish(subjRaw) ? 'english' : normalizeKey(subjRaw);
             const display = key === 'english' ? 'English' : subjRaw;
@@ -1865,7 +1880,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
-          if (docType !== type) continue;
+          const titleLower = normalize((doc as any).title || '');
+          if (!(docType === type || titleLower.includes(type))) continue;
           
           let subj = canonicalSubject((doc as any).subject || '');
           const year = String((doc as any).year || '').trim();
@@ -1943,7 +1959,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         );
         for (const doc of page.documents as any[]) {
           const docType = normalize((doc as any).type || '');
-          if (docType !== type) continue;
+          const titleLower = normalize((doc as any).title || '');
+          if (!(docType === type || titleLower.includes(type))) continue;
           
           const subj = canonicalSubject((doc as any).subject || '');
           const year = String((doc as any).year || '').trim();

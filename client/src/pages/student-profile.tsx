@@ -58,12 +58,17 @@ function PaymentsTable({ payments }: { payments: Payment[] }) {
                             <TableCell>{payment.purpose}</TableCell>
                             <TableCell>₦{parseFloat(payment.amount.toString()).toLocaleString()}</TableCell>
                             <TableCell>
-                              <Badge 
-                                variant={getStatusVariant(payment.status)}
-                                aria-label={`Payment status: ${payment.status}`}
-                              >
-                                {payment.status}
-                              </Badge>
+                                <div className="flex items-center gap-2">
+                                  { (payment as any).offline && (
+                                    <Badge variant="outline" className="px-2 py-1 text-xs">Offline</Badge>
+                                  ) }
+                                  <Badge 
+                                    variant={getStatusVariant(payment.status)}
+                                    aria-label={`Payment status: ${payment.status}`}
+                                  >
+                                    {payment.status}
+                                  </Badge>
+                                </div>
                             </TableCell>
                             <TableCell>{new Date(payment.paidDate || payment.dueDate).toLocaleDateString()}</TableCell>
                         </TableRow>

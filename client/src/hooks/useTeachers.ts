@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
+import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -59,34 +60,53 @@ export function useTeachers(filters: TeacherFilters = {}) {
   };
 
   const createTeacherMutation = useMutation({
-    mutationFn: async (teacherData: any) => {
-      const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
-        .filter(Boolean)
-        .join(' ');
-      return await databases.createDocument(
-        DATABASE_ID,
-        'teachers',
-        ID.unique(),
-        { ...teacherData, search }
-      );
-    },
+      mutationFn: async (teacherData: any) => {
+        const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
+          .filter(Boolean)
+          .join(' ');
+        const data = { ...teacherData, search };
+        if (!isOnline()) {
+          await queueAppwriteOperation({
+            op: 'create',
+            collection: 'teachers',
+            data,
+          });
+          return { offline: true };
+        }
+        return await databases.createDocument(
+          DATABASE_ID,
+          'teachers',
+          ID.unique(),
+          data
+        );
+      },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
     },
   });
 
   const updateTeacherMutation = useMutation({
-    mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
-      const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
-        .filter(Boolean)
-        .join(' ');
-      return await databases.updateDocument(
-        DATABASE_ID,
-        'teachers',
-        teacherId,
-        { ...teacherData, search }
-      );
-    },
+      mutationFn: async ({ teacherId, teacherData }: { teacherId: string, teacherData: any }) => {
+        const search = [teacherData.firstName, teacherData.lastName, teacherData.email, teacherData.employeeId, ...(teacherData.subjects || []), teacherData.qualification]
+          .filter(Boolean)
+          .join(' ');
+        const data = { ...teacherData, search };
+        if (!isOnline()) {
+          await queueAppwriteOperation({
+            op: 'update',
+            collection: 'teachers',
+            docId: teacherId,
+            data,
+          });
+          return { offline: true };
+        }
+        return await databases.updateDocument(
+          DATABASE_ID,
+          'teachers',
+          teacherId,
+          data
+        );
+      },
     onSuccess: (_, { teacherId }) => {
       queryClient.invalidateQueries({ queryKey: ['teachers'] });
       queryClient.invalidateQueries({ queryKey: ['teachers', teacherId] });

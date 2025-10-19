@@ -427,10 +427,11 @@ export const registerCBTRoutes = (app: any) => {
     }
   });
 
-  // Get available subjects
-  app.get('/api/cbt/subjects/available', auth, validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
+  // Get available subjects (derived from exams collection)
+  app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
+      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       // Check cache first
@@ -441,127 +442,201 @@ export const registerCBTRoutes = (app: any) => {
         return res.json(cached);
       }
 
-      logDebug('Fetching available subjects for type', { type });
+      // Normalize helpers
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z]/g, '');
+      const isEnglish = (s: string) => {
+        const v = normalize(s);
+        return v === 'english' || v === 'english language' || v === 'englishlanguage' || v === 'use of english' || v.startsWith('english');
+      };
 
-      // Get all questions for this type
-      const questions = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-        Query.equal('type', type),
-        Query.limit(1000)
-      ]);
-
-      // Group by subject and count questions
-      const subjectCounts: Record<string, number> = {};
-      for (const question of questions.documents) {
-        const subject = String(question.subject || 'unknown');
-        subjectCounts[subject] = (subjectCounts[subject] || 0) + 1;
+      const subjectMap = new Map<string, string>(); // key -> display label
+      let offset = 0;
+      while (true) {
+        const page = await databases.listDocuments(
+          APPWRITE_DATABASE_ID!,
+          'exams',
+          [Query.limit(100), Query.offset(offset)]
+        );
+        const docs = (page.documents || []) as any[];
+        if (docs.length === 0) break;
+        for (const doc of docs) {
+          const docType = String((doc as any).type || '').toLowerCase();
+          const titleLower = String((doc as any).title || '').toLowerCase();
+          if (!(docType === type || titleLower.includes(type))) continue;
+          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+          const subjRaw = String((doc as any).subject || '').trim();
+          if (!subjRaw) continue;
+          const key = isEnglish(subjRaw) ? 'english' : normalizeKey(subjRaw);
+          const display = key === 'english' ? 'English' : subjRaw;
+          if (!subjectMap.has(key)) subjectMap.set(key, display);
+        }
+        offset += docs.length;
+        if (offset >= (page.total || offset)) break;
       }
 
-      // Convert to array and sort by count
-      const subjectArray = Object.entries(subjectCounts)
-        .map(([subject, count]) => ({ subject, count }))
-        .sort((a, b) => b.count - a.count);
-
+      const subjectArray = Array.from(subjectMap.values()).sort();
       const response = { subjects: subjectArray };
-      
-      // Cache the result
       cache.set(cacheKey, response, CACHE_TTL.SUBJECTS);
-      
-      res.json(response);
+      return res.json(response);
     } catch (error) {
       logError('Failed to fetch subjects', error);
       res.status(500).json({ message: 'Failed to fetch subjects' });
     }
   });
 
-  // Get available years
-  app.get('/api/cbt/years/available', auth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Get available years (union across selected subjects) derived from exams
+  app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      // Accept either multiple subject params (?subject=a&subject=b) or a CSV (?subjects=a,b)
+      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
-      
-      const subjects = subjectParamsRaw
-        .map(s => String(s).trim())
-        .filter(s => s.length > 0);
-
+      const subjectParams = subjectParamsRaw.map((s) => String(s)).filter(Boolean);
       if (!type) return res.status(400).json({ message: 'type is required' });
-      if (subjects.length === 0) return res.status(400).json({ message: 'At least one subject is required' });
 
-      logDebug('Fetching available years', { type, subjects });
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+      const canonicalSubject = (s: string) => {
+        const k = normalizeKey(s);
+        if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+        if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+        return k;
+      };
 
-      // Build queries for each subject
-      const yearCounts: Record<string, number> = {};
-      
-      for (const subject of subjects) {
+      const subjectFilters: string[] = subjectParams.map((s) => canonicalSubject(s));
+      const subjectToYears = new Map<string, Set<string>>();
+      const addYear = (subjKey: string, year: string) => {
+        if (!subjectToYears.has(subjKey)) subjectToYears.set(subjKey, new Set());
+        subjectToYears.get(subjKey)!.add(year);
+      };
+
+      let allYears: Set<string> = new Set();
+      let offset = 0;
+      let lastTotal = Number.POSITIVE_INFINITY;
+      while (true) {
+        let docs: any[] = [];
+        let pageCount = 0;
         try {
-          const questions = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-            Query.equal('type', type),
-            Query.equal('subject', subject),
-            Query.limit(1000)
-          ]);
-
-          for (const question of questions.documents) {
-            const year = String(question.year || 'unknown');
-            yearCounts[year] = (yearCounts[year] || 0) + 1;
-          }
-        } catch (error) {
-          logError(`Error fetching years for subject ${subject}`, error);
+          const page = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'exams',
+            [Query.limit(100), Query.offset(offset)]
+          );
+          docs = (page.documents || []) as any[];
+          pageCount = docs.length;
+          lastTotal = typeof (page as any).total === 'number' ? (page as any).total : lastTotal;
+        } catch (e) {
+          // Fail gracefully for this page and stop looping
+          return res.status(500).json({ message: 'Failed to fetch years' });
         }
+        if (docs.length === 0) break;
+        for (const doc of docs) {
+          const docType = normalize((doc as any).type || '');
+          const titleLower = normalize((doc as any).title || '');
+          if (!(docType === type || titleLower.includes(type))) continue;
+          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+          const subj = canonicalSubject((doc as any).subject || '');
+          const year = String((doc as any).year || '').trim();
+          if (!year) continue;
+          if (subjectFilters.length > 0) {
+            if (subjectFilters.includes(subj)) addYear(subj, year);
+          } else {
+            allYears.add(year);
+          }
+        }
+        offset += pageCount;
+        if (offset >= lastTotal) break;
       }
 
-      // Convert to array and sort by year
-      const items = Object.entries(yearCounts)
-        .map(([year, count]) => ({ year, count }))
-        .sort((a, b) => b.year.localeCompare(a.year));
+      let items: string[] = [];
+      if (subjectFilters.length === 0) {
+        items = Array.from(allYears);
+      } else {
+        const union = new Set<string>();
+        subjectFilters.filter((s, i) => subjectFilters.indexOf(s) === i).forEach((s) => {
+          const set = subjectToYears.get(s);
+          if (set) set.forEach((y) => union.add(y));
+        });
+        items = Array.from(union);
+      }
 
-      res.json({ years: items });
+      items.sort((a, b) => Number(b) - Number(a));
+      return res.json({ years: items });
     } catch (error) {
       logError('Failed to fetch years', error);
       res.status(500).json({ message: 'Failed to fetch years' });
     }
   });
 
-  // Get year availability
-  app.get('/api/cbt/years/availability', auth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Get year availability per subject (array of entries) derived from exams
+  app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
+      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
-      
-      const subjects = subjectParamsRaw
-        .map(s => String(s).trim())
-        .filter(s => s.length > 0);
-
+      const subjectParams = subjectParamsRaw.map((s) => String(s)).filter(Boolean);
       if (!type) return res.status(400).json({ message: 'type is required' });
-      if (subjects.length === 0) return res.status(400).json({ message: 'At least one subject is required' });
+      if (subjectParams.length === 0) return res.status(400).json({ message: 'subjects are required' });
 
-      logDebug('Fetching year availability', { type, subjects });
+      const normalize = (s: string) => String(s || '').trim().toLowerCase();
+      const normalizeKey = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '');
+      const canonicalSubject = (s: string) => {
+        const k = normalizeKey(s);
+        if (k.startsWith('english') || k.includes('useofenglish')) return 'english';
+        if (k === 'agric' || k.startsWith('agric') || k.includes('agriculturalscience')) return 'agriculturalscience';
+        return k;
+      };
 
-      const availability: Record<string, Record<string, number>> = {};
-      
-      for (const subject of subjects) {
-        availability[subject] = {};
-        
+      const subjectFilters = subjectParams.map((s) => canonicalSubject(s));
+      const yearToSubjects = new Map<string, Set<string>>();
+
+      let offset = 0;
+      let lastTotal2 = Number.POSITIVE_INFINITY;
+      while (true) {
+        let docs: any[] = [];
+        let pageCount = 0;
         try {
-          const questions = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-            Query.equal('type', type),
-            Query.equal('subject', subject),
-            Query.limit(1000)
-          ]);
-
-          for (const question of questions.documents) {
-            const year = String(question.year || 'unknown');
-            availability[subject][year] = (availability[subject][year] || 0) + 1;
-          }
-        } catch (error) {
-          logError(`Error fetching availability for subject ${subject}`, error);
+          const page = await databases.listDocuments(
+            APPWRITE_DATABASE_ID!,
+            'exams',
+            [Query.limit(100), Query.offset(offset)]
+          );
+          docs = (page.documents || []) as any[];
+          pageCount = docs.length;
+          lastTotal2 = typeof (page as any).total === 'number' ? (page as any).total : lastTotal2;
+        } catch (e) {
+          return res.status(500).json({ message: 'Failed to fetch year availability' });
         }
+        if (docs.length === 0) break;
+        for (const doc of docs) {
+          const docType = normalize((doc as any).type || '');
+          const titleLower = normalize((doc as any).title || '');
+          if (!(docType === type || titleLower.includes(type))) continue;
+          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+          const subj = canonicalSubject((doc as any).subject || '');
+          const year = String((doc as any).year || '').trim();
+          if (!year || !subjectFilters.includes(subj)) continue;
+          if (!yearToSubjects.has(year)) yearToSubjects.set(year, new Set());
+          yearToSubjects.get(year)!.add(subj);
+        }
+        offset += pageCount;
+        if (offset >= lastTotal2) break;
       }
 
-      res.json({ availability });
+      const availability = Array.from(yearToSubjects.entries())
+        .map(([year, subjects]) => ({
+          year,
+          subjects: Array.from(subjects),
+          availableCount: subjects.size,
+          totalCount: subjectFilters.length,
+        }))
+        .sort((a, b) => Number(b.year) - Number(a.year));
+
+      return res.json({ availability });
     } catch (error) {
       logError('Failed to fetch year availability', error);
       res.status(500).json({ message: 'Failed to fetch year availability' });
@@ -646,6 +721,20 @@ export const registerCBTRoutes = (app: any) => {
         };
       });
 
+      // Compute standardized scoring for popular exams
+      const typeLower = String((exam as any)?.type || '').toLowerCase();
+      const basePercent = Number(attempt.percentage || 0);
+      let standardized = null as null | { system: string; total: number; score: number };
+      if (typeLower === 'jamb') {
+        // JAMB: 400 total, scale percent accordingly (approximation)
+        const jambScore = Math.round((basePercent / 100) * 400);
+        standardized = { system: 'JAMB', total: 400, score: jambScore };
+      } else if (typeLower === 'waec' || typeLower === 'neco') {
+        // WAEC/NECO: 100 marks total for objective; theory often separately marked. Provide 100-scale.
+        const score100 = Math.round(basePercent);
+        standardized = { system: typeLower.toUpperCase(), total: 100, score: score100 };
+      }
+
       res.json({
         attempt: {
           id: attempt.$id,
@@ -673,7 +762,8 @@ export const registerCBTRoutes = (app: any) => {
           correctAnswers: attempt.score,
           incorrectAnswers: attempt.totalQuestions - attempt.score,
           percentage: attempt.percentage,
-          passed: attempt.passed
+          passed: attempt.passed,
+          standardized,
         }
       });
     } catch (error) {

@@ -1,3 +1,87 @@
+// Offline file upload queue using IndexedDB
+const FILE_QUEUE_KEY = 'offline:fileQueue:v1';
+
+export type QueuedFileUpload = {
+  id: string;
+  fileName: string;
+  fileType: string;
+  fileData: string; // base64 string
+  resourceData: any; // metadata for resource
+  createdAt: number;
+  attempts: number;
+};
+
+function loadFileQueue(): QueuedFileUpload[] {
+  try {
+    const raw = localStorage.getItem(FILE_QUEUE_KEY);
+    return raw ? (JSON.parse(raw) as QueuedFileUpload[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveFileQueue(q: QueuedFileUpload[]) {
+  try {
+    localStorage.setItem(FILE_QUEUE_KEY, JSON.stringify(q));
+  } catch {}
+}
+
+export async function queueFileUpload(file: File, resourceData: any) {
+  // Convert file to base64
+  const toBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const fileData = await toBase64(file);
+  const queue = loadFileQueue();
+  const item: QueuedFileUpload = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    fileName: file.name,
+    fileType: file.type,
+    fileData,
+    resourceData,
+    createdAt: Date.now(),
+    attempts: 0,
+  };
+  queue.push(item);
+  saveFileQueue(queue);
+  return item.id;
+}
+
+export async function processFileQueueOnce(storage: any, databases: any, bucketId: string, databaseId: string, resourcesCollectionId: string) {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  let queue = loadFileQueue();
+  const next: QueuedFileUpload[] = [];
+  for (const item of queue) {
+    try {
+      // Upload file to Appwrite Storage
+      const fileBlob = await (async () => {
+        // Convert base64 to Blob
+        const arr = item.fileData.split(',');
+  const m = arr[0].match(/:(.*?);/);
+  const mime = m ? m[1] : (item.fileType || 'application/octet-stream');
+        const bstr = atob(arr[1]);
+        let n = bstr.length;
+        const u8arr = new Uint8Array(n);
+        while (n--) u8arr[n] = bstr.charCodeAt(n);
+        return new Blob([u8arr], { type: mime });
+      })();
+      const uploadedFile = await storage.createFile(bucketId, item.id, fileBlob);
+      // Create resource document with fileId
+      const resourceDoc = await databases.createDocument(databaseId, resourcesCollectionId, item.id, {
+        ...item.resourceData,
+        fileId: uploadedFile.$id,
+      });
+      // success: do nothing (removed)
+    } catch (e) {
+      item.attempts += 1;
+      next.push(item);
+    }
+  }
+  saveFileQueue(next);
+}
 // Lightweight offline support: network status + queued HTTP requests
 
 export type QueuedRequest = {

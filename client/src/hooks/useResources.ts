@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, storage, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
+import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const RESOURCES_COLLECTION_ID = 'resources';
@@ -51,15 +52,30 @@ export function useResources(filters: ResourceFilters = {}) {
 
   const uploadFileMutation = useMutation({
     mutationFn: async (file: File) => {
+      if (!isOnline()) throw new Error('Cannot upload files while offline');
       return storage.createFile(BUCKET_ID, ID.unique(), file);
     },
   });
 
   const createResourceMutation = useMutation({
     mutationFn: async (resourceData: any) => {
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'create',
+          collection: RESOURCES_COLLECTION_ID,
+          data: resourceData,
+        });
+        return { offline: true, local: true, resourceData };
+      }
       return databases.createDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, ID.unique(), resourceData);
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
+      if (result && result.local && result.resourceData) {
+        const placeholder = { $id: `offline-${Date.now()}`, ...result.resourceData, offline: true, $createdAt: new Date().toISOString() };
+        const key = ['resources', { classId }];
+        const prev = queryClient.getQueryData<any[]>(key) || [];
+        queryClient.setQueryData(key, [placeholder, ...prev]);
+      }
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
   });
@@ -67,21 +83,50 @@ export function useResources(filters: ResourceFilters = {}) {
   const updateResourceMutation = useMutation({
     mutationFn: async (resourceData: any) => {
       const { id, ...data } = resourceData;
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'update',
+          collection: RESOURCES_COLLECTION_ID,
+          docId: id,
+          data,
+        });
+        return { offline: true, local: true, id, data };
+      }
       return databases.updateDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, id, data);
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
+      if (result && result.local && result.id) {
+        const key = ['resources', { classId }];
+        const prev = queryClient.getQueryData<any[]>(key) || [];
+        const updated = prev.map(p => p.$id === result.id ? { ...p, ...result.data, offline: true } : p);
+        queryClient.setQueryData(key, updated);
+      }
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
   });
 
   const deleteResourceMutation = useMutation({
     mutationFn: async ({ resourceId, fileId }: { resourceId: string, fileId: string }) => {
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'delete',
+          collection: RESOURCES_COLLECTION_ID,
+          docId: resourceId,
+        });
+        return { offline: true, local: true, resourceId };
+      }
       await databases.deleteDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, resourceId);
       if (fileId) {
         await storage.deleteFile(BUCKET_ID, fileId);
       }
     },
-    onSuccess: () => {
+    onSuccess: (result: any) => {
+      if (result && result.local && result.resourceId) {
+        const key = ['resources', { classId }];
+        const prev = queryClient.getQueryData<any[]>(key) || [];
+        const updated = prev.filter(p => p.$id !== result.resourceId);
+        queryClient.setQueryData(key, updated);
+      }
       queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
   });

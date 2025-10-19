@@ -26,7 +26,7 @@ export type SubjectSelectionDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   examType: 'jamb' | 'waec' | 'neco' | 'internal';
-  onConfirm: (selectedSubjects: string[], extras?: { year?: string }) => void;
+  onConfirm: (selectedSubjects: string[], extras?: { year?: string; paperType?: 'objective' | 'theory' }) => void;
 };
 
 export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm }: SubjectSelectionDialogProps) {
@@ -35,19 +35,30 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
   const [validationResult, setValidationResult] = useState<any>(null);
   const [initialized, setInitialized] = useState(false);
   const [year, setYear] = useState<string>('');
+  const [paperType, setPaperType] = useState<'objective' | 'theory'>('objective');
 
-  const { data: subjectsData, isLoading: loadingSubjects } = useAvailableSubjects(examType, open);
+  const { data: subjectsData, isLoading: loadingSubjects } = useAvailableSubjects(examType, (examType === 'waec' || examType === 'neco') ? paperType : undefined, open);
   // For standardized exams we want years available across all selected subjects (union)
   const subjParam = selectedSubjects.join(',');
-  const { data: yearsData, isLoading: loadingYears } = useAvailableYears(examType, subjParam, open && ['jamb', 'waec', 'neco'].includes(examType));
+  const { data: yearsData, isLoading: loadingYears } = useAvailableYears(
+    examType,
+    subjParam,
+    open && ['jamb', 'waec', 'neco'].includes(examType),
+    (examType === 'waec' || examType === 'neco') ? paperType : undefined
+  );
   const { data: yearAvailabilityData, isLoading: loadingAvailability } = useYearAvailability(
     examType, 
     subjParam, 
-    open && ['jamb', 'waec', 'neco'].includes(examType) && selectedSubjects.length > 0
+    open && ['jamb', 'waec', 'neco'].includes(examType) && selectedSubjects.length > 0,
+    (examType === 'waec' || examType === 'neco') ? paperType : undefined
   );
   const validateMutation = useValidateSubjects();
 
-  const available = subjectsData?.subjects || [];
+  const available: string[] = Array.isArray(subjectsData?.subjects)
+    ? (typeof subjectsData!.subjects[0] === 'string'
+      ? (subjectsData!.subjects as unknown as string[])
+      : (subjectsData!.subjects as any[]).map((x) => x.subject))
+    : [];
 
   // Auto-select English for JAMB when dialog opens and subjects load
   useEffect(() => {
@@ -75,6 +86,8 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
       setError('');
       setValidationResult(null);
       setInitialized(false);
+      setYear('');
+      setPaperType('objective');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, examType, available.length, initialized, loadingSubjects]);
@@ -117,7 +130,7 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
       }
       
       // All good, proceed
-      onConfirm(selectedSubjects, { year });
+  onConfirm(selectedSubjects, { year, paperType: (examType === 'waec' || examType === 'neco') ? paperType : undefined });
       onOpenChange(false);
     } catch (err: any) {
       const errorMsg = err?.message || 'Validation failed';
@@ -127,7 +140,7 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
 
   const handleProceed = () => {
     if (validationResult && validationResult.available > 0) {
-      onConfirm(selectedSubjects, { year });
+  onConfirm(selectedSubjects, { year, paperType: (examType === 'waec' || examType === 'neco') ? paperType : undefined });
       onOpenChange(false);
       setError('');
       setValidationResult(null);
@@ -272,6 +285,23 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
                   No years available for the selected subjects combination
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Paper Type Selection - Only for WAEC/NECO */}
+          {['waec', 'neco'].includes(examType) && (
+            <div className="space-y-2">
+              <Label htmlFor="paper-type-select" className="text-sm font-medium">Question Type</Label>
+              <Select value={paperType} onValueChange={(v: any) => setPaperType(v)}>
+                <SelectTrigger id="paper-type-select" className="w-full sm:w-48">
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="objective">Objective (MCQ)</SelectItem>
+                  <SelectItem value="theory">Theory</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">We'll fetch only {paperType} questions where available.</p>
             </div>
           )}
 

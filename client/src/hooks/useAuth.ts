@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
+import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 
 export function useAuth() {
   // JWT state (in-memory, not persisted)
@@ -115,6 +116,15 @@ export function useAuth() {
 
   const updateNameMutation = useMutation({
     mutationFn: async (name: string) => {
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'update',
+          collection: 'users',
+          docId: 'me',
+          data: { name },
+        });
+        return { offline: true };
+      }
       return await account.updateName(name);
     },
     onSuccess: () => {
@@ -124,6 +134,15 @@ export function useAuth() {
 
   const updatePasswordMutation = useMutation({
     mutationFn: async ({ oldPassword, newPassword }: { oldPassword: string, newPassword: string }) => {
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'update',
+          collection: 'users',
+          docId: 'me',
+          data: { newPassword, oldPassword },
+        });
+        return { offline: true };
+      }
       return await account.updatePassword(newPassword, oldPassword);
     }
     // No invalidation needed as session is unaffected

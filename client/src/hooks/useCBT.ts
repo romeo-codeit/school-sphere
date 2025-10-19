@@ -60,14 +60,16 @@ export function useAvailableExams() {
   });
 }
 
-export function useAvailableSubjects(type?: string, enabled = true) {
+export function useAvailableSubjects(type?: string, paperType?: 'objective' | 'theory' | 'obj', enabled = true) {
   const { getJWT } = useAuth();
   return useQuery({
-    queryKey: ['cbt-subjects-available', type],
+    queryKey: ['cbt-subjects-available', type, paperType],
     enabled: !!type && enabled,
     queryFn: async () => {
+      const pt = paperType === 'objective' ? 'obj' : paperType;
       let jwt = await getJWT();
-      let res = await fetch(`${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}` , {
+      const url = `${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}${pt ? `&paperType=${encodeURIComponent(pt)}` : ''}`;
+      let res = await fetch(url , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
         credentials: 'include',
       });
@@ -81,7 +83,7 @@ export function useAvailableSubjects(type?: string, enabled = true) {
               body: JSON.stringify({ jwt: token }),
               credentials: 'include',
             });
-            res = await fetch(`${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}` , {
+            res = await fetch(url , {
               headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
               credentials: 'include',
             });
@@ -94,16 +96,17 @@ export function useAvailableSubjects(type?: string, enabled = true) {
   });
 }
 
-export function useAvailableYears(type?: string, subjectsCsv?: string, enabled = true) {
+export function useAvailableYears(type?: string, subjectsCsv?: string, enabled = true, paperType?: 'objective' | 'theory' | 'obj') {
   const { getJWT } = useAuth();
   return useQuery({
-    queryKey: ['cbt-years-available', type, subjectsCsv],
+    queryKey: ['cbt-years-available', type, subjectsCsv, paperType],
     enabled: !!type && enabled,
     queryFn: async () => {
       let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
+      if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
       let res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
         credentials: 'include',
@@ -131,16 +134,17 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
   });
 }
 
-export function useYearAvailability(type?: string, subjectsCsv?: string, enabled = true) {
+export function useYearAvailability(type?: string, subjectsCsv?: string, enabled = true, paperType?: 'objective' | 'theory' | 'obj') {
   const { getJWT } = useAuth();
   return useQuery({
-    queryKey: ['cbt-years-availability', type, subjectsCsv],
+    queryKey: ['cbt-years-availability', type, subjectsCsv, paperType],
     enabled: !!type && !!subjectsCsv && enabled,
     queryFn: async () => {
       let jwt = await getJWT();
       const params = new URLSearchParams();
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
+      if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
       let res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
         headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
         credentials: 'include',

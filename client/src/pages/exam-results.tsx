@@ -24,7 +24,7 @@ export default function ExamResultsPage() {
     }
   }, [error, toast]);
 
-  const percent = Math.round((data?.summary?.percent ?? 0) * 100) / 100;
+  const percent = Math.round((Number((data as any)?.summary?.percentage ?? (data as any)?.summary?.percent ?? 0)));
 
   return (
     <div className="min-h-screen bg-background">
@@ -43,7 +43,7 @@ export default function ExamResultsPage() {
                 <div className="h-3 w-full bg-muted rounded animate-pulse" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 items-center">
                 <div>
                   <div className="text-4xl font-bold">{percent}%</div>
                   <div className="text-sm text-muted-foreground">Percent</div>
@@ -54,7 +54,12 @@ export default function ExamResultsPage() {
                   </div>
                   <Progress value={Math.min(100, Math.max(0, Number(data?.summary?.percent || 0) ))} className="mt-2" />
                 </div>
-                <div className="flex gap-3 sm:justify-end">
+                <div className="flex gap-3 sm:justify-end items-center">
+                  { (data?.summary as any)?.standardized && (
+                    <Badge variant="secondary">
+                      {((data?.summary as any).standardized as any).system}: {((data?.summary as any).standardized as any).score}/{((data?.summary as any).standardized as any).total}
+                    </Badge>
+                  )}
                   <Button variant="outline" onClick={() => navigate('/exams')}>Back to Exams</Button>
                 </div>
               </div>

@@ -209,7 +209,7 @@ function ExamsPage() {
     );
   };
 
-  const handleSubjectSelectionConfirm = async (selectedSubjects: string[], extras?: { year?: string }) => {
+  const handleSubjectSelectionConfirm = async (selectedSubjects: string[], extras?: { year?: string; paperType?: 'objective' | 'theory' }) => {
     if (!subjectSelectionExam) return;
     
     // For practice hub sessions, we create a synthetic practice exam attempt
@@ -226,7 +226,9 @@ function ExamsPage() {
           setSubjectSelectionExam(null);
           // Navigate to a practice session route
           const yearQuery = extras?.year ? `&year=${encodeURIComponent(extras.year)}` : '';
-          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}${yearQuery}`);
+          const typeSlug = extras?.paperType === 'objective' ? 'obj' : extras?.paperType; // map to Appwrite values
+          const typeQuery = typeSlug ? `&paperType=${encodeURIComponent(typeSlug)}` : '';
+          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}${yearQuery}${typeQuery}`);
         },
         onError: (err: any) => {
           toast({

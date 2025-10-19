@@ -1,6 +1,8 @@
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
+import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -71,34 +73,53 @@ export function useStudents(filters: StudentFilters = {}) {
   };
 
   const createStudentMutation = useMutation({
-    mutationFn: async (studentData: any) => {
-      const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
-        .filter(Boolean)
-        .join(' ');
-      return await databases.createDocument(
-        DATABASE_ID,
-        'students',
-        ID.unique(),
-        { ...studentData, search }
-      );
-    },
+      mutationFn: async (studentData: any) => {
+        const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
+          .filter(Boolean)
+          .join(' ');
+        const data = { ...studentData, search };
+        if (!isOnline()) {
+          await queueAppwriteOperation({
+            op: 'create',
+            collection: 'students',
+            data,
+          });
+          return { offline: true };
+        }
+        return await databases.createDocument(
+          DATABASE_ID,
+          'students',
+          ID.unique(),
+          data
+        );
+      },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
     },
   });
 
   const updateStudentMutation = useMutation({
-    mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
-      const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
-        .filter(Boolean)
-        .join(' ');
-      return await databases.updateDocument(
-        DATABASE_ID,
-        'students',
-        studentId,
-        { ...studentData, search }
-      );
-    },
+      mutationFn: async ({ studentId, studentData }: { studentId: string, studentData: any }) => {
+        const search = [studentData.firstName, studentData.lastName, studentData.email, studentData.studentId, studentData.classId, studentData.parentName, studentData.parentEmail]
+          .filter(Boolean)
+          .join(' ');
+        const data = { ...studentData, search };
+        if (!isOnline()) {
+          await queueAppwriteOperation({
+            op: 'update',
+            collection: 'students',
+            docId: studentId,
+            data,
+          });
+          return { offline: true };
+        }
+        return await databases.updateDocument(
+          DATABASE_ID,
+          'students',
+          studentId,
+          data
+        );
+      },
     onSuccess: (_, { studentId }) => {
       queryClient.invalidateQueries({ queryKey: ['students'] });
       queryClient.invalidateQueries({ queryKey: ['students', studentId] });

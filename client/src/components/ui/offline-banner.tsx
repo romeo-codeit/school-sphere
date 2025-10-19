@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { WifiOff, ArrowUpCircle } from 'lucide-react';
-import { getQueueLength, onNetworkChange, processQueueOnce, isOnline } from '@/lib/offline';
+import { getQueueLength, onNetworkChange, processQueueOnce, processAppwriteQueueOnce, isOnline } from '@/lib/offline';
 
 export function OfflineBanner() {
   const [online, setOnline] = useState(isOnline());
@@ -23,9 +23,9 @@ export function OfflineBanner() {
         </div>
       )}
       {online && queued > 0 && (
-        <button
+          <button
           className="w-full bg-blue-500 hover:bg-blue-600 text-white text-sm px-4 py-2 flex items-center justify-center gap-2"
-          onClick={() => processQueueOnce()}
+          onClick={() => { processQueueOnce(); processAppwriteQueueOnce(); }}
         >
           <ArrowUpCircle className="w-4 h-4" /> {queued} change(s) pending sync. Tap to sync now.
         </button>

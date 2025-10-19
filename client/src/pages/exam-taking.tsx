@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Clock, Flag, ArrowLeft, ArrowRight, Send, ShieldAlert, Save, CheckCircle2, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ExamTakingSkeleton } from "@/components/skeletons/exam-taking-skeleton";
+import { Loader2, BookOpen } from "lucide-react";
 
 interface Question {
   question: string;
@@ -31,6 +32,7 @@ interface Question {
   marks?: number;
   explanation?: string;
   imageUrl?: string;
+  answerUrl?: string;
 }
 
 export default function ExamTaking() {
@@ -40,6 +42,8 @@ export default function ExamTaking() {
   const [searchParams] = useState(() => new URLSearchParams(typeof window !== 'undefined' ? window.location.search : ''));
   const subjects = searchParams.get('subjects')?.split(',') || [];
   const year = searchParams.get('year') || undefined;
+  const rawPaperType = searchParams.get('paperType');
+  const paperType = (rawPaperType === 'obj' ? 'objective' : rawPaperType) as ('objective' | 'theory' | undefined);
 
   // Progressive loading state
   const [loadedQuestions, setLoadedQuestions] = useState<any[]>([]);
@@ -51,7 +55,7 @@ export default function ExamTaking() {
   // For practice sessions, pass subjects to fetch the right questions
   const examFetchId = practiceType ? `practice-${practiceType}` : (examId || '');
   const examUrl = practiceType && subjects.length > 0
-    ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}`
+    ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}${paperType ? `&paperType=${encodeURIComponent(paperType)}` : ''}`
     : examFetchId;
   const { data: exam, isLoading: isLoadingExam } = useExam(examUrl);
   
@@ -84,6 +88,9 @@ export default function ExamTaking() {
   const [retryDelay, setRetryDelay] = useState<number>(5000); // start 5s, max 2m
   const retryTimeoutRef = useRef<number | null>(null);
   const isSavingRef = useRef<boolean>(false);
+  const [showReference, setShowReference] = useState(false);
+  const [referenceHtml, setReferenceHtml] = useState<string | null>(null);
+  const [loadingReference, setLoadingReference] = useState(false);
 
   // Progressive loading: Initialize loaded questions when exam loads
   useEffect(() => {
@@ -249,6 +256,25 @@ export default function ExamTaking() {
     await handleSubmitConfirmed();
   };
 
+  const fetchReference = async (url?: string) => {
+    if (!url) return;
+    setLoadingReference(true);
+    setShowReference(true);
+    try {
+      const res = await fetch(`/api/answers/fetch?u=${encodeURIComponent(url)}`, { credentials: 'include' });
+      const data = await res.json();
+      if (res.ok && data?.html) {
+        setReferenceHtml(data.html);
+      } else {
+        setReferenceHtml('<div class="text-sm text-muted-foreground">Reference not available.</div>');
+      }
+    } catch {
+      setReferenceHtml('<div class="text-sm text-muted-foreground">Failed to load reference.</div>');
+    } finally {
+      setLoadingReference(false);
+    }
+  };
+
   const handleSubmitConfirmed = async () => {
     if (!attemptId || !exam) return;
 
@@ -353,11 +379,15 @@ export default function ExamTaking() {
     const onKey = (e: KeyboardEvent) => {
       // If any modal open, ignore shortcuts
       if (isFullscreenDialogOpen || isTabSwitchDialogOpen || showSubmitDialog) return;
-      // Numbers 1-4 => pick option (if exists)
+      
+      const currentQ = exam?.questions?.[currentQuestionIndex];
+      const opts = (currentQ?.options as string[] | undefined) || [];
+      const isTheory = !opts || opts.length === 0;
+      
+      // Numbers 1-4 => pick option (if exists and not theory)
       if (e.key >= '1' && e.key <= '4') {
-        const idx = parseInt(e.key, 10) - 1;
-        const opts = (exam?.questions?.[currentQuestionIndex]?.options as string[] | undefined) || [];
-        if (opts[idx]) {
+        if (!isTheory && opts[parseInt(e.key, 10) - 1]) {
+          const idx = parseInt(e.key, 10) - 1;
           e.preventDefault();
           handleAnswerChange(String(opts[idx]));
         }
@@ -679,20 +709,26 @@ export default function ExamTaking() {
                   <CardTitle>
                     Question {currentQuestionIndex + 1} of {exam?.questionCount || filteredQuestions.length}
                   </CardTitle>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleMarkForReview}
-                    className={cn(
-                      markedForReview.has(currentQuestionIndex) && "bg-destructive/10 text-destructive"
-                    )}
-                  >
-                    <Flag className={cn(
-                      "w-4 h-4 mr-2",
-                      markedForReview.has(currentQuestionIndex) && "fill-current"
-                    )} />
-                    {markedForReview.has(currentQuestionIndex) ? "Marked" : "Mark for Review"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {/* Question Type Badge */}
+                    <Badge variant="outline" className="text-xs">
+                      {Array.isArray(currentFilteredQuestion?.options) && currentFilteredQuestion.options.length > 0 ? 'Objective' : 'Theory'}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleMarkForReview}
+                      className={cn(
+                        markedForReview.has(currentQuestionIndex) && "bg-destructive/10 text-destructive"
+                      )}
+                    >
+                      <Flag className={cn(
+                        "w-4 h-4 mr-2",
+                        markedForReview.has(currentQuestionIndex) && "fill-current"
+                      )} />
+                      {markedForReview.has(currentQuestionIndex) ? "Marked" : "Mark for Review"}
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -715,38 +751,67 @@ export default function ExamTaking() {
                       </div>
                     )}
 
-                    <RadioGroup
-                      value={answers[currentQuestionIndex] || ""}
-                      onValueChange={handleAnswerChange}
-                      className="space-y-3"
-                      aria-label={`Answer options for question ${currentQuestionIndex + 1}`}
-                    >
-                      {currentFilteredQuestion.options?.map((option: string, i: number) => (
-                        <div
-                          key={i}
-                          className={cn(
-                            "flex items-start space-x-3 p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-accent touch-manipulation",
-                            answers[currentQuestionIndex] === option && "border-primary bg-primary/5"
-                          )}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              handleAnswerChange(String(option));
-                            }
-                          }}
-                        >
-                          <RadioGroupItem value={option} id={`option-${i}`} className="mt-1" aria-label={`Option ${i + 1}`} />
-                          <Label
-                            htmlFor={`option-${i}`}
-                            className="flex-1 cursor-pointer text-base leading-relaxed text-foreground"
+                    {/* Objective (options) vs Theory (no options) */}
+                    {Array.isArray(currentFilteredQuestion.options) && currentFilteredQuestion.options.length > 0 ? (
+                      <RadioGroup
+                        value={answers[currentQuestionIndex] || ""}
+                        onValueChange={handleAnswerChange}
+                        className="space-y-3"
+                        aria-label={`Answer options for question ${currentQuestionIndex + 1}`}
+                      >
+                        {currentFilteredQuestion.options.map((option: string, i: number) => (
+                          <div
+                            key={i}
+                            className={cn(
+                              "flex items-start space-x-3 p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-accent touch-manipulation",
+                              answers[currentQuestionIndex] === option && "border-primary bg-primary/5"
+                            )}
+                            role="button"
+                            tabIndex={0}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                handleAnswerChange(String(option));
+                              }
+                            }}
                           >
-                            {option}
-                          </Label>
-                        </div>
-                      ))}
-                    </RadioGroup>
+                            <RadioGroupItem value={option} id={`option-${i}`} className="mt-1" aria-label={`Option ${i + 1}`} />
+                            <Label
+                              htmlFor={`option-${i}`}
+                              className="flex-1 cursor-pointer text-base leading-relaxed text-foreground"
+                            >
+                              {option}
+                            </Label>
+                          </div>
+                        ))}
+                      </RadioGroup>
+                    ) : (
+                      <div className="space-y-2" aria-live="polite">
+                        <div className="text-sm text-muted-foreground">Theory response</div>
+                        <textarea
+                          value={String(answers[currentQuestionIndex] ?? '')}
+                          onChange={(e) => handleAnswerChange(e.target.value)}
+                          className="w-full min-h-[120px] p-3 border rounded-md bg-background resize-y"
+                          placeholder="Type your answer here..."
+                        />
+                      </div>
+                    )}
+
+                    {/* Answer reference: inline viewer without leaving the app */}
+                    {currentFilteredQuestion.answerUrl && (
+                      <div className="pt-2 flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fetchReference(currentFilteredQuestion.answerUrl)}
+                          disabled={loadingReference}
+                          className="inline-flex items-center gap-2"
+                        >
+                          {loadingReference ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
+                          {showReference ? 'Reload Reference' : 'View Reference Answer'}
+                        </Button>
+                      </div>
+                    )}
 
                     {/* Navigation Buttons */}
                     <div className="flex items-center justify-between pt-4 border-t gap-2">
@@ -786,6 +851,26 @@ export default function ExamTaking() {
               </CardContent>
             </Card>
           </div>
+          {/* Inline Reference Panel */}
+          {showReference && (
+            <div className="px-4 sm:px-6 lg:px-8 pb-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Reference Answer</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingReference ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading reference...
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm max-w-none dark:prose-invert overflow-auto" dangerouslySetInnerHTML={{ __html: referenceHtml || '<div class="text-sm text-muted-foreground">No reference content.</div>' }} />
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          )}
         </div>
       </div>
 

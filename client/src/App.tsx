@@ -13,7 +13,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SplashScreen } from "@/components/ui/splash-screen";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { useEffect } from "react";
-import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce } from "@/lib/offline";
+import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce, processFileQueueOnce } from "@/lib/offline";
+import { storage, databases } from "@/lib/appwrite";
 
 // Lazy load all the pages for better performance
 const NotFound = lazy(() => import("@/pages/not-found"));
@@ -77,13 +78,42 @@ function Router() {
       }
       return headers;
     });
+
+    // Appwrite resource file upload queue config
+    const bucketId = import.meta.env.VITE_APPWRITE_BUCKET_ID as string;
+    const databaseId = import.meta.env.VITE_APPWRITE_DATABASE_ID as string;
+    const resourcesCollectionId = import.meta.env.VITE_APPWRITE_RESOURCES_COLLECTION_ID as string;
+
+    const processAllQueues = () => {
+      processQueueOnce();
+      processAppwriteQueueOnce();
+      processFileQueueOnce(storage, databases, bucketId, databaseId, resourcesCollectionId);
+    };
+
     const off = onNetworkChange((online) => {
       if (online) {
-        processQueueOnce();
-        processAppwriteQueueOnce();
+        processAllQueues();
       }
     });
-    return () => off();
+
+    window.addEventListener('focus', processAllQueues);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) processAllQueues();
+    });
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const cap = require('@capacitor/core');
+      if (cap && cap.App && cap.App.addListener) {
+        cap.App.addListener('appStateChange', (state: any) => {
+          if (state.isActive) processAllQueues();
+        });
+      }
+    } catch {}
+    return () => {
+      off();
+      window.removeEventListener('focus', processAllQueues);
+    };
   }, []);
 
   if (isLoading) {

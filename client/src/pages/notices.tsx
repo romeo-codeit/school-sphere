@@ -3,6 +3,7 @@ import { databases } from "@/lib/appwrite";
 import { Megaphone, Calendar as CalendarIcon, FileText, Bell, Search, Clock, Tag } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
+import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 import { Button } from "@/components/ui/button";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,11 +38,23 @@ export default function NoticesPage() {
 
   const handleCreateNotice = async () => {
     try {
-      await databases.createDocument(DATABASE_ID, "notices", "unique()", {
+      const payload = {
         activity: newNotice.activity,
         date: newNotice.date,
         category: newNotice.category,
-      });
+      };
+      if (!isOnline()) {
+        await queueAppwriteOperation({
+          op: 'create',
+          collection: 'notices',
+          data: payload,
+        });
+        // Add placeholder notice locally
+        const placeholder = { $id: `offline-${Date.now()}`, ...payload, offline: true };
+        setNotices(prev => [placeholder, ...prev]);
+      } else {
+        await databases.createDocument(DATABASE_ID, "notices", "unique()", payload);
+      }
       // Refetch notices
       queryClient.invalidateQueries({ queryKey: ["allNotices"] });
       setShowModal(false);

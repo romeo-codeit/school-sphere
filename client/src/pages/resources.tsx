@@ -18,6 +18,7 @@ import { z } from "zod";
 import { BookOpen, Search, Plus, Upload, Download, Eye, FileText, Video, Music, Image, Link as LinkIcon, Grid, List, MoreHorizontal, Edit, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useResources } from "@/hooks/useResources";
+import { isOnline } from "@/lib/offline";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useClasses } from "@/hooks/useClasses";
@@ -136,11 +137,15 @@ export default function Resources() {
     try {
       let fileId = editingResource?.fileId;
       if (selectedFile) {
-        const uploadedFile = await uploadFile(selectedFile);
-        fileId = uploadedFile.$id;
+        if (!isOnline()) {
+          toast({ title: "Offline", description: "Cannot upload file while offline. The resource metadata will be queued. You can upload the file once online." });
+        } else {
+          const uploadedFile = await uploadFile(selectedFile);
+          fileId = uploadedFile.$id;
+        }
       }
 
-      if (!fileId && !editingResource) {
+      if (!fileId && !editingResource && isOnline()) {
         toast({ title: "Error", description: "A file is required to create a resource.", variant: "destructive" });
         return;
       }
@@ -253,15 +258,16 @@ export default function Resources() {
                         </div>
                         <h4 className="font-semibold text-sm sm:text-base lg:text-lg text-foreground mb-2 line-clamp-2">{resource.title}</h4>
                         <p className="text-xs sm:text-sm text-muted-foreground mb-3 line-clamp-3 flex-1">{resource.description || "No description."}</p>
-                        <div className="text-xs text-muted-foreground space-y-1 mb-4">
-                            {resource.subject && <Badge variant="outline">{resource.subject}</Badge>}
-                            {resource.class && <Badge variant="secondary">{resource.class}</Badge>}
-                        </div>
+            <div className="text-xs text-muted-foreground space-y-1 mb-4">
+              {resource.subject && <Badge variant="outline">{resource.subject}</Badge>}
+              {resource.class && <Badge variant="secondary">{resource.class}</Badge>}
+              {resource.offline && <Badge variant="outline">Offline</Badge>}
+            </div>
                         <div className="flex flex-col sm:flex-row items-stretch sm:items-center sm:justify-between mt-auto pt-4 border-t gap-2">
                           <div className="flex items-center gap-2 text-xs text-muted-foreground"><Download className="w-3 h-3" /> {resource.downloads || 0}</div>
                           <div className="flex items-center gap-2 w-full sm:w-auto">
-                            <Button variant="ghost" size="sm" onClick={() => handlePreview(resource.fileId)} className="flex-1 sm:flex-none"><Eye className="w-4 h-4 sm:mr-1" /> <span className="sm:hidden">Preview</span></Button>
-                            <Button size="sm" onClick={() => handleDownload(resource)} className="flex-1 sm:flex-none"><Download className="w-4 h-4 sm:mr-1" /> <span className="sm:hidden">Download</span></Button>
+                            <Button variant="ghost" size="sm" onClick={() => resource.offline ? toast({ title: 'Offline', description: 'Preview unavailable while offline' }) : handlePreview(resource.fileId)} className="flex-1 sm:flex-none"><Eye className="w-4 h-4 sm:mr-1" /> <span className="sm:hidden">Preview</span></Button>
+                            <Button size="sm" onClick={() => resource.offline ? toast({ title: 'Offline', description: 'Download unavailable while offline' }) : handleDownload(resource)} className="flex-1 sm:flex-none"><Download className="w-4 h-4 sm:mr-1" /> <span className="sm:hidden">Download</span></Button>
                           </div>
                         </div>
                       </CardContent>
