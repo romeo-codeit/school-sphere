@@ -970,7 +970,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // --- CBT Simulator Endpoints ---
 
   // Get all available exams (optionally filter by type)
-  app.get('/api/cbt/exams', auth, async (req, res) => {
+  app.get('/api/cbt/exams', async (req, res) => {
     try {
 
       // Support limit=all for stats queries
@@ -1084,7 +1084,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get exams assigned to the current user. In development/admin, return all for easier testing
-  app.get('/api/cbt/exams/assigned', auth, async (req, res) => {
+  app.get('/api/cbt/exams/assigned', async (req, res) => {
     try {
       const sessionUser: any = (req as any).user;
       const role = sessionUser?.prefs?.role;
@@ -1188,7 +1188,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get subscription-based exams (WAEC/NECO/JAMB) for subscribed users
-  app.get('/api/cbt/exams/available', auth, async (req, res) => {
+  app.get('/api/cbt/exams/available', async (req, res) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
@@ -1261,7 +1261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get a single exam (with questions) or a synthetic practice exam
-  app.get('/api/cbt/exams/:id', auth, async (req, res) => {
+  app.get('/api/cbt/exams/:id', async (req, res) => {
     try {
       const examId = String(req.params.id || '').trim();
       
@@ -1476,7 +1476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Start an exam attempt
-  app.post('/api/cbt/attempts', auth, async (req, res) => {
+  app.post('/api/cbt/attempts', async (req, res) => {
     try {
       const user = await req.appwrite!.account.get();
       const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
@@ -1608,7 +1608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get all attempts for the current user (or specified student for admin/teacher)
-  app.get('/api/cbt/attempts', auth, async (req, res) => {
+  app.get('/api/cbt/attempts', async (req, res) => {
     try {
       const user = await req.appwrite!.account.get();
       const { studentId } = req.query;
@@ -1630,7 +1630,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Validate subject selection before starting an exam session
-  app.post('/api/cbt/exams/validate-subjects', auth, async (req, res) => {
+  app.post('/api/cbt/exams/validate-subjects', async (req, res) => {
     try {
       const { type, selectedSubjects, year } = req.body as { type?: string; selectedSubjects?: string[]; year?: string };
       if (!type || !Array.isArray(selectedSubjects)) {
@@ -1784,7 +1784,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Available subjects by exam type
-  app.get('/api/cbt/subjects/available', auth, async (req, res) => {
+  app.get('/api/cbt/subjects/available', async (req, res) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       if (!type) return res.status(400).json({ message: 'type is required' });
@@ -1840,7 +1840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Available years by exam type and optional subjects (single or multiple)
-  app.get('/api/cbt/years/available', auth, async (req, res) => {
+  app.get('/api/cbt/years/available', async (req, res) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       // Accept either multiple subject params (?subject=a&subject=b) or a CSV (?subjects=a,b)
@@ -1926,7 +1926,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get year availability per subject - shows which subjects have data for which years
-  app.get('/api/cbt/years/availability', auth, async (req, res) => {
+  app.get('/api/cbt/years/availability', async (req, res) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const subjectParamsRaw = ([] as string[])
@@ -1994,7 +1994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Autosave partial attempt payload
-  app.post('/api/cbt/attempts/autosave', auth, async (req, res) => {
+  app.post('/api/cbt/attempts/autosave', async (req, res) => {
     try {
       const user = await req.appwrite!.account.get();
       const { attemptId, answers, timeSpent } = req.body as { attemptId?: string; answers?: any; timeSpent?: number };
@@ -2013,7 +2013,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Attempt results with simple analytics
-  app.get('/api/cbt/attempts/:id/results', auth, async (req, res) => {
+  app.get('/api/cbt/attempts/:id/results', async (req, res) => {
     try {
       const sessionUser: any = (req as any).user;
       const role = sessionUser?.prefs?.role;
@@ -2066,7 +2066,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Basic class analytics (avg score across attempts for students in a class)
-  app.get('/api/cbt/analytics/class/:classId', auth, async (req, res) => {
+  app.get('/api/cbt/analytics/class/:classId', async (req, res) => {
     try {
       const sessionUser: any = (req as any).user;
       const role = sessionUser?.prefs?.role;

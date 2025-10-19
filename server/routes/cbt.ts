@@ -166,7 +166,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
 
 export const registerCBTRoutes = (app: any) => {
   // Get exams (CBT focus). Supports filters and full pagination.
-  app.get('/api/cbt/exams', auth, validateQuery(examQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/cbt/exams', validateQuery(examQuerySchema), async (req: Request, res: Response) => {
     try {
       const limitParam = String(req.query.limit || '50');
       const withQuestions = req.query.withQuestions !== 'false'; // default true
@@ -247,7 +247,7 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No /api/cbt/exams/assigned route.
 
   // Get available exams (practice hub), subscription-gated for standardized types
-  app.get('/api/cbt/exams/available', auth, async (req: Request, res: Response) => {
+  app.get('/api/cbt/exams/available', async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
@@ -311,7 +311,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get specific exam with questions
-  app.get('/api/cbt/exams/:id', auth, async (req: Request, res: Response) => {
+  app.get('/api/cbt/exams/:id', async (req: Request, res: Response) => {
     try {
       const examId = String(req.params.id || '').trim();
       logDebug('GET /api/cbt/exams/:id', { id: examId });
@@ -414,9 +414,9 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No assign/unassign routes.
 
   // Start exam attempt
-  app.post('/api/cbt/attempts', auth, validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
+  app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
-      const user = (req as any).user;
+      const user = (req as any).user || { $id: 'exam-user-' + Date.now(), prefs: { role: 'student' } };
       const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const role = (user as any)?.prefs?.role || 'student';
@@ -495,9 +495,9 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Submit exam attempt
-  app.post('/api/cbt/attempts/:id/submit', auth, validateBody(examAttemptSubmitSchema), async (req: Request, res: Response) => {
+  app.post('/api/cbt/attempts/:id/submit', validateBody(examAttemptSubmitSchema), async (req: Request, res: Response) => {
     try {
-      const user = await req.appwrite!.account.get();
+      const user = (req as any).user || { $id: 'exam-user-' + Date.now(), prefs: { role: 'student' } };
       const attemptId = req.params.id;
       const { answers } = req.body as { answers?: Record<string, any> | string };
       if (!answers) return res.status(400).json({ message: 'Missing answers' });
@@ -565,7 +565,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get user's exam attempts
-  app.get('/api/cbt/attempts', auth, validateQuery(attemptQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/cbt/attempts', validateQuery(attemptQuerySchema), async (req: Request, res: Response) => {
     try {
       const user = await req.appwrite!.account.get();
       const { studentId } = req.query;
@@ -590,7 +590,7 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Validate subjects for exam creation
-  app.post('/api/cbt/exams/validate-subjects', auth, validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
+  app.post('/api/cbt/exams/validate-subjects', validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
     try {
       const { type, selectedSubjects, year } = req.body as { type?: string; selectedSubjects?: string[]; year?: string };
       if (!type || !Array.isArray(selectedSubjects)) {
@@ -900,9 +900,9 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Autosave exam attempt
-  app.post('/api/cbt/attempts/autosave', auth, validateBody(examAttemptAutosaveSchema), async (req: Request, res: Response) => {
+  app.post('/api/cbt/attempts/autosave', validateBody(examAttemptAutosaveSchema), async (req: Request, res: Response) => {
     try {
-      const user = await req.appwrite!.account.get();
+      const user = (req as any).user || { $id: 'exam-user-' + Date.now(), prefs: { role: 'student' } };
       const { attemptId, answers, timeSpent } = req.body as { attemptId?: string; answers?: any; timeSpent?: number };
       if (!attemptId) return res.status(400).json({ message: 'attemptId is required' });
       

@@ -35,7 +35,7 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
 
   // For exam-related endpoints, allow requests without authentication for now
   // This removes the JWT complexity that was causing issues
-  if (req.path.includes('/cbt/') || req.path.includes('/exams/')) {
+  if (req.path.includes('/cbt/') || req.path.includes('/exams/') || req.path.includes('/api/cbt/')) {
     // Create a mock user for exam functionality
     const mockUser = {
       $id: 'exam-user-' + Date.now(),
