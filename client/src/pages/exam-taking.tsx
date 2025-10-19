@@ -58,6 +58,37 @@ export default function ExamTaking() {
     ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}${paperType ? `&paperType=${encodeURIComponent(paperType)}` : ''}`
     : examFetchId;
   const { data: exam, isLoading: isLoadingExam } = useExam(examUrl);
+
+  // For practice exams, fetch questions dynamically
+  const [practiceQuestions, setPracticeQuestions] = useState<any[]>([]);
+  const [isLoadingPracticeQuestions, setIsLoadingPracticeQuestions] = useState(false);
+
+  useEffect(() => {
+    if (practiceType && subjects.length > 0 && !isLoadingPracticeQuestions) {
+      setIsLoadingPracticeQuestions(true);
+      fetchPracticeQuestions();
+    }
+  }, [practiceType, subjects, year, paperType]);
+
+  const fetchPracticeQuestions = async () => {
+    try {
+      const params = new URLSearchParams();
+      if (practiceType) params.set('type', practiceType);
+      params.set('subjects', subjects.join(','));
+      if (year) params.set('year', year);
+      if (paperType) params.set('paperType', paperType);
+
+      const response = await fetch(`/api/cbt/exams/practice-${practiceType}?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setPracticeQuestions(data.questions || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch practice questions:', error);
+    } finally {
+      setIsLoadingPracticeQuestions(false);
+    }
+  };
   
   const { startAttempt, submitAttempt } = useExamAttempts();
   const { toast } = useToast();
@@ -71,9 +102,7 @@ export default function ExamTaking() {
   const [showSubmitDialog, setShowSubmitDialog] = useState(false);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Phase 3: Security & Fullscreen
-  const [isFullscreenDialogOpen, setIsFullscreenDialogOpen] = useState(false);
-  const [isTabSwitchDialogOpen, setIsTabSwitchDialogOpen] = useState(false);
+  // Simplified security - no fullscreen requirements
   const [timerPaused, setTimerPaused] = useState(false);
   // Phase 4: Advanced timer & autosave
   const [showTenMinuteWarning, setShowTenMinuteWarning] = useState(false);
@@ -94,16 +123,18 @@ export default function ExamTaking() {
 
   // Progressive loading: Initialize loaded questions when exam loads
   useEffect(() => {
-    if (exam?.questions && exam.questions.length > 0) {
-      const initialBatch = exam.questions.slice(0, QUESTIONS_BATCH_SIZE);
+    const questionsToUse = practiceType ? practiceQuestions : (exam?.questions || []);
+    if (questionsToUse && questionsToUse.length > 0) {
+      const initialBatch = questionsToUse.slice(0, QUESTIONS_BATCH_SIZE);
       setLoadedQuestions(initialBatch);
-      setHasMoreQuestions(exam.questions.length > QUESTIONS_BATCH_SIZE);
+      setHasMoreQuestions(questionsToUse.length > QUESTIONS_BATCH_SIZE);
     }
-  }, [exam]);
+  }, [exam, practiceQuestions, practiceType]);
 
   // Function to load more questions progressively
   const loadMoreQuestions = useCallback(async () => {
-    if (!exam?.questions || isLoadingMore || !hasMoreQuestions) return;
+    const questionsToUse = practiceType ? practiceQuestions : (exam?.questions || []);
+    if (!questionsToUse || isLoadingMore || !hasMoreQuestions) return;
 
     setIsLoadingMore(true);
 
@@ -111,22 +142,23 @@ export default function ExamTaking() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     const currentLoaded = loadedQuestions.length;
-    const nextBatch = exam.questions.slice(currentLoaded, currentLoaded + QUESTIONS_BATCH_SIZE);
+    const nextBatch = questionsToUse.slice(currentLoaded, currentLoaded + QUESTIONS_BATCH_SIZE);
 
     setLoadedQuestions(prev => [...prev, ...nextBatch]);
-    setHasMoreQuestions(currentLoaded + nextBatch.length < exam.questions.length);
+    setHasMoreQuestions(currentLoaded + nextBatch.length < questionsToUse.length);
     setIsLoadingMore(false);
-  }, [exam, loadedQuestions.length, isLoadingMore, hasMoreQuestions]);
+  }, [exam, practiceQuestions, practiceType, loadedQuestions.length, isLoadingMore, hasMoreQuestions]);
 
   // Auto-load more questions when approaching the end of current batch
   useEffect(() => {
-    if (!exam?.questions || !hasMoreQuestions || isLoadingMore) return;
+    const questionsToUse = practiceType ? practiceQuestions : (exam?.questions || []);
+    if (!questionsToUse || !hasMoreQuestions || isLoadingMore) return;
 
     const remainingInBatch = loadedQuestions.length - currentQuestionIndex;
     if (remainingInBatch <= 5) { // Load more when 5 or fewer questions remain
       loadMoreQuestions();
     }
-  }, [currentQuestionIndex, loadedQuestions.length, hasMoreQuestions, isLoadingMore, loadMoreQuestions, exam]);
+  }, [currentQuestionIndex, loadedQuestions.length, hasMoreQuestions, isLoadingMore, loadMoreQuestions, exam, practiceQuestions, practiceType]);
 
   // Subject filtering state - must be declared before any conditional returns
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
@@ -160,7 +192,8 @@ export default function ExamTaking() {
 
   // Timer countdown
   useEffect(() => {
-    if (!exam?.duration) return;
+    const duration = practiceType ? (practiceType === 'jamb' ? 120 : (practiceType === 'waec' || practiceType === 'neco') ? 90 : 60) : (exam?.duration || 60);
+    if (!duration) return;
     if (timeLeft !== null) return;
     // Prefer restored timeLeft from localStorage if available
     try {
@@ -174,8 +207,8 @@ export default function ExamTaking() {
         }
       }
     } catch {}
-    setTimeLeft(Math.max(1, Math.floor(Number(exam.duration) || 0) * 60)); // Convert minutes to seconds, guard
-  }, [exam, timeLeft, attemptId, examId]);
+    setTimeLeft(Math.max(1, Math.floor(Number(duration) || 0) * 60)); // Convert minutes to seconds, guard
+  }, [exam, practiceType, timeLeft, attemptId, examId]);
 
   useEffect(() => {
     if (timeLeft === 0) {
@@ -203,8 +236,7 @@ export default function ExamTaking() {
     try {
       const attempt = await startAttempt(examId);
       setAttemptId(attempt.$id);
-      // Enforce fullscreen upon attempt start
-      await enterFullscreen();
+      // No fullscreen enforcement - simplified experience
     } catch (error: any) {
       toast({
         title: "Error",
@@ -305,53 +337,14 @@ export default function ExamTaking() {
     }
   };
 
-  // --- Phase 3: Fullscreen & Anti-cheat ---
-  const isInFullscreen = () => {
-    return Boolean(document.fullscreenElement || (document as any).webkitFullscreenElement || (document as any).mozFullScreenElement || (document as any).msFullscreenElement);
-  };
-
-  const enterFullscreen = async () => {
-    const el: any = document.documentElement;
-    try {
-      if (el.requestFullscreen) await el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
-      else if (el.msRequestFullscreen) await el.msRequestFullscreen();
-      setIsFullscreenDialogOpen(false);
-      setIsTabSwitchDialogOpen(false);
-      setTimerPaused(false);
-    } catch {
-      // If user blocks fullscreen, pause and show dialog
-      setTimerPaused(true);
-      setIsFullscreenDialogOpen(true);
-    }
-  };
-
+  // Simplified security - basic timer management only
   useEffect(() => {
-    const onFsChange = () => {
-      const active = isInFullscreen();
-      if (!active && attemptId) {
-        setTimerPaused(true);
-        setIsFullscreenDialogOpen(true);
-      }
-    };
-    document.addEventListener('fullscreenchange', onFsChange);
-    // Vendor prefixes (best-effort)
-    document.addEventListener('webkitfullscreenchange', onFsChange as any);
-    document.addEventListener('mozfullscreenchange', onFsChange as any);
-    document.addEventListener('MSFullscreenChange', onFsChange as any);
-    return () => {
-      document.removeEventListener('fullscreenchange', onFsChange);
-      document.removeEventListener('webkitfullscreenchange', onFsChange as any);
-      document.removeEventListener('mozfullscreenchange', onFsChange as any);
-      document.removeEventListener('MSFullscreenChange', onFsChange as any);
-    };
-  }, [attemptId]);
-
-  useEffect(() => {
+    // Basic visibility change handling - just pause timer
     const onVisibility = () => {
       if (document.hidden && attemptId) {
         setTimerPaused(true);
-        setIsTabSwitchDialogOpen(true);
+      } else if (attemptId) {
+        setTimerPaused(false);
       }
     };
     document.addEventListener('visibilitychange', onVisibility);
@@ -359,26 +352,9 @@ export default function ExamTaking() {
   }, [attemptId]);
 
   useEffect(() => {
-    // Block right-click and copy/paste/select
-    const block = (e: Event) => e.preventDefault();
-    document.addEventListener('contextmenu', block);
-    document.addEventListener('copy', block);
-    document.addEventListener('cut', block);
-    document.addEventListener('paste', block);
-    document.addEventListener('selectstart', block);
-    return () => {
-      document.removeEventListener('contextmenu', block);
-      document.removeEventListener('copy', block);
-      document.removeEventListener('cut', block);
-      document.removeEventListener('paste', block);
-      document.removeEventListener('selectstart', block);
-    };
-  }, []);
-
-  useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // If any modal open, ignore shortcuts
-      if (isFullscreenDialogOpen || isTabSwitchDialogOpen || showSubmitDialog) return;
+      // If submit dialog is open, ignore shortcuts
+      if (showSubmitDialog) return;
       
       const currentQ = exam?.questions?.[currentQuestionIndex];
       const opts = (currentQ?.options as string[] | undefined) || [];
@@ -414,7 +390,7 @@ export default function ExamTaking() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [exam, currentQuestionIndex, showSubmitDialog, isFullscreenDialogOpen, isTabSwitchDialogOpen]);
+  }, [exam, currentQuestionIndex, showSubmitDialog]);
 
   // --- Phase 4: Offline detection & autosave ---
   // Warn on accidental unload while an attempt is active
@@ -432,8 +408,7 @@ export default function ExamTaking() {
   useEffect(() => {
     const onOnline = () => {
       setIsOffline(false);
-      // Resume timer if no security dialogs are open
-      if (!isFullscreenDialogOpen && !isTabSwitchDialogOpen) setTimerPaused(false);
+      setTimerPaused(false);
     };
     const onOffline = () => {
       setIsOffline(true);
@@ -445,7 +420,7 @@ export default function ExamTaking() {
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
-  }, [isFullscreenDialogOpen, isTabSwitchDialogOpen]);
+  }, []);
 
   const storageKey = attemptId ? `cbt:attempt:${attemptId}` : (examId ? `cbt:exam:${examId}` : 'cbt:exam:unknown');
 
@@ -489,7 +464,8 @@ export default function ExamTaking() {
       if (!attemptId || isOffline) return;
       if (isSavingRef.current) return; // avoid concurrent autosaves
       // Compute time spent from timer
-      const totalSec = (exam?.duration ? exam.duration * 60 : 0);
+      const duration = practiceType ? (practiceType === 'jamb' ? 120 : (practiceType === 'waec' || practiceType === 'neco') ? 90 : 60) : (exam?.duration || 60);
+      const totalSec = duration * 60;
       const timeSpent = totalSec && typeof timeLeft === 'number' ? Math.max(0, totalSec - timeLeft) : 0;
       isSavingRef.current = true;
       setAutosaveStatus('saving');
@@ -539,9 +515,9 @@ export default function ExamTaking() {
       // Final local save on unmount
       try { localStorage.setItem(storageKey, JSON.stringify({ answers, timeLeft, updatedAt: Date.now() })); } catch {}
     };
-  }, [attemptId, answers, timeLeft, isOffline, storageKey, autosaveMutation, exam?.duration]);
+  }, [attemptId, answers, timeLeft, isOffline, storageKey, autosaveMutation, exam?.duration, practiceType]);
 
-  if (isLoadingExam) {
+  if (isLoadingExam || (practiceType && isLoadingPracticeQuestions)) {
     return <ExamTakingSkeleton />;
   }
 
@@ -557,8 +533,10 @@ export default function ExamTaking() {
     );
   }
   
-  // Questions are already defined at the top, now we can safely use them
-  if (questions.length === 0) {
+  // Use practice questions if available, otherwise use exam questions
+  const allQuestions = practiceType ? practiceQuestions : (exam?.questions || []);
+  
+  if (allQuestions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -572,7 +550,8 @@ export default function ExamTaking() {
   
   const currentQuestion = questions[currentQuestionIndex];
   const answeredCount = Object.keys(answers).length;
-  const progress = (answeredCount / questions.length) * 100;
+  const totalQuestions = practiceType ? practiceQuestions.length : questions.length;
+  const progress = (answeredCount / totalQuestions) * 100;
   
   const filteredQuestions = activeSubject ? questions.filter((q: any) => String(q.subject || '') === activeSubject) : questions;
   const currentFilteredQuestion = filteredQuestions[currentQuestionIndex] || null;
@@ -587,8 +566,8 @@ export default function ExamTaking() {
   return (
     <div className="min-h-screen bg-background select-none">
       <TopNav
-        title={exam.title}
-        subtitle={`${exam.subject} - ${exam.type.toUpperCase()}`}
+        title={practiceType ? `${practiceType.toUpperCase()} Practice - ${subjects.join(', ')}` : exam.title}
+        subtitle={practiceType ? `Practice Session` : `${exam.subject} - ${exam.type.toUpperCase()}`}
         showGoBackButton={false}
       />
 
@@ -610,7 +589,7 @@ export default function ExamTaking() {
                 </span>
               </div>
               <Badge variant="secondary">
-                {answeredCount} / {questions.length} Answered
+                {answeredCount} / {totalQuestions} Answered
               </Badge>
             </div>
             {isOffline && (
@@ -707,7 +686,7 @@ export default function ExamTaking() {
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle>
-                    Question {currentQuestionIndex + 1} of {exam?.questionCount || filteredQuestions.length}
+                    Question {currentQuestionIndex + 1} of {practiceType ? practiceQuestions.length : (exam?.questionCount || filteredQuestions.length)}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     {/* Question Type Badge */}
@@ -886,7 +865,7 @@ export default function ExamTaking() {
           <div className="py-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Total Questions:</span>
-              <span className="font-semibold">{questions.length}</span>
+              <span className="font-semibold">{totalQuestions}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Answered:</span>
@@ -894,7 +873,7 @@ export default function ExamTaking() {
             </div>
             <div className="flex justify-between text-sm">
               <span>Not Answered:</span>
-              <span className="font-semibold text-destructive">{questions.length - answeredCount}</span>
+              <span className="font-semibold text-destructive">{totalQuestions - answeredCount}</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Marked for Review:</span>
@@ -924,7 +903,7 @@ export default function ExamTaking() {
           <div className="py-4 space-y-2">
             <div className="flex justify-between text-sm">
               <span>Progress:</span>
-              <span className="font-semibold">{answeredCount} / {questions.length} answered</span>
+              <span className="font-semibold">{answeredCount} / {totalQuestions} answered</span>
             </div>
             <div className="flex justify-between text-sm">
               <span>Time Remaining:</span>
@@ -942,41 +921,6 @@ export default function ExamTaking() {
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen required dialog */}
-      <Dialog open={isFullscreenDialogOpen} onOpenChange={(open) => setIsFullscreenDialogOpen(open)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Fullscreen Required</DialogTitle>
-            <DialogDescription>
-              You exited fullscreen or blocked it. The exam is paused. Re-enter fullscreen to continue.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSubmitConfirmed}>
-              Submit & Exit
-            </Button>
-            <Button onClick={enterFullscreen}>Re-enter Fullscreen</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Tab switch warning dialog */}
-      <Dialog open={isTabSwitchDialogOpen} onOpenChange={(open) => setIsTabSwitchDialogOpen(open)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Focus Lost</DialogTitle>
-            <DialogDescription>
-              You switched tabs or minimized the window. The exam is paused. Resume in fullscreen to continue.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSubmitConfirmed}>
-              Submit & Exit
-            </Button>
-            <Button onClick={enterFullscreen}>Resume Exam</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
