@@ -122,6 +122,36 @@ async function ensureExamAttemptAttributes() {
   ]);
 }
 
+// Helpers to adapt to environments where 'answers' might be defined as JSON or STRING
+async function getAnswersAttributeType(): Promise<'json' | 'string' | null> {
+  try {
+    const coll: any = await databases.getCollection(APPWRITE_DATABASE_ID!, 'examAttempts');
+    const attrs: any[] = Array.isArray(coll?.attributes) ? coll.attributes : [];
+    const answersAttr = attrs.find((a: any) => a?.key === 'answers' || a?.id === 'answers' || a?.$id === 'answers');
+    if (!answersAttr) return null;
+    const t = String(answersAttr?.type || '').toLowerCase();
+    return t === 'json' ? 'json' : t === 'string' ? 'string' : null;
+  } catch {
+    return null;
+  }
+}
+
+function coerceAnswersForStorage(input: any, attrType: 'json' | 'string' | null): any {
+  // If we definitively know it's JSON, store as object
+  if (attrType === 'json') {
+    if (typeof input === 'string') {
+      try { return JSON.parse(input); } catch { return {}; }
+    }
+    return input || {};
+  }
+  // Default to STRING storage for maximum compatibility with legacy schemas
+  try {
+    return typeof input === 'string' ? input : JSON.stringify(input || {});
+  } catch {
+    return '{}';
+  }
+}
+
 export const registerCBTRoutes = (app: any) => {
   // Best-effort schema ensure on startup (non-blocking)
   void ensureExamAttemptAttributes();
@@ -409,6 +439,7 @@ export const registerCBTRoutes = (app: any) => {
       // Ensure required attributes exist before any queries/creates that reference them
       await ensureExamAttemptAttributes();
       const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
+      const answersAttrType = await getAnswersAttributeType();
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const isPractice = String(examId).startsWith('practice-');
 
@@ -461,8 +492,8 @@ export const registerCBTRoutes = (app: any) => {
         }
       }
 
-      // Create new attempt
-      const attemptData = {
+      // Create new attempt; support both JSON and STRING answers based on existing schema
+      const baseAttempt = {
         studentId: user?.$id || 'guest',
         examId: examId,
         status: 'in_progress',
@@ -475,9 +506,20 @@ export const registerCBTRoutes = (app: any) => {
         correctAnswers: 0,
         score: 0,
         percentage: 0,
-      };
+      } as any;
 
-      const attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), attemptData);
+      const attemptWithJson = { ...baseAttempt, answers: {} };
+      const attemptWithString = { ...baseAttempt, answers: '{}' };
+
+      let attempt: any;
+      try {
+        const payload = answersAttrType === 'json' ? attemptWithJson : attemptWithString;
+        attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), payload);
+      } catch (e: any) {
+        // Fallback to alternate representation if schema differs or answers is required
+        const fallback = answersAttrType === 'json' ? attemptWithString : attemptWithJson;
+        attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), fallback);
+      }
       res.status(201).json(attempt);
     } catch (error) {
       logError('Failed to start attempt', error);
@@ -532,10 +574,12 @@ export const registerCBTRoutes = (app: any) => {
       const passed = percentage >= 50; // 50% passing grade
 
       // Update attempt
+      const answersAttrType3 = await getAnswersAttributeType();
+      const storedAnswers = coerceAnswersForStorage(answers, answersAttrType3);
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId, {
         status: 'completed',
         submittedAt: new Date().toISOString(),
-        answers: answers,
+        answers: storedAnswers,
         score: score,
         totalQuestions: totalQuestions,
         percentage: percentage,
@@ -1054,8 +1098,10 @@ export const registerCBTRoutes = (app: any) => {
         return res.status(400).json({ message: 'This attempt is no longer active' });
       }
 
+      const answersAttrType2 = await getAnswersAttributeType();
+      const nextAnswers = typeof answers === 'undefined' ? attempt.answers : coerceAnswersForStorage(answers, answersAttrType2);
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId), {
-        answers: answers || attempt.answers,
+        answers: nextAnswers,
         timeSpent: timeSpent || attempt.timeSpent || 0,
         lastSavedAt: new Date().toISOString(),
       });
