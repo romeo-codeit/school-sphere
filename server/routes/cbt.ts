@@ -577,6 +577,50 @@ export const registerCBTRoutes = (app: any) => {
         if (offset >= (page.total || offset)) break;
       }
 
+      // Fallback to questions collection if no subjects found from exams
+      if (subjectMap.size === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const canonicalSubject = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '').replace(/^english(language)?|useofenglish.*/,'english');
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subjRaw = String((q as any).subject || '').trim();
+            if (!subjRaw) continue;
+            const key = canonicalSubject(subjRaw) || normalizeKey(subjRaw);
+            const display = key === 'english' ? 'English' : subjRaw;
+            if (!subjectMap.has(key)) subjectMap.set(key, display);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
+      }
+
       const subjectArray = Array.from(subjectMap.values()).sort();
       const response = { subjects: subjectArray };
       cache.set(cacheKey, response, CACHE_TTL.SUBJECTS);
@@ -683,6 +727,50 @@ export const registerCBTRoutes = (app: any) => {
         items = Array.from(union);
       }
 
+      // Fallback to scanning questions if no years found
+      if (items.length === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+        const canonicalSubject = (s: string) => normalizeKey(s).replace(/^english(language)?|useofenglish.*/,'english');
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const yearsSet = new Set<string>();
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subjKey = canonicalSubject(String((q as any).subject || ''));
+            if (subjectFilters.length > 0 && !subjectFilters.includes(subjKey)) continue;
+            const y = String((q as any).year || (q as any).questionYear || '').trim();
+            if (y) yearsSet.add(y);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
+        items = Array.from(yearsSet);
+      }
+
       items.sort((a, b) => Number(b) - Number(a));
       return res.json({ years: items });
     } catch (error) {
@@ -775,6 +863,59 @@ export const registerCBTRoutes = (app: any) => {
           totalCount: subjectFilters.length,
         }))
         .sort((a, b) => Number(b.year) - Number(a.year));
+
+      // Fallback to questions if empty
+      if (availability.length === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const yearToSubjectsFallback = new Map<string, Set<string>>();
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subj = canonicalSubject(String((q as any).subject || ''));
+            if (!subjectFilters.includes(subj)) continue;
+            const y = String((q as any).year || (q as any).questionYear || '').trim();
+            if (!y) continue;
+            if (!yearToSubjectsFallback.has(y)) yearToSubjectsFallback.set(y, new Set());
+            yearToSubjectsFallback.get(y)!.add(subj);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
+        const availabilityFallback = Array.from(yearToSubjectsFallback.entries())
+          .map(([year, subjects]) => ({
+            year,
+            subjects: Array.from(subjects),
+            availableCount: subjects.size,
+            totalCount: subjectFilters.length,
+          }))
+          .sort((a, b) => Number(b.year) - Number(a.year));
+        return res.json({ availability: availabilityFallback });
+      }
 
       return res.json({ availability });
     } catch (error) {
