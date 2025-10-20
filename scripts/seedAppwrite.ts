@@ -5,7 +5,7 @@ import path from 'path';
 /**
  * Appwrite Seeding Script
  *
- * - Creates all collections and attributes required by the app (backend + frontend)
+ * - Ensures ALL collections and attributes required by the app (backend + frontend)
  * - Explicitly creates `exams` and `questions` for CBT simulator
  * - Seeds past questions JSON from client/src/assets/past_questions
  * - Links questions to their exam via `examId`
@@ -64,7 +64,7 @@ async function ensureCollection(id: string, name: string, perms: any[] = [Permis
   }
 }
 
-async function ensureCoreCollections() {
+async function ensureAllCollections() {
   // Exams
   await ensureCollection('exams', 'Exams');
   await safeCreateStringAttribute('exams', 'title', 255, true);
@@ -74,6 +74,8 @@ async function ensureCoreCollections() {
   await safeCreateStringAttribute('exams', 'paper_type', 50, false);
   await safeCreateStringAttribute('exams', 'mode', 50, false); // 'practice' | 'exam'
   await safeCreateStringAttribute('exams', 'search', 1024, false);
+  await safeCreateDatetimeAttribute('exams', 'createdAt', false);
+  await safeCreateBooleanAttribute('exams', 'isActive', false);
   await safeCreateIndex('exams', 'idx_title', ['title']);
   await safeCreateIndex('exams', 'idx_type_subject_year', ['type','subject','year']);
 
@@ -89,6 +91,10 @@ async function ensureCoreCollections() {
   await safeCreateStringAttribute('questions', 'answerUrl', 1024, false);
   await safeCreateStringAttribute('questions', 'section', 500, false);
   await safeCreateStringAttribute('questions', 'instructions', 65535, false);
+  await safeCreateStringAttribute('questions', 'year', 10, false);
+  await safeCreateStringAttribute('questions', 'subject', 255, false);
+  await safeCreateStringAttribute('questions', 'type', 50, false);
+  await safeCreateStringAttribute('questions', 'paper_type', 50, false);
   await safeCreateIndex('questions', 'idx_exam_qnum', ['examId','questionNumber']);
 
   // Exam Attempts (align to current backend/frontend expectations and your description)
@@ -113,7 +119,7 @@ async function ensureCoreCollections() {
   await safeCreateBooleanAttribute('examAttempts', 'passed', false);
   await safeCreateIndex('examAttempts', 'idx_student_exam', ['studentId','examId']);
 
-  // Other app collections referenced by the app (minimal schemas)
+  // Other app collections referenced by the app (expanded to full set)
   await ensureCollection('userProfiles', 'User Profiles');
   await safeCreateStringAttribute('userProfiles', 'userId', 255, true);
   await safeCreateStringAttribute('userProfiles', 'role', 50, false);
@@ -125,7 +131,27 @@ async function ensureCoreCollections() {
   await safeCreateStringAttribute('userSubscriptions', 'userId', 255, true);
   await safeCreateStringAttribute('userSubscriptions', 'subscriptionStatus', 50, false);
   await safeCreateDatetimeAttribute('userSubscriptions', 'subscriptionExpiry', false);
+  await safeCreateStringAttribute('userSubscriptions', 'subscriptionType', 50, false);
+  await safeCreateStringAttribute('userSubscriptions', 'activationCodes', 2048, false);
+  await safeCreateStringAttribute('userSubscriptions', 'examAccess', 2048, false);
+  await safeCreateStringAttribute('userSubscriptions', 'paymentHistory', 4096, false);
+  await safeCreateDatetimeAttribute('userSubscriptions', 'createdAt', false);
+  await safeCreateDatetimeAttribute('userSubscriptions', 'updatedAt', false);
   await safeCreateIndex('userSubscriptions', 'idx_user', ['userId']);
+
+  await ensureCollection('userProfileExtras', 'User Profile Extras');
+  await safeCreateStringAttribute('userProfileExtras', 'userId', 255, true);
+  await safeCreateStringAttribute('userProfileExtras', 'extra', 4096, false);
+  await safeCreateDatetimeAttribute('userProfileExtras', 'createdAt', false);
+  await safeCreateDatetimeAttribute('userProfileExtras', 'updatedAt', false);
+
+  await ensureCollection('userSettings', 'User Settings');
+  await safeCreateStringAttribute('userSettings', 'userId', 255, true);
+  await safeCreateStringAttribute('userSettings', 'notificationPreferences', 2048, false);
+  await safeCreateStringAttribute('userSettings', 'theme', 255, false);
+  await safeCreateStringAttribute('userSettings', 'primaryColor', 255, false);
+  await safeCreateBooleanAttribute('userSettings', 'twoFactorEnabled', false);
+  await safeCreateStringAttribute('userSettings', 'sessions', 4096, false);
 
   await ensureCollection('students', 'Students');
   await safeCreateStringAttribute('students', 'userId', 255, false);
@@ -142,11 +168,147 @@ async function ensureCoreCollections() {
   await safeCreateStringAttribute('messages', 'senderId', 255, false);
   await safeCreateStringAttribute('messages', 'recipientId', 255, false);
   await safeCreateBooleanAttribute('messages', 'isRead', false);
+  await safeCreateStringAttribute('messages', 'subject', 255, false);
+  await safeCreateStringAttribute('messages', 'content', 1024, true);
+  await safeCreateStringAttribute('messages', 'messageType', 50, false);
+  await safeCreateIndex('messages', 'idx_recipient', ['recipientId','isRead']);
 
   await ensureCollection('notifications', 'Notifications');
   await safeCreateStringAttribute('notifications', 'userId', 255, true);
   await safeCreateStringAttribute('notifications', 'message', 1024, true);
   await safeCreateBooleanAttribute('notifications', 'isRead', false);
+  await safeCreateStringAttribute('notifications', 'link', 255, false);
+  await safeCreateStringAttribute('notifications', 'search', 1024, false);
+
+  await ensureCollection('conversations', 'Conversations');
+  await safeCreateStringAttribute('conversations', 'members', 255, true, true);
+  await safeCreateStringAttribute('conversations', 'lastMessage', 1024, false);
+  await safeCreateDatetimeAttribute('conversations', 'lastActivity', true);
+  await safeCreateBooleanAttribute('conversations', 'isGroup', true);
+  await safeCreateStringAttribute('conversations', 'name', 255, false);
+
+  await ensureCollection('chatMessages', 'Chat Messages');
+  await safeCreateStringAttribute('chatMessages', 'conversationId', 255, true);
+  await safeCreateStringAttribute('chatMessages', 'senderId', 255, true);
+  await safeCreateStringAttribute('chatMessages', 'content', 1024, true);
+  await safeCreateStringAttribute('chatMessages', 'readBy', 255, false, true);
+
+  await ensureCollection('forumThreads', 'Forum Threads');
+  await safeCreateStringAttribute('forumThreads', 'title', 255, false);
+  await safeCreateStringAttribute('forumThreads', 'content', 1024, true);
+  await safeCreateStringAttribute('forumThreads', 'createdBy', 255, true);
+  await safeCreateStringAttribute('forumThreads', 'parentThreadId', 255, false);
+
+  await ensureCollection('attendance', 'Attendance');
+  await safeCreateStringAttribute('attendance', 'classId', 255, true);
+  await safeCreateStringAttribute('attendance', 'date', 255, true);
+
+  await ensureCollection('attendanceRecords', 'Attendance Records');
+  await safeCreateStringAttribute('attendanceRecords', 'classId', 255, true);
+  await safeCreateStringAttribute('attendanceRecords', 'date', 255, true);
+  await safeCreateStringAttribute('attendanceRecords', 'studentId', 255, true);
+  await safeCreateStringAttribute('attendanceRecords', 'status', 50, true);
+  await safeCreateIndex('attendanceRecords', 'idx_class_date', ['classId','date']);
+
+  await ensureCollection('activities', 'Activities');
+  await safeCreateStringAttribute('activities', 'activity', 255, true);
+  await safeCreateStringAttribute('activities', 'date', 255, true);
+  await safeCreateStringAttribute('activities', 'type', 50, true);
+
+  await ensureCollection('resources', 'Resources');
+  await safeCreateStringAttribute('resources', 'title', 255, true);
+  await safeCreateStringAttribute('resources', 'description', 1024, false);
+  await safeCreateStringAttribute('resources', 'type', 50, true);
+  await safeCreateStringAttribute('resources', 'subject', 255, false);
+  await safeCreateStringAttribute('resources', 'class', 255, false);
+  await safeCreateStringAttribute('resources', 'fileUrl', 255, false);
+  await safeCreateIntegerAttribute('resources', 'fileSize', false);
+  await safeCreateIntegerAttribute('resources', 'downloads', false);
+  await safeCreateStringAttribute('resources', 'uploadedBy', 255, false);
+  await safeCreateBooleanAttribute('resources', 'isPublic', false);
+  await safeCreateIndex('resources', 'idx_subject_type', ['subject','type']);
+
+  await ensureCollection('grades', 'Grades');
+  await safeCreateStringAttribute('grades', 'studentId', 255, false);
+  await safeCreateStringAttribute('grades', 'subject', 255, true);
+  await safeCreateStringAttribute('grades', 'examType', 255, false);
+  await safeCreateFloatAttribute('grades', 'score', false);
+  await safeCreateFloatAttribute('grades', 'totalMarks', false);
+  await safeCreateStringAttribute('grades', 'grade', 50, false);
+  await safeCreateStringAttribute('grades', 'term', 255, false);
+  await safeCreateStringAttribute('grades', 'academicYear', 255, false);
+  await safeCreateStringAttribute('grades', 'teacherId', 255, false);
+  await safeCreateStringAttribute('grades', 'remarks', 1024, false);
+
+  await ensureCollection('payments', 'Payments');
+  await safeCreateStringAttribute('payments', 'studentId', 255, false);
+  await safeCreateFloatAttribute('payments', 'amount', true);
+  await safeCreateStringAttribute('payments', 'purpose', 255, true);
+  await safeCreateStringAttribute('payments', 'dueDate', 255, false);
+  await safeCreateStringAttribute('payments', 'paidDate', 255, false);
+  await safeCreateStringAttribute('payments', 'status', 50, false);
+  await safeCreateStringAttribute('payments', 'paymentMethod', 255, false);
+  await safeCreateStringAttribute('payments', 'transactionId', 255, false);
+  await safeCreateStringAttribute('payments', 'term', 255, false);
+  await safeCreateStringAttribute('payments', 'academicYear', 255, false);
+
+  await ensureCollection('notices', 'Notices');
+  await safeCreateStringAttribute('notices', 'activity', 1024, true);
+  await safeCreateStringAttribute('notices', 'date', 255, true);
+  await safeCreateStringAttribute('notices', 'category', 255, false);
+  await safeCreateStringAttribute('notices', 'search', 1024, false);
+
+  await ensureCollection('subjects', 'Subjects');
+  await safeCreateStringAttribute('subjects', 'name', 255, true);
+  await safeCreateStringAttribute('subjects', 'description', 1024, false);
+  await safeCreateStringAttribute('subjects', 'search', 1024, false);
+
+  await ensureCollection('school', 'School');
+  await safeCreateStringAttribute('school', 'schoolName', 255, true);
+  await safeCreateStringAttribute('school', 'address', 1024, false);
+  await safeCreateStringAttribute('school', 'phone', 255, false);
+  await safeCreateStringAttribute('school', 'email', 255, false);
+  await safeCreateStringAttribute('school', 'website', 255, false);
+  await safeCreateStringAttribute('school', 'motto', 255, false);
+  await safeCreateStringAttribute('school', 'currentTerm', 255, false);
+  await safeCreateStringAttribute('school', 'academicYear', 255, false);
+
+  await ensureCollection('classes', 'Classes');
+  await safeCreateStringAttribute('classes', 'name', 255, true);
+  await safeCreateStringAttribute('classes', 'description', 1024, false);
+  await safeCreateStringAttribute('classes', 'search', 1024, false);
+  await safeCreateStringAttribute('classes', 'teacherId', 255, false);
+
+  await ensureCollection('teachersToClasses', 'Teachers To Classes');
+  await safeCreateStringAttribute('teachersToClasses', 'teacherId', 255, true);
+  await safeCreateStringAttribute('teachersToClasses', 'classId', 255, true);
+
+  await ensureCollection('videoMeetings', 'Video Meetings');
+  await safeCreateStringAttribute('videoMeetings', 'topic', 255, true);
+  await safeCreateStringAttribute('videoMeetings', 'roomId', 255, true);
+  await safeCreateStringAttribute('videoMeetings', 'createdBy', 255, true);
+  await safeCreateStringAttribute('videoMeetings', 'allowedRoles', 50, false, true);
+  await safeCreateStringAttribute('videoMeetings', 'classId', 255, false);
+  await safeCreateStringAttribute('videoMeetings', 'teacherId', 255, false);
+  await safeCreateBooleanAttribute('videoMeetings', 'isActive', false);
+  await safeCreateIntegerAttribute('videoMeetings', 'participantCount', false);
+
+  await ensureCollection('activationCodes', 'Activation Codes');
+  await safeCreateStringAttribute('activationCodes', 'code', 255, true);
+  await safeCreateStringAttribute('activationCodes', 'codeType', 50, false);
+  await safeCreateIntegerAttribute('activationCodes', 'durationDays', false);
+  await safeCreateStringAttribute('activationCodes', 'status', 50, false);
+  await safeCreateStringAttribute('activationCodes', 'assignedTo', 255, false);
+  await safeCreateDatetimeAttribute('activationCodes', 'expiresAt', false);
+  await safeCreateDatetimeAttribute('activationCodes', 'createdAt', false);
+  await safeCreateDatetimeAttribute('activationCodes', 'usedAt', false);
+  await safeCreateIndex('activationCodes', 'idx_code', ['code']);
+  await safeCreateIndex('activationCodes', 'idx_status', ['status']);
+
+  await ensureCollection('examAssignments', 'Exam Assignments');
+  await safeCreateStringAttribute('examAssignments', 'examId', 255, true);
+  await safeCreateStringAttribute('examAssignments', 'userId', 255, true);
+  await safeCreateIndex('examAssignments', 'idx_exam_user', ['examId','userId']);
 }
 
 // Parse filename to exam metadata
@@ -229,6 +391,8 @@ async function seedPastQuestions() {
         year,
         paper_type,
         mode: 'exam',
+        isActive: true,
+        createdAt: new Date().toISOString(),
         search: [title, type, subject, year, paper_type].filter(Boolean).join(' '),
       });
       examId = examDoc.$id;
@@ -241,12 +405,12 @@ async function seedPastQuestions() {
       const qRaw = questionsArray[i];
       const q = mapRawQuestion(qRaw, i);
       try {
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q });
+        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
         created++;
       } catch (e: any) {
         // If attribute limit or rate limit, delay and retry once
         await delay(50);
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q });
+        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
         created++;
       }
       if (i % 50 === 0) await delay(80); // small pacing for Appwrite Cloud limits
@@ -257,9 +421,66 @@ async function seedPastQuestions() {
   }
 }
 
+async function seedBaseData() {
+  // Basic school, classes, subjects, sample staff/students
+  try {
+    const sch = await databases.listDocuments(APPWRITE_DATABASE_ID, 'school', [Query.limit(1)]);
+    if (sch.total === 0) {
+      await databases.createDocument(APPWRITE_DATABASE_ID, 'school', ID.unique(), { schoolName: 'Ohman Foundation School', motto: 'Excellence and Integrity', academicYear: String(new Date().getFullYear()) });
+    }
+  } catch {}
+  const classNames = ['JSS 1','JSS 2','JSS 3','SS 1 Science','SS 1 Arts','SS 1 Commercial','SS 2 Science','SS 2 Arts','SS 2 Commercial','SS 3 Science','SS 3 Arts','SS 3 Commercial'];
+  let classes: any[] = [];
+  try {
+    const page = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes', [Query.limit(100)]);
+    classes = page.documents;
+    if (page.total === 0) {
+      for (const name of classNames) {
+        const c = await databases.createDocument(APPWRITE_DATABASE_ID, 'classes', ID.unique(), { name });
+        classes.push(c);
+        await delay(40);
+      }
+    }
+  } catch {}
+  try {
+    const subj = await databases.listDocuments(APPWRITE_DATABASE_ID, 'subjects', [Query.limit(1)]);
+    if (subj.total === 0) {
+      const pqDir = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
+      const found = new Set<string>();
+      if (fs.existsSync(pqDir)) {
+        for (const file of fs.readdirSync(pqDir)) {
+          if (!file.endsWith('.json')) continue;
+          const { subject } = parseExamFileName(file);
+          found.add(subject);
+        }
+      }
+      for (const s of Array.from(found)) {
+        await databases.createDocument(APPWRITE_DATABASE_ID, 'subjects', ID.unique(), { name: s });
+      }
+    }
+  } catch {}
+  try {
+    const t = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachers', [Query.limit(1)]);
+    if (t.total === 0) {
+      await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), { employeeId: 'T-001', firstName: 'Ada', lastName: 'Obi', subjects: ['Mathematics'] });
+    }
+  } catch {}
+  try {
+    const s = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [Query.limit(1)]);
+    if (s.total === 0 && classes.length > 0) {
+      const classId = classes[0].$id;
+      for (const st of [{ firstName: 'Chinedu', lastName: 'Okafor' },{ firstName: 'Nkechi', lastName: 'Eze' }]) {
+        await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), { ...st, classId });
+      }
+    }
+  } catch {}
+}
+
 async function main() {
   console.log('Ensuring collections and attributes...');
-  await ensureCoreCollections();
+  await ensureAllCollections();
+  console.log('Seeding base data...');
+  await seedBaseData();
   console.log('Seeding past questions...');
   await seedPastQuestions();
   console.log('Done.');
