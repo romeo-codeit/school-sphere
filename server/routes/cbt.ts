@@ -368,6 +368,7 @@ export const registerCBTRoutes = (app: any) => {
       // Create new attempt
       const attemptData = {
         userId: user?.$id || 'guest',
+        studentId: user?.$id || 'guest',
         examId: examId,
         status: 'in_progress',
         startedAt: new Date().toISOString(),
@@ -376,6 +377,10 @@ export const registerCBTRoutes = (app: any) => {
         practicePaperType: paperType || undefined,
         answers: {},
         timeSpent: 0,
+        totalQuestions: 0,
+        correctAnswers: 0,
+        score: 0,
+        percentage: 0,
       };
 
       const attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), attemptData);
