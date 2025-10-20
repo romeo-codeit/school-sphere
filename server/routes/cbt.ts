@@ -180,7 +180,8 @@ export const registerCBTRoutes = (app: any) => {
 
   // Get specific exam with questions
   // Allow practice exam generation without strict auth; real internal exams still require auth when starting attempts
-  app.get('/api/cbt/exams/:id', sessionAuth, async (req: Request, res: Response) => {
+  // Public: practice exams must be retrievable without auth
+  app.get('/api/cbt/exams/:id', async (req: Request, res: Response) => {
     try {
       const examId = String(req.params.id || '').trim();
       logDebug('GET /api/cbt/exams/:id', { id: examId });
@@ -308,23 +309,32 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No assign/unassign routes.
 
   // Start exam attempt
-  app.post('/api/cbt/attempts', auth, validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
+  // Public for practice-* examId (no access gate); still gated for real internal exams
+  app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
-      const user = await req.appwrite!.account.get();
       const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
-      const role = (user as any)?.prefs?.role || null;
+      const isPractice = String(examId).startsWith('practice-');
 
-      // Check if user has access to this exam
-      if (role !== 'admin' && role !== 'teacher') {
-        const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
-          Query.equal('examId', examId),
-          Query.equal('userId', user.$id),
-          Query.limit(1)
-        ]);
+      let user: any = null;
+      let role: string | null = null;
+      try {
+        user = await req.appwrite?.account.get();
+        role = (user as any)?.prefs?.role || null;
+      } catch {}
 
-        if (assignments.documents.length === 0) {
-          return res.status(403).json({ message: 'You do not have access to this exam' });
+      // Enforce access only for real exams; practice-* is open
+      if (!isPractice) {
+        if (!user) return res.status(401).json({ message: 'Unauthorized' });
+        if (role !== 'admin' && role !== 'teacher') {
+          const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
+            Query.equal('examId', examId),
+            Query.equal('userId', user.$id),
+            Query.limit(1)
+          ]);
+          if (assignments.documents.length === 0) {
+            return res.status(403).json({ message: 'You do not have access to this exam' });
+          }
         }
       }
 
@@ -345,7 +355,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Create new attempt
       const attemptData = {
-        userId: user.$id,
+        userId: user?.$id || 'guest',
         examId: examId,
         status: 'in_progress',
         startedAt: new Date().toISOString(),
