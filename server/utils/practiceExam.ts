@@ -36,12 +36,49 @@ export async function fetchPracticeExamQuestions(
   // Helper to normalize a question's paper type, falling back to inferring
   // by presence of options (objective) vs no options (theory)
   const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+    // Strong hint from answer URL if present
+    const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+    if (ansUrl.includes('type=theory')) return 'theory';
+    if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+
     const raw = (q?.paper_type ?? q?.paperType ?? q?.type ?? '') as string;
     const n = String(raw || '').toLowerCase();
     if (n === 'objective' || n === 'obj') return 'obj';
     if (n === 'theory') return 'theory';
     const opts = (q?.options ?? []) as any[];
     return Array.isArray(opts) && opts.length > 0 ? 'obj' : 'theory';
+  };
+
+  const normalizeOptionsAndAnswer = (q: any): { optionsArray: string[]; correctResolved: string } => {
+    const rawOptions = (q?.options ?? q?.choices ?? q?.options_map ?? {}) as any;
+    let optionsArray: string[] = [];
+    if (Array.isArray(rawOptions)) {
+      optionsArray = rawOptions.map((v) => String(v));
+    } else if (rawOptions && typeof rawOptions === 'object') {
+      const entries = Object.entries(rawOptions as Record<string, any>)
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0]), undefined, { numeric: true, sensitivity: 'base' }));
+      optionsArray = entries.map(([, v]) => String(v));
+    }
+
+    const rawCorrect = (q?.correctAnswer ?? q?.correct_answer ?? q?.answer ?? q?.correct ?? '') as any;
+    let correctResolved = '';
+    const optMapAlpha: Record<string, string> = {};
+    if (rawOptions && typeof rawOptions === 'object') {
+      for (const [k, v] of Object.entries(rawOptions)) {
+        optMapAlpha[String(k).toUpperCase()] = String(v);
+      }
+    }
+    if (typeof rawCorrect === 'string') {
+      const letter = rawCorrect.trim().toUpperCase();
+      if (optMapAlpha[letter]) {
+        correctResolved = optMapAlpha[letter];
+      } else if (optionsArray.includes(rawCorrect)) {
+        correctResolved = rawCorrect;
+      } else {
+        correctResolved = rawCorrect;
+      }
+    }
+    return { optionsArray, correctResolved };
   };
 
   const canonicalSelectedSubjects = selectedSubjects.map(s => canonicalSubject(s));
@@ -110,12 +147,11 @@ export async function fetchPracticeExamQuestions(
           if (qPt !== requestedPaperType) continue;
         }
         const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
-        const opts = (q as any).options ?? [];
-        const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+        const { optionsArray, correctResolved } = normalizeOptionsAndAnswer(q);
         const mapped = {
           question: text,
-          options: opts,
-          correctAnswer: correct,
+          options: optionsArray,
+          correctAnswer: correctResolved,
           explanation: (q as any).explanation ?? undefined,
           imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
           answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
@@ -147,12 +183,11 @@ export async function fetchPracticeExamQuestions(
             if (qPt !== requestedPaperType) continue;
           }
           const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
-          const opts = (q as any).options ?? [];
-          const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+          const { optionsArray, correctResolved } = normalizeOptionsAndAnswer(q);
           const mapped = {
             question: text,
-            options: opts,
-            correctAnswer: correct,
+            options: optionsArray,
+            correctAnswer: correctResolved,
             explanation: (q as any).explanation ?? undefined,
             imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
             answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
@@ -207,12 +242,11 @@ export async function fetchPracticeExamQuestions(
           if (qPt !== requestedPaperType) continue;
         }
         const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
-        const opts = (q as any).options ?? [];
-        const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+        const { optionsArray, correctResolved } = normalizeOptionsAndAnswer(q);
         const mapped = {
           question: text,
-          options: opts,
-          correctAnswer: correct,
+          options: optionsArray,
+          correctAnswer: correctResolved,
           explanation: (q as any).explanation ?? undefined,
           imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
           answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
