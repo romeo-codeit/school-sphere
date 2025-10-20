@@ -149,7 +149,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
 
   // If a paper type filter is requested (WAEC/NECO), add it if present in schema
   if (paperTypeParam) {
-    const pt = (paperTypeParam === 'obj' ? 'obj' : paperTypeParam);
+    const pt = (String(paperTypeParam).toLowerCase() === 'objective' || String(paperTypeParam).toLowerCase() === 'obj') ? 'obj' : String(paperTypeParam).toLowerCase();
     try { examQueries.push(Query.equal('paper_type', pt)); } catch {}
   }
 
@@ -164,7 +164,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
       [...examQueries, Query.limit(100), Query.offset(examOffset)]
     );
 
-    if (examResults.documents.length === 0) break;
+  if (examResults.documents.length === 0) break;
 
     // Filter exams by subject in memory (since Appwrite doesn't support complex subject filtering)
     for (const exam of examResults.documents) {
@@ -184,11 +184,12 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
     if (examOffset >= (examResults.total || examOffset)) break;
   }
 
+  logDebug('Practice exam - matched exams', { type, selectedSubjects: canonicalSelectedSubjects, totalMatched: matchingExams.length });
   // Now fetch questions for all matching exams in parallel
   const questionPromises = matchingExams.map(async (exam) => {
     const questions: any[] = [];
 
-    // Check if exam has embedded questions
+  // Check if exam has embedded questions
     if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
       const examSubjectRaw = String((exam as any).subject || '');
       for (const q of (exam as any).questions) {
@@ -206,7 +207,7 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
         };
         questions.push(mapped);
       }
-    } else {
+  } else {
       // Fetch from questions collection
       let qOffset = 0;
       while (true) {
@@ -216,10 +217,10 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
           Query.offset(qOffset),
         ]);
 
-        if (qRes.documents.length === 0) break;
+  if (qRes.documents.length === 0) break;
 
         const examSubjectRaw = String((exam as any).subject || '');
-        for (const q of qRes.documents) {
+  for (const q of qRes.documents) {
           const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
           const opts = (q as any).options ?? [];
           const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
@@ -239,6 +240,8 @@ async function fetchPracticeExamQuestions(type: string, selectedSubjects: string
         if (qOffset >= (qRes.total || qOffset)) break;
       }
     }
+
+    logDebug('Practice exam - questions found for exam', { examId: exam.$id, questionCount: questions.length });
 
     return questions;
   });

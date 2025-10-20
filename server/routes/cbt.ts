@@ -187,7 +187,8 @@ export const registerCBTRoutes = (app: any) => {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
         const yearParam = req.query.year ? String(req.query.year) : undefined;
-        const paperTypeParam = req.query.paperType ? (String(req.query.paperType) as 'objective' | 'theory' | 'obj') : undefined;
+  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined;
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) as 'objective' | 'theory' | 'obj' : undefined;
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
 
         if (selectedSubjects.length === 0) {
@@ -517,7 +518,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/subjects/available', sessionAuth, validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
+  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) : undefined;
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       // Check cache first
@@ -575,7 +577,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/years/available', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
+  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) : undefined;
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);

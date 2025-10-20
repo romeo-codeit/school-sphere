@@ -39,7 +39,8 @@ export async function fetchPracticeExamQuestions(
 
   // If a paper type filter is requested (WAEC/NECO), add it if present in schema
   if (paperTypeParam) {
-    const pt = (paperTypeParam === 'obj' ? 'obj' : paperTypeParam);
+    // Normalize incoming values so both 'obj' and 'objective' map to the stored value 'obj'
+    const pt = (String(paperTypeParam).toLowerCase() === 'objective' || String(paperTypeParam).toLowerCase() === 'obj') ? 'obj' : String(paperTypeParam).toLowerCase();
     try { examQueries.push(Query.equal('paper_type', pt)); } catch {}
   }
 
