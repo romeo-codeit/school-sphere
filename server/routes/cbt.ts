@@ -32,7 +32,8 @@ const notificationService = new NotificationService(databases);
 
 export const registerCBTRoutes = (app: any) => {
   // Get exams (CBT focus). Supports filters and full pagination.
-  app.get('/api/cbt/exams', auth, validateQuery(examQuerySchema), async (req: Request, res: Response) => {
+  // Make the general exams listing public to allow UI to render without auth
+  app.get('/api/cbt/exams', validateQuery(examQuerySchema), async (req: Request, res: Response) => {
     try {
       const limitParam = String(req.query.limit || '50');
       const withQuestions = req.query.withQuestions !== 'false'; // default true
@@ -178,7 +179,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get specific exam with questions
-  app.get('/api/cbt/exams/:id', auth, async (req: Request, res: Response) => {
+  // Allow practice exam generation without strict auth; real internal exams still require auth when starting attempts
+  app.get('/api/cbt/exams/:id', sessionAuth, async (req: Request, res: Response) => {
     try {
       const examId = String(req.params.id || '').trim();
       logDebug('GET /api/cbt/exams/:id', { id: examId });
@@ -456,7 +458,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Validate subjects for exam creation
-  app.post('/api/cbt/exams/validate-subjects', auth, validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
+  // Make validation public so guests can plan practice sessions
+  app.post('/api/cbt/exams/validate-subjects', validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
     try {
       const { type, selectedSubjects, year } = req.body as { type?: string; selectedSubjects?: string[]; year?: string };
       if (!type || !Array.isArray(selectedSubjects)) {
