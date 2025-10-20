@@ -47,21 +47,31 @@ const users = new Users(client);
 // Small helper delays to be kind to Appwrite limits
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-// Helpers to create attributes safely (ignore 409 conflicts)
+// Helpers to create attributes safely (ignore 409 conflicts and attribute_limit_exceeded)
+function isAttrLimitExceeded(err: any): boolean {
+  if (!err) return false;
+  if (err.type === 'attribute_limit_exceeded') return true;
+  try {
+    const r = JSON.parse(err.response || '{}');
+    return r?.type === 'attribute_limit_exceeded';
+  } catch {
+    return false;
+  }
+}
 async function safeCreateStringAttribute(collectionId: string, id: string, size = 255, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createStringAttribute(APPWRITE_DATABASE_ID, collectionId, id, size, required, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await databases.createStringAttribute(APPWRITE_DATABASE_ID, collectionId, id, size, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
 }
 async function safeCreateIntegerAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createIntegerAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await databases.createIntegerAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
 }
 async function safeCreateFloatAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createFloatAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await databases.createFloatAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
 }
 async function safeCreateBooleanAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createBooleanAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await databases.createBooleanAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
 }
 async function safeCreateDatetimeAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createDatetimeAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await databases.createDatetimeAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
 }
 async function safeCreateIndex(collectionId: string, name: string, attributes: string[], orders: ("ASC"|"DESC")[] = []) {
   try { /* @ts-ignore */ await db.createIndex(APPWRITE_DATABASE_ID, collectionId, name, 'key' as any, attributes, orders.length ? orders : attributes.map(()=>'ASC')); } catch (e: any) { if (e.code !== 409) throw e; }
@@ -90,7 +100,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('exams', 'year', 10, true);
   await safeCreateStringAttribute('exams', 'paper_type', 50, false);
   await safeCreateStringAttribute('exams', 'mode', 50, false); // 'practice' | 'exam'
-  await safeCreateStringAttribute('exams', 'search', 1024, false);
+  await safeCreateStringAttribute('exams', 'search', 512, false);
   await safeCreateDatetimeAttribute('exams', 'createdAt', false);
   await safeCreateBooleanAttribute('exams', 'isActive', false);
   await delay(500);
@@ -101,14 +111,15 @@ async function ensureAllCollections() {
   await ensureCollection('questions', 'Questions');
   await safeCreateStringAttribute('questions', 'examId', 255, true);
   await safeCreateIntegerAttribute('questions', 'questionNumber', true);
-  await safeCreateStringAttribute('questions', 'questionText', 65535, true);
-  await safeCreateStringAttribute('questions', 'options', 1024, true, true);
+  // Reduce string sizes to fit Appwrite Free tier attribute limits
+  await safeCreateStringAttribute('questions', 'questionText', 16384, true);
+  await safeCreateStringAttribute('questions', 'options', 512, true, true);
   await safeCreateStringAttribute('questions', 'correctAnswer', 500, false);
-  await safeCreateStringAttribute('questions', 'explanation', 65535, false);
-  await safeCreateStringAttribute('questions', 'imageUrl', 1024, false);
-  await safeCreateStringAttribute('questions', 'answerUrl', 1024, false);
-  await safeCreateStringAttribute('questions', 'section', 500, false);
-  await safeCreateStringAttribute('questions', 'instructions', 65535, false);
+  await safeCreateStringAttribute('questions', 'explanation', 16384, false);
+  await safeCreateStringAttribute('questions', 'imageUrl', 512, false);
+  await safeCreateStringAttribute('questions', 'answerUrl', 512, false);
+  await safeCreateStringAttribute('questions', 'section', 255, false);
+  await safeCreateStringAttribute('questions', 'instructions', 4096, false);
   await safeCreateStringAttribute('questions', 'year', 10, false);
   await safeCreateStringAttribute('questions', 'subject', 255, false);
   await safeCreateStringAttribute('questions', 'type', 50, false);
@@ -121,7 +132,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('examAttempts', 'examId', 255, true);
   await safeCreateStringAttribute('examAttempts', 'studentId', 255, true);
   // answers required string (JSON encoded)
-  await safeCreateStringAttribute('examAttempts', 'answers', 10000, true);
+  await safeCreateStringAttribute('examAttempts', 'answers', 8192, true);
   await safeCreateIntegerAttribute('examAttempts', 'score', true);
   await safeCreateIntegerAttribute('examAttempts', 'totalQuestions', true);
   await safeCreateIntegerAttribute('examAttempts', 'correctAnswers', true);
