@@ -355,7 +355,7 @@ export const registerCBTRoutes = (app: any) => {
       // Check if user already has an active attempt (only for authenticated users)
       if (user?.$id) {
         const existingAttempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
-          Query.equal('userId', user.$id),
+          Query.equal('studentId', user.$id),
           Query.equal('examId', examId),
           Query.equal('status', 'in_progress'),
           Query.limit(1)
@@ -367,7 +367,6 @@ export const registerCBTRoutes = (app: any) => {
 
       // Create new attempt
       const attemptData = {
-        userId: user?.$id || 'guest',
         studentId: user?.$id || 'guest',
         examId: examId,
         status: 'in_progress',
@@ -402,7 +401,7 @@ export const registerCBTRoutes = (app: any) => {
       // Get the attempt
       const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
       
-      if (attempt.userId !== user.$id) {
+      if (attempt.studentId !== user.$id) {
         return res.status(403).json({ message: 'You can only submit your own attempts' });
       }
 
@@ -468,13 +467,13 @@ export const registerCBTRoutes = (app: any) => {
       const { studentId } = req.query;
       
       // If studentId is provided and user is admin/teacher, fetch for that student
-      let targetUserId = user.$id;
+      let targetStudentId = user.$id;
       if (studentId && (user as any)?.prefs?.role === 'admin') {
-        targetUserId = String(studentId);
+        targetStudentId = String(studentId);
       }
 
       const attempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
-        Query.equal('userId', targetUserId),
+        Query.equal('studentId', targetStudentId),
         Query.orderDesc('$createdAt'),
         Query.limit(100)
       ]);
@@ -952,7 +951,7 @@ export const registerCBTRoutes = (app: any) => {
       
       const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId));
       
-      if (attempt.userId !== user.$id) {
+      if (attempt.studentId !== user.$id) {
         return res.status(403).json({ message: 'You can only autosave your own attempts' });
       }
 
@@ -982,7 +981,7 @@ export const registerCBTRoutes = (app: any) => {
       const attempt: any = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
 
       // Check if user can view this attempt
-      if (attempt.userId !== sessionUser.$id && role !== 'admin' && role !== 'teacher') {
+      if (attempt.studentId !== sessionUser.$id && role !== 'admin' && role !== 'teacher') {
         return res.status(403).json({ message: 'You can only view your own attempts' });
       }
 
@@ -1039,7 +1038,7 @@ export const registerCBTRoutes = (app: any) => {
         attempt: {
           id: attempt.$id,
           examId: attempt.examId,
-          userId: attempt.userId,
+          studentId: attempt.studentId,
           status: attempt.status,
           score: attempt.score,
           totalQuestions: attempt.totalQuestions,
@@ -1093,7 +1092,7 @@ export const registerCBTRoutes = (app: any) => {
         return res.json({ classId, averageScore: 0, attemptCount: 0 });
       }
 
-      const studentIds = students.documents.map((s: any) => s.userId);
+      const studentIds = students.documents.map((s: any) => s.$id);
       
       // Get all attempts for these students
       const attempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
@@ -1102,7 +1101,7 @@ export const registerCBTRoutes = (app: any) => {
       ]);
 
       const classAttempts = attempts.documents.filter((attempt: any) => 
-        studentIds.includes(attempt.userId)
+        studentIds.includes(attempt.studentId)
       );
 
       if (classAttempts.length === 0) {
