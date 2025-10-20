@@ -30,7 +30,101 @@ const client = new Client()
 const databases = new Databases(client);
 const notificationService = new NotificationService(databases);
 
+// Ensure examAttempts collection has the attributes used by the CBT flows
+async function ensureExamAttemptAttributes() {
+  const dbId = APPWRITE_DATABASE_ID!;
+  const collectionId = 'examAttempts';
+
+  const safeCreateStringAttribute = async (
+    id: string,
+    size = 255,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore - SDK typing variations across versions
+      await databases.createStringAttribute(dbId, collectionId, id, size, required, undefined, array);
+    } catch (e: any) {
+      // Ignore permission errors in read-only environments and 409 conflicts
+      if (!(e && (e.code === 409 || e.code === 401))) {
+        // Swallow other errors to avoid blocking requests
+      }
+    }
+  };
+
+  const safeCreateIntegerAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createIntegerAttribute(dbId, collectionId, id, required, undefined, undefined, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateBooleanAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createBooleanAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateJsonAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createJsonAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateDatetimeAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createDatetimeAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  // Attributes referenced by CBT flows
+  await Promise.all([
+    safeCreateStringAttribute('status', 50, false, false), // 'in_progress' | 'completed'
+    safeCreateJsonAttribute('answers', false, false),
+    safeCreateDatetimeAttribute('startedAt', false, false),
+    safeCreateDatetimeAttribute('submittedAt', false, false),
+    safeCreateDatetimeAttribute('lastSavedAt', false, false),
+    safeCreateIntegerAttribute('percentage', false, false),
+    safeCreateBooleanAttribute('passed', false, false),
+    safeCreateStringAttribute('practiceYear', 10, false, false),
+    safeCreateStringAttribute('practicePaperType', 50, false, false),
+  ]);
+}
+
 export const registerCBTRoutes = (app: any) => {
+  // Best-effort schema ensure on startup (non-blocking)
+  void ensureExamAttemptAttributes();
   // Get exams (CBT focus). Supports filters and full pagination.
   // Make the general exams listing public to allow UI to render without auth
   app.get('/api/cbt/exams', validateQuery(examQuerySchema), async (req: Request, res: Response) => {
@@ -312,6 +406,8 @@ export const registerCBTRoutes = (app: any) => {
   // Public for practice-* examId (no access gate); still gated for real internal exams
   app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
+      // Ensure required attributes exist before any queries/creates that reference them
+      await ensureExamAttemptAttributes();
       const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const isPractice = String(examId).startsWith('practice-');
@@ -374,7 +470,6 @@ export const registerCBTRoutes = (app: any) => {
         subjects: subjects || [],
         practiceYear: year || undefined,
         practicePaperType: paperType || undefined,
-        answers: {},
         timeSpent: 0,
         totalQuestions: 0,
         correctAnswers: 0,
