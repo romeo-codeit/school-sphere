@@ -152,6 +152,22 @@ function coerceAnswersForStorage(input: any, attrType: 'json' | 'string' | null)
   }
 }
 
+// Read the 'examAttempts' collection attribute names; returns null on permission errors
+async function getExamAttemptAttributeSet(): Promise<Set<string> | null> {
+  try {
+    const coll: any = await databases.getCollection(APPWRITE_DATABASE_ID!, 'examAttempts');
+    const attrs: any[] = Array.isArray(coll?.attributes) ? coll.attributes : [];
+    const names = new Set<string>();
+    for (const a of attrs) {
+      const id = (a?.key ?? a?.id ?? a?.$id ?? '').toString();
+      if (id) names.add(id);
+    }
+    return names;
+  } catch {
+    return null;
+  }
+}
+
 export const registerCBTRoutes = (app: any) => {
   // Best-effort schema ensure on startup (non-blocking)
   void ensureExamAttemptAttributes();
@@ -492,24 +508,28 @@ export const registerCBTRoutes = (app: any) => {
         }
       }
 
-      // Create new attempt; support both JSON and STRING answers based on existing schema
+      // Create new attempt; support both JSON and STRING answers based on existing schema,
+      // and avoid sending attributes that don't exist in the target collection
+      const attrSet = await getExamAttemptAttributeSet();
       const baseAttempt = {
         studentId: user?.$id || 'guest',
         examId: examId,
-        status: 'in_progress',
-        startedAt: new Date().toISOString(),
-        subjects: subjects || [],
-        practiceYear: year || undefined,
-        practicePaperType: paperType || undefined,
-        timeSpent: 0,
-        totalQuestions: 0,
-        correctAnswers: 0,
-        score: 0,
-        percentage: 0,
+        ...(attrSet?.has('status') ? { status: 'in_progress' } : {}),
+        ...(attrSet?.has('startedAt') ? { startedAt: new Date().toISOString() } : {}),
+        ...(attrSet?.has('subjects') ? { subjects: subjects || [] } : {}),
+        ...(attrSet?.has('practiceYear') ? { practiceYear: year || undefined } : {}),
+        ...(attrSet?.has('practicePaperType') ? { practicePaperType: paperType || undefined } : {}),
+        // Required numeric fields per your schema definition
+        ...(attrSet?.has('timeSpent') ? { timeSpent: 0 } : {}),
+        ...(attrSet?.has('totalQuestions') ? { totalQuestions: 0 } : {}),
+        ...(attrSet?.has('correctAnswers') ? { correctAnswers: 0 } : {}),
+        ...(attrSet?.has('score') ? { score: 0 } : {}),
+        ...(attrSet?.has('percentage') ? { percentage: 0 } : {}),
       } as any;
 
-      const attemptWithJson = { ...baseAttempt, answers: {} };
-      const attemptWithString = { ...baseAttempt, answers: '{}' };
+      const answersAttrType = await getAnswersAttributeType();
+      const attemptWithJson = attrSet?.has('answers') ? { ...baseAttempt, answers: {} } : { ...baseAttempt };
+      const attemptWithString = attrSet?.has('answers') ? { ...baseAttempt, answers: '{}' } : { ...baseAttempt };
 
       let attempt: any;
       try {
@@ -542,7 +562,7 @@ export const registerCBTRoutes = (app: any) => {
         return res.status(403).json({ message: 'You can only submit your own attempts' });
       }
 
-      if (attempt.status !== 'in_progress') {
+      if (('status' in attempt) && attempt.status !== 'in_progress') {
         return res.status(400).json({ message: 'This attempt has already been submitted' });
       }
 
@@ -576,14 +596,16 @@ export const registerCBTRoutes = (app: any) => {
       // Update attempt
       const answersAttrType3 = await getAnswersAttributeType();
       const storedAnswers = coerceAnswersForStorage(answers, answersAttrType3);
+      const attrSetOnSubmit = await getExamAttemptAttributeSet();
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId, {
-        status: 'completed',
-        submittedAt: new Date().toISOString(),
-        answers: storedAnswers,
-        score: score,
-        totalQuestions: totalQuestions,
-        percentage: percentage,
-        passed: passed,
+        ...(attrSetOnSubmit?.has('status') ? { status: 'completed' } : {}),
+        ...(attrSetOnSubmit?.has('submittedAt') ? { submittedAt: new Date().toISOString() } : {}),
+        ...(attrSetOnSubmit?.has('completedAt') ? { completedAt: new Date().toISOString() } : {}),
+        ...(attrSetOnSubmit?.has('answers') ? { answers: storedAnswers } : {}),
+        ...(attrSetOnSubmit?.has('score') ? { score } : {}),
+        ...(attrSetOnSubmit?.has('totalQuestions') ? { totalQuestions } : {}),
+        ...(attrSetOnSubmit?.has('percentage') ? { percentage } : {}),
+        ...(attrSetOnSubmit?.has('passed') ? { passed } : {}),
       });
 
       try {
@@ -1094,16 +1116,17 @@ export const registerCBTRoutes = (app: any) => {
         return res.status(403).json({ message: 'You can only autosave your own attempts' });
       }
 
-      if (attempt.status !== 'in_progress') {
+      if (('status' in attempt) && attempt.status !== 'in_progress') {
         return res.status(400).json({ message: 'This attempt is no longer active' });
       }
 
       const answersAttrType2 = await getAnswersAttributeType();
+      const attrSetOnAutosave = await getExamAttemptAttributeSet();
       const nextAnswers = typeof answers === 'undefined' ? attempt.answers : coerceAnswersForStorage(answers, answersAttrType2);
       const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId), {
-        answers: nextAnswers,
-        timeSpent: timeSpent || attempt.timeSpent || 0,
-        lastSavedAt: new Date().toISOString(),
+        ...(attrSetOnAutosave?.has('answers') ? { answers: nextAnswers } : {}),
+        ...(attrSetOnAutosave?.has('timeSpent') ? { timeSpent: timeSpent || attempt.timeSpent || 0 } : {}),
+        ...(attrSetOnAutosave?.has('lastSavedAt') ? { lastSavedAt: new Date().toISOString() } : {}),
       });
 
       res.json({ ok: true, attempt: updated });
