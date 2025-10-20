@@ -113,7 +113,8 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No /api/cbt/exams/assigned route.
 
   // Get available exams (practice hub), subscription-gated for standardized types
-  app.get('/api/cbt/exams/available', auth, async (req: Request, res: Response) => {
+  // Make available exams listing require only a basic session (or relax entirely if needed)
+  app.get('/api/cbt/exams/available', sessionAuth, async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
@@ -515,7 +516,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available subjects (derived from exams collection)
-  app.get('/api/cbt/subjects/available', sessionAuth, validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
+  // Make subjects listing public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
   const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
@@ -552,7 +554,6 @@ export const registerCBTRoutes = (app: any) => {
           const docType = String((doc as any).type || '').toLowerCase();
           const titleLower = String((doc as any).title || '').toLowerCase();
           if (!(docType === type || titleLower.includes(type))) continue;
-          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
           const subjRaw = String((doc as any).subject || '').trim();
           if (!subjRaw) continue;
           const key = isEnglish(subjRaw) ? 'english' : normalizeKey(subjRaw);
@@ -574,7 +575,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available years (union across selected subjects) derived from exams
-  app.get('/api/cbt/years/available', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Make years listing public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
   const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
@@ -629,7 +631,7 @@ export const registerCBTRoutes = (app: any) => {
             const docType = normalize((doc as any).type || '');
             const titleLower = normalize((doc as any).title || '');
             if (!(docType === type || titleLower.includes(type))) continue;
-            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            // Do not filter by exam-level paper_type; many datasets store per-question only
             const subj = canonicalSubject((doc as any).subject || '');
             const year = String((doc as any).year || '').trim();
             if (!year) continue;
@@ -677,7 +679,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get year availability per subject (array of entries) derived from exams
-  app.get('/api/cbt/years/availability', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Make years availability public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
@@ -727,7 +730,7 @@ export const registerCBTRoutes = (app: any) => {
             const docType = normalize((doc as any).type || '');
             const titleLower = normalize((doc as any).title || '');
             if (!(docType === type || titleLower.includes(type))) continue;
-            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            // Do not filter by exam-level paper_type; many datasets store per-question only
             const subj = canonicalSubject((doc as any).subject || '');
             const year = String((doc as any).year || '').trim();
             if (!year || !subjectFilters.includes(subj)) continue;
