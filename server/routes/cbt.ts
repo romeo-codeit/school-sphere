@@ -312,7 +312,7 @@ export const registerCBTRoutes = (app: any) => {
   // Public for practice-* examId (no access gate); still gated for real internal exams
   app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
-      const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
+      const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const isPractice = String(examId).startsWith('practice-');
 
@@ -338,19 +338,31 @@ export const registerCBTRoutes = (app: any) => {
         }
       }
 
-      // Get exam details
-      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      // Get exam details or synthesize practice exam metadata
+      let exam: any = null;
+      if (isPractice) {
+        // synthesize a minimal exam-like record for practice flows
+        exam = {
+          $id: examId,
+          type: String(examId.replace('practice-', '')).toLowerCase(),
+          subject: (subjects || []).join(', '),
+          year: year || 'Mixed',
+        };
+      } else {
+        exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      }
       
-      // Check if user already has an active attempt
-      const existingAttempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
-        Query.equal('userId', user.$id),
-        Query.equal('examId', examId),
-        Query.equal('status', 'in_progress'),
-        Query.limit(1)
-      ]);
-
-      if (existingAttempts.documents.length > 0) {
-        return res.status(400).json({ message: 'You already have an active attempt for this exam' });
+      // Check if user already has an active attempt (only for authenticated users)
+      if (user?.$id) {
+        const existingAttempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
+          Query.equal('userId', user.$id),
+          Query.equal('examId', examId),
+          Query.equal('status', 'in_progress'),
+          Query.limit(1)
+        ]);
+        if (existingAttempts.documents.length > 0) {
+          return res.status(400).json({ message: 'You already have an active attempt for this exam' });
+        }
       }
 
       // Create new attempt
@@ -360,6 +372,8 @@ export const registerCBTRoutes = (app: any) => {
         status: 'in_progress',
         startedAt: new Date().toISOString(),
         subjects: subjects || [],
+        practiceYear: year || undefined,
+        practicePaperType: paperType || undefined,
         answers: {},
         timeSpent: 0,
       };
