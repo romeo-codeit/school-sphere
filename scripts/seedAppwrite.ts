@@ -25,6 +25,23 @@ if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY || !APPWRITE
 
 const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID).setKey(APPWRITE_API_KEY);
 const databases = new Databases(client);
+const ALLOW_WRITE = process.env.APPWRITE_ALLOW_WRITE === 'true';
+if (!ALLOW_WRITE) {
+  console.warn('APPWRITE_ALLOW_WRITE is not set to "true" — running in DRY-RUN mode. No changes will be made. Set APPWRITE_ALLOW_WRITE=true to apply changes.');
+}
+const db: any = ALLOW_WRITE
+  ? databases
+  : new Proxy({}, {
+      get(_, prop: string) {
+        return async (...args: any[]) => {
+          // Emulate common return shapes used in this script
+          console.log(`[DRY-RUN] ${prop} called with`, args.map(a => (typeof a === 'object' ? JSON.stringify(a).slice(0, 200) : a)));
+          if (prop === 'listDocuments') return { total: 0, documents: [] };
+          if (prop === 'createDocument') return { $id: `dry-${ID.unique()}` };
+          return {};
+        };
+      }
+    });
 const users = new Users(client);
 
 // Small helper delays to be kind to Appwrite limits
@@ -47,15 +64,15 @@ async function safeCreateDatetimeAttribute(collectionId: string, id: string, req
   try { /* @ts-ignore */ await databases.createDatetimeAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409) throw e; }
 }
 async function safeCreateIndex(collectionId: string, name: string, attributes: string[], orders: ("ASC"|"DESC")[] = []) {
-  try { /* @ts-ignore */ await databases.createIndex(APPWRITE_DATABASE_ID, collectionId, name, 'key', attributes, orders.length ? orders : attributes.map(()=>'ASC')); } catch (e: any) { if (e.code !== 409) throw e; }
+  try { /* @ts-ignore */ await db.createIndex(APPWRITE_DATABASE_ID, collectionId, name, 'key' as any, attributes, orders.length ? orders : attributes.map(()=>'ASC')); } catch (e: any) { if (e.code !== 409) throw e; }
 }
 
 async function ensureCollection(id: string, name: string, perms: any[] = [Permission.read(Role.any()), Permission.create(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]) {
   try {
-    await databases.getCollection(APPWRITE_DATABASE_ID, id);
+    await db.getCollection(APPWRITE_DATABASE_ID, id);
   } catch (e: any) {
     if (e.code === 404) {
-      await databases.createCollection(APPWRITE_DATABASE_ID, id, name, perms);
+  await db.createCollection(APPWRITE_DATABASE_ID, id, name, perms);
       // Wait a moment for the collection to be ready for attributes
       await delay(500);
     } else if (e.code !== 401) {
@@ -76,6 +93,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('exams', 'search', 1024, false);
   await safeCreateDatetimeAttribute('exams', 'createdAt', false);
   await safeCreateBooleanAttribute('exams', 'isActive', false);
+  await delay(500);
   await safeCreateIndex('exams', 'idx_title', ['title']);
   await safeCreateIndex('exams', 'idx_type_subject_year', ['type','subject','year']);
 
@@ -95,6 +113,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('questions', 'subject', 255, false);
   await safeCreateStringAttribute('questions', 'type', 50, false);
   await safeCreateStringAttribute('questions', 'paper_type', 50, false);
+  await delay(500);
   await safeCreateIndex('questions', 'idx_exam_qnum', ['examId','questionNumber']);
 
   // Exam Attempts (align to current backend/frontend expectations and your description)
@@ -117,6 +136,7 @@ async function ensureAllCollections() {
   await safeCreateDatetimeAttribute('examAttempts', 'lastSavedAt', false);
   await safeCreateIntegerAttribute('examAttempts', 'percentage', false);
   await safeCreateBooleanAttribute('examAttempts', 'passed', false);
+  await delay(500);
   await safeCreateIndex('examAttempts', 'idx_student_exam', ['studentId','examId']);
 
   // Other app collections referenced by the app (expanded to full set)
@@ -125,6 +145,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('userProfiles', 'role', 50, false);
   await safeCreateStringAttribute('userProfiles', 'subscriptionStatus', 50, false);
   await safeCreateDatetimeAttribute('userProfiles', 'subscriptionExpiry', false);
+  await delay(500);
   await safeCreateIndex('userProfiles', 'idx_userId', ['userId']);
 
   await ensureCollection('userSubscriptions', 'User Subscriptions');
@@ -137,6 +158,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('userSubscriptions', 'paymentHistory', 4096, false);
   await safeCreateDatetimeAttribute('userSubscriptions', 'createdAt', false);
   await safeCreateDatetimeAttribute('userSubscriptions', 'updatedAt', false);
+  await delay(500);
   await safeCreateIndex('userSubscriptions', 'idx_user', ['userId']);
 
   await ensureCollection('userProfileExtras', 'User Profile Extras');
@@ -144,6 +166,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('userProfileExtras', 'extra', 4096, false);
   await safeCreateDatetimeAttribute('userProfileExtras', 'createdAt', false);
   await safeCreateDatetimeAttribute('userProfileExtras', 'updatedAt', false);
+  await delay(500);
 
   await ensureCollection('userSettings', 'User Settings');
   await safeCreateStringAttribute('userSettings', 'userId', 255, true);
@@ -152,17 +175,20 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('userSettings', 'primaryColor', 255, false);
   await safeCreateBooleanAttribute('userSettings', 'twoFactorEnabled', false);
   await safeCreateStringAttribute('userSettings', 'sessions', 4096, false);
+  await delay(500);
 
   await ensureCollection('students', 'Students');
   await safeCreateStringAttribute('students', 'userId', 255, false);
   await safeCreateStringAttribute('students', 'classId', 255, false);
   await safeCreateStringAttribute('students', 'firstName', 255, false);
   await safeCreateStringAttribute('students', 'lastName', 255, false);
+  await delay(500);
   await safeCreateIndex('students', 'idx_user', ['userId']);
 
   await ensureCollection('teachers', 'Teachers');
   await safeCreateStringAttribute('teachers', 'userId', 255, false);
   await safeCreateStringAttribute('teachers', 'employeeId', 255, true);
+  await delay(500);
 
   await ensureCollection('messages', 'Messages');
   await safeCreateStringAttribute('messages', 'senderId', 255, false);
@@ -171,6 +197,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('messages', 'subject', 255, false);
   await safeCreateStringAttribute('messages', 'content', 1024, true);
   await safeCreateStringAttribute('messages', 'messageType', 50, false);
+  await delay(500);
   await safeCreateIndex('messages', 'idx_recipient', ['recipientId','isRead']);
 
   await ensureCollection('notifications', 'Notifications');
@@ -179,6 +206,7 @@ async function ensureAllCollections() {
   await safeCreateBooleanAttribute('notifications', 'isRead', false);
   await safeCreateStringAttribute('notifications', 'link', 255, false);
   await safeCreateStringAttribute('notifications', 'search', 1024, false);
+  await delay(500);
 
   await ensureCollection('conversations', 'Conversations');
   await safeCreateStringAttribute('conversations', 'members', 255, true, true);
@@ -186,34 +214,40 @@ async function ensureAllCollections() {
   await safeCreateDatetimeAttribute('conversations', 'lastActivity', true);
   await safeCreateBooleanAttribute('conversations', 'isGroup', true);
   await safeCreateStringAttribute('conversations', 'name', 255, false);
+  await delay(500);
 
   await ensureCollection('chatMessages', 'Chat Messages');
   await safeCreateStringAttribute('chatMessages', 'conversationId', 255, true);
   await safeCreateStringAttribute('chatMessages', 'senderId', 255, true);
   await safeCreateStringAttribute('chatMessages', 'content', 1024, true);
   await safeCreateStringAttribute('chatMessages', 'readBy', 255, false, true);
+  await delay(500);
 
   await ensureCollection('forumThreads', 'Forum Threads');
   await safeCreateStringAttribute('forumThreads', 'title', 255, false);
   await safeCreateStringAttribute('forumThreads', 'content', 1024, true);
   await safeCreateStringAttribute('forumThreads', 'createdBy', 255, true);
   await safeCreateStringAttribute('forumThreads', 'parentThreadId', 255, false);
+  await delay(500);
 
   await ensureCollection('attendance', 'Attendance');
   await safeCreateStringAttribute('attendance', 'classId', 255, true);
   await safeCreateStringAttribute('attendance', 'date', 255, true);
+  await delay(500);
 
   await ensureCollection('attendanceRecords', 'Attendance Records');
   await safeCreateStringAttribute('attendanceRecords', 'classId', 255, true);
   await safeCreateStringAttribute('attendanceRecords', 'date', 255, true);
   await safeCreateStringAttribute('attendanceRecords', 'studentId', 255, true);
   await safeCreateStringAttribute('attendanceRecords', 'status', 50, true);
+  await delay(500);
   await safeCreateIndex('attendanceRecords', 'idx_class_date', ['classId','date']);
 
   await ensureCollection('activities', 'Activities');
   await safeCreateStringAttribute('activities', 'activity', 255, true);
   await safeCreateStringAttribute('activities', 'date', 255, true);
   await safeCreateStringAttribute('activities', 'type', 50, true);
+  await delay(500);
 
   await ensureCollection('resources', 'Resources');
   await safeCreateStringAttribute('resources', 'title', 255, true);
@@ -226,6 +260,7 @@ async function ensureAllCollections() {
   await safeCreateIntegerAttribute('resources', 'downloads', false);
   await safeCreateStringAttribute('resources', 'uploadedBy', 255, false);
   await safeCreateBooleanAttribute('resources', 'isPublic', false);
+  await delay(500);
   await safeCreateIndex('resources', 'idx_subject_type', ['subject','type']);
 
   await ensureCollection('grades', 'Grades');
@@ -239,6 +274,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('grades', 'academicYear', 255, false);
   await safeCreateStringAttribute('grades', 'teacherId', 255, false);
   await safeCreateStringAttribute('grades', 'remarks', 1024, false);
+  await delay(500);
 
   await ensureCollection('payments', 'Payments');
   await safeCreateStringAttribute('payments', 'studentId', 255, false);
@@ -251,17 +287,20 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('payments', 'transactionId', 255, false);
   await safeCreateStringAttribute('payments', 'term', 255, false);
   await safeCreateStringAttribute('payments', 'academicYear', 255, false);
+  await delay(500);
 
   await ensureCollection('notices', 'Notices');
   await safeCreateStringAttribute('notices', 'activity', 1024, true);
   await safeCreateStringAttribute('notices', 'date', 255, true);
   await safeCreateStringAttribute('notices', 'category', 255, false);
   await safeCreateStringAttribute('notices', 'search', 1024, false);
+  await delay(500);
 
   await ensureCollection('subjects', 'Subjects');
   await safeCreateStringAttribute('subjects', 'name', 255, true);
   await safeCreateStringAttribute('subjects', 'description', 1024, false);
   await safeCreateStringAttribute('subjects', 'search', 1024, false);
+  await delay(500);
 
   await ensureCollection('school', 'School');
   await safeCreateStringAttribute('school', 'schoolName', 255, true);
@@ -272,16 +311,19 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('school', 'motto', 255, false);
   await safeCreateStringAttribute('school', 'currentTerm', 255, false);
   await safeCreateStringAttribute('school', 'academicYear', 255, false);
+  await delay(500);
 
   await ensureCollection('classes', 'Classes');
   await safeCreateStringAttribute('classes', 'name', 255, true);
   await safeCreateStringAttribute('classes', 'description', 1024, false);
   await safeCreateStringAttribute('classes', 'search', 1024, false);
   await safeCreateStringAttribute('classes', 'teacherId', 255, false);
+  await delay(500);
 
   await ensureCollection('teachersToClasses', 'Teachers To Classes');
   await safeCreateStringAttribute('teachersToClasses', 'teacherId', 255, true);
   await safeCreateStringAttribute('teachersToClasses', 'classId', 255, true);
+  await delay(500);
 
   await ensureCollection('videoMeetings', 'Video Meetings');
   await safeCreateStringAttribute('videoMeetings', 'topic', 255, true);
@@ -292,6 +334,7 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('videoMeetings', 'teacherId', 255, false);
   await safeCreateBooleanAttribute('videoMeetings', 'isActive', false);
   await safeCreateIntegerAttribute('videoMeetings', 'participantCount', false);
+  await delay(500);
 
   await ensureCollection('activationCodes', 'Activation Codes');
   await safeCreateStringAttribute('activationCodes', 'code', 255, true);
@@ -302,12 +345,14 @@ async function ensureAllCollections() {
   await safeCreateDatetimeAttribute('activationCodes', 'expiresAt', false);
   await safeCreateDatetimeAttribute('activationCodes', 'createdAt', false);
   await safeCreateDatetimeAttribute('activationCodes', 'usedAt', false);
+  await delay(500);
   await safeCreateIndex('activationCodes', 'idx_code', ['code']);
   await safeCreateIndex('activationCodes', 'idx_status', ['status']);
 
   await ensureCollection('examAssignments', 'Exam Assignments');
   await safeCreateStringAttribute('examAssignments', 'examId', 255, true);
   await safeCreateStringAttribute('examAssignments', 'userId', 255, true);
+  await delay(500);
   await safeCreateIndex('examAssignments', 'idx_exam_user', ['examId','userId']);
 }
 
@@ -378,13 +423,13 @@ async function seedPastQuestions() {
     // Create/Find exam
     let examId: string | null = null;
     try {
-      const existing = await databases.listDocuments(APPWRITE_DATABASE_ID, 'exams', [Query.equal('title', title), Query.limit(1)]);
+    const existing = await db.listDocuments(APPWRITE_DATABASE_ID, 'exams', [Query.equal('title', title), Query.limit(1)]);
       if (existing.total > 0) {
         examId = existing.documents[0].$id;
       }
     } catch {}
     if (!examId) {
-      const examDoc = await databases.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
+  const examDoc = await db.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
         title,
         type,
         subject,
@@ -405,12 +450,12 @@ async function seedPastQuestions() {
       const qRaw = questionsArray[i];
       const q = mapRawQuestion(qRaw, i);
       try {
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
+  await db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
         created++;
       } catch (e: any) {
         // If attribute limit or rate limit, delay and retry once
         await delay(50);
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
+  await db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
         created++;
       }
       if (i % 50 === 0) await delay(80); // small pacing for Appwrite Cloud limits
@@ -424,7 +469,7 @@ async function seedPastQuestions() {
 async function seedBaseData() {
   // Basic school, classes, subjects, sample staff/students
   try {
-    const sch = await databases.listDocuments(APPWRITE_DATABASE_ID, 'school', [Query.limit(1)]);
+  const sch = await db.listDocuments(APPWRITE_DATABASE_ID, 'school', [Query.limit(1)]);
     if (sch.total === 0) {
       await databases.createDocument(APPWRITE_DATABASE_ID, 'school', ID.unique(), { schoolName: 'Ohman Foundation School', motto: 'Excellence and Integrity', academicYear: String(new Date().getFullYear()) });
     }
@@ -432,7 +477,7 @@ async function seedBaseData() {
   const classNames = ['JSS 1','JSS 2','JSS 3','SS 1 Science','SS 1 Arts','SS 1 Commercial','SS 2 Science','SS 2 Arts','SS 2 Commercial','SS 3 Science','SS 3 Arts','SS 3 Commercial'];
   let classes: any[] = [];
   try {
-    const page = await databases.listDocuments(APPWRITE_DATABASE_ID, 'classes', [Query.limit(100)]);
+  const page = await db.listDocuments(APPWRITE_DATABASE_ID, 'classes', [Query.limit(100)]);
     classes = page.documents;
     if (page.total === 0) {
       for (const name of classNames) {
@@ -443,7 +488,7 @@ async function seedBaseData() {
     }
   } catch {}
   try {
-    const subj = await databases.listDocuments(APPWRITE_DATABASE_ID, 'subjects', [Query.limit(1)]);
+  const subj = await db.listDocuments(APPWRITE_DATABASE_ID, 'subjects', [Query.limit(1)]);
     if (subj.total === 0) {
       const pqDir = path.join(process.cwd(), 'client', 'src', 'assets', 'past_questions');
       const found = new Set<string>();
@@ -460,13 +505,13 @@ async function seedBaseData() {
     }
   } catch {}
   try {
-    const t = await databases.listDocuments(APPWRITE_DATABASE_ID, 'teachers', [Query.limit(1)]);
+  const t = await db.listDocuments(APPWRITE_DATABASE_ID, 'teachers', [Query.limit(1)]);
     if (t.total === 0) {
       await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), { employeeId: 'T-001', firstName: 'Ada', lastName: 'Obi', subjects: ['Mathematics'] });
     }
   } catch {}
   try {
-    const s = await databases.listDocuments(APPWRITE_DATABASE_ID, 'students', [Query.limit(1)]);
+  const s = await db.listDocuments(APPWRITE_DATABASE_ID, 'students', [Query.limit(1)]);
     if (s.total === 0 && classes.length > 0) {
       const classId = classes[0].$id;
       for (const st of [{ firstName: 'Chinedu', lastName: 'Okafor' },{ firstName: 'Nkechi', lastName: 'Eze' }]) {
