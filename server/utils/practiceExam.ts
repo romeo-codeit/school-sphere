@@ -49,11 +49,7 @@ export async function fetchPracticeExamQuestions(
 
   // Build database queries, filter type in-memory to be resilient to data variants
   const examQueries: any[] = [];
-
-  // Add year filter if specified
-  if (yearParam) {
-    examQueries.push(Query.equal('year', yearParam));
-  }
+  // Do NOT filter by year at the exam level. Many datasets keep year on questions.
 
   // IMPORTANT: Do NOT filter by paper type at the exam level.
   // Many datasets store paper type per-question, not per-exam. We will
@@ -94,10 +90,20 @@ export async function fetchPracticeExamQuestions(
   const questionPromises = matchingExams.map(async (exam) => {
     const questions: any[] = [];
 
+    const matchYear = (q: any): boolean => {
+      if (!yearParam) return true;
+      const qYear = String(
+        (q?.year ?? q?.questionYear ?? q?.metadata?.year ?? (exam as any)?.year ?? '')
+      ).trim();
+      return qYear === String(yearParam).trim();
+    };
+
     // Check if exam has embedded questions
     if (Array.isArray((exam as any).questions) && (exam as any).questions.length > 0) {
       const examSubjectRaw = String((exam as any).subject || '');
       for (const q of (exam as any).questions) {
+        // Filter by requested year at question level (or fallback to exam.year)
+        if (!matchYear(q)) continue;
         // Filter by requested paper type at question level
         if (requestedPaperType) {
           const qPt = resolveQuestionPaperType(q);
@@ -134,6 +140,8 @@ export async function fetchPracticeExamQuestions(
 
         const examSubjectRaw = String((exam as any).subject || '');
         for (const q of qRes.documents) {
+          // Filter by requested year at question level (or fallback to exam.year)
+          if (!matchYear(q)) continue;
           if (requestedPaperType) {
             const qPt = resolveQuestionPaperType(q);
             if (qPt !== requestedPaperType) continue;
@@ -164,6 +172,58 @@ export async function fetchPracticeExamQuestions(
   const questionArrays = await Promise.all(questionPromises);
   for (const qArray of questionArrays) {
     allQuestions.push(...qArray);
+  }
+
+  // Fallback: If no questions found via exam linkage, query questions directly by type
+  // and filter in-memory by subject/year/paper type. This covers datasets where
+  // questions are not linked to exams via examId.
+  if (allQuestions.length === 0) {
+    const subjectKeySet = new Set(canonicalSelectedSubjects);
+    let offset = 0;
+    while (true) {
+      // Minimal DB filters to avoid excluding data; filter in-memory below
+      const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+        Query.limit(100),
+        Query.offset(offset),
+      ]);
+      const docs = page.documents || [];
+      if (docs.length === 0) break;
+
+      for (const q of docs) {
+        const subjRaw = String((q as any).subject || '').trim();
+        const subjKey = canonicalSubject(subjRaw);
+        if (!subjectKeySet.has(subjKey)) continue;
+        // Year filter (in-memory)
+        if (yearParam) {
+          const qYear = String((q as any).year || (q as any).questionYear || '').trim();
+          if (qYear !== String(yearParam).trim()) continue;
+        }
+        // Type filter (best-effort; accept if missing)
+        const qTypeRaw = String((q as any).type || (q as any).examType || (q as any).source || '').toLowerCase();
+        if (qTypeRaw && !(qTypeRaw === type || qTypeRaw.includes(type))) continue;
+        // Paper type filter (question-level)
+        if (requestedPaperType) {
+          const qPt = resolveQuestionPaperType(q);
+          if (qPt !== requestedPaperType) continue;
+        }
+        const text = (q as any).question ?? (q as any).questionText ?? (q as any).text ?? '';
+        const opts = (q as any).options ?? [];
+        const correct = (q as any).correctAnswer ?? (q as any).answer ?? '';
+        const mapped = {
+          question: text,
+          options: opts,
+          correctAnswer: correct,
+          explanation: (q as any).explanation ?? undefined,
+          imageUrl: toCDNUrl((q as any).imageUrl ?? (q as any).image),
+          answerUrl: (q as any).answerUrl ?? (q as any).answer_url ?? undefined,
+          subject: (subjKey === 'english') ? 'English' : subjRaw,
+        };
+        allQuestions.push(mapped);
+      }
+
+      offset += docs.length;
+      if (offset >= (page.total || offset)) break;
+    }
   }
 
   return allQuestions;
