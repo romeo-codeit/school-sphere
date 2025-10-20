@@ -216,29 +216,41 @@ function ExamsPage() {
     // The backend will handle generating questions from multiple subjects
     const practiceType = subjectSelectionExam.type; // 'jamb' | 'waec' | 'neco'
     
-    startAttemptMutation.mutate(
-      { 
-        examId: 'practice-' + practiceType, // Synthetic ID for practice sessions
-        subjects: selectedSubjects 
-      },
-      {
-        onSuccess: (attempt) => {
-          setSubjectSelectionExam(null);
-          // Navigate to a practice session route
-          const yearQuery = extras?.year ? `&year=${encodeURIComponent(extras.year)}` : '';
-          const typeSlug = extras?.paperType === 'objective' ? 'obj' : extras?.paperType; // map to Appwrite values
-          const typeQuery = typeSlug ? `&paperType=${encodeURIComponent(typeSlug)}` : '';
-          navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}${yearQuery}${typeQuery}`);
+    try {
+      startAttemptMutation.mutate(
+        { 
+          examId: 'practice-' + practiceType, // Synthetic ID for practice sessions
+          subjects: selectedSubjects,
+          year: extras?.year,
+          paperType: extras?.paperType
         },
-        onError: (err: any) => {
-          toast({
-            variant: 'destructive',
-            title: 'Error',
-            description: err?.message || 'Failed to start practice session',
-          });
-        },
-      }
-    );
+        {
+          onSuccess: (attempt) => {
+            setSubjectSelectionExam(null);
+            // Navigate to a practice session route
+            const yearQuery = extras?.year ? `&year=${encodeURIComponent(extras.year)}` : '';
+            const typeSlug = extras?.paperType === 'objective' ? 'obj' : extras?.paperType; // map to Appwrite values
+            const typeQuery = typeSlug ? `&paperType=${encodeURIComponent(typeSlug)}` : '';
+            navigate(`/exams/practice/${practiceType}?attemptId=${attempt.$id}&subjects=${selectedSubjects.join(',')}${yearQuery}${typeQuery}`);
+          },
+          onError: (err: any) => {
+            console.error('Failed to start practice session:', err);
+            toast({
+              variant: 'destructive',
+              title: 'Error',
+              description: err?.message || 'Failed to start practice session. Please try again.',
+            });
+          },
+        }
+      );
+    } catch (error) {
+      console.error('Error in subject selection confirm:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'An unexpected error occurred. Please try again.',
+      });
+    }
   };
 
   const handlePreviewExam = (exam: any) => {

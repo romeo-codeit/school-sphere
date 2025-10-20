@@ -69,29 +69,45 @@ export function useAvailableSubjects(type?: string, paperType?: 'objective' | 't
       const pt = paperType === 'objective' ? 'obj' : paperType;
       let jwt = await getJWT();
       const url = `${API_BASE}/subjects/available?type=${encodeURIComponent(String(type))}${pt ? `&paperType=${encodeURIComponent(pt)}` : ''}`;
-      let res = await fetch(url , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-        credentials: 'include',
-      });
-      if (res.status === 401) {
-        try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(url , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
+      
+      try {
+        let res = await fetch(url, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+          credentials: 'include',
+        });
+        
+        if (res.status === 401) {
+          // Try to refresh JWT and retry
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              res = await fetch(url, {
+                headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+                credentials: 'include',
+              });
+            }
+          } catch (refreshError) {
+            console.warn('Failed to refresh JWT, continuing without auth', refreshError);
           }
-        } catch {}
+        }
+        
+        if (!res.ok) {
+          // Return empty result instead of throwing error
+          console.warn(`Failed to fetch subjects: ${res.status} ${res.statusText}`);
+          return { subjects: [] };
+        }
+        
+        return (await res.json()) as { subjects: string[] };
+      } catch (error) {
+        console.warn('Error fetching subjects, returning empty result', error);
+        return { subjects: [] };
       }
-      if (!res.ok) throw new Error('Failed to fetch available subjects');
-      return (await res.json()) as { subjects: string[] };
     },
   });
 }
@@ -107,29 +123,43 @@ export function useAvailableYears(type?: string, subjectsCsv?: string, enabled =
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
       if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
-      let res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-        credentials: 'include',
-      });
-      if (res.status === 401) {
-        try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(`${API_BASE}/years/available?${params.toString()}` , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
+      
+      try {
+        let res = await fetch(`${API_BASE}/years/available?${params.toString()}`, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+          credentials: 'include',
+        });
+        
+        if (res.status === 401) {
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              res = await fetch(`${API_BASE}/years/available?${params.toString()}`, {
+                headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+                credentials: 'include',
+              });
+            }
+          } catch (refreshError) {
+            console.warn('Failed to refresh JWT, continuing without auth', refreshError);
           }
-        } catch {}
+        }
+        
+        if (!res.ok) {
+          console.warn(`Failed to fetch years: ${res.status} ${res.statusText}`);
+          return { years: [] };
+        }
+        
+        return (await res.json()) as { years: string[] };
+      } catch (error) {
+        console.warn('Error fetching years, returning empty result', error);
+        return { years: [] };
       }
-      if (!res.ok) throw new Error('Failed to fetch available years');
-      return (await res.json()) as { years: string[] };
     },
   });
 }
@@ -145,36 +175,50 @@ export function useYearAvailability(type?: string, subjectsCsv?: string, enabled
       if (type) params.set('type', String(type));
       if (subjectsCsv) params.set('subjects', String(subjectsCsv));
       if (paperType) params.set('paperType', paperType === 'objective' ? 'obj' : paperType);
-      let res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-        credentials: 'include',
-      });
-      if (res.status === 401) {
-        try {
-          const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-          if (token) {
-            await fetch('/api/auth/jwt-cookie', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ jwt: token }),
-              credentials: 'include',
-            });
-            res = await fetch(`${API_BASE}/years/availability?${params.toString()}` , {
-              headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-              credentials: 'include',
-            });
+      
+      try {
+        let res = await fetch(`${API_BASE}/years/availability?${params.toString()}`, {
+          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+          credentials: 'include',
+        });
+        
+        if (res.status === 401) {
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              res = await fetch(`${API_BASE}/years/availability?${params.toString()}`, {
+                headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+                credentials: 'include',
+              });
+            }
+          } catch (refreshError) {
+            console.warn('Failed to refresh JWT, continuing without auth', refreshError);
           }
-        } catch {}
+        }
+        
+        if (!res.ok) {
+          console.warn(`Failed to fetch year availability: ${res.status} ${res.statusText}`);
+          return { availability: [] };
+        }
+        
+        return (await res.json()) as { 
+          availability: Array<{
+            year: string;
+            subjects: string[];
+            availableCount: number;
+            totalCount: number;
+          }>
+        };
+      } catch (error) {
+        console.warn('Error fetching year availability, returning empty result', error);
+        return { availability: [] };
       }
-      if (!res.ok) throw new Error('Failed to fetch year availability');
-      return (await res.json()) as { 
-        availability: Array<{
-          year: string;
-          subjects: string[];
-          availableCount: number;
-          totalCount: number;
-        }>
-      };
     },
   });
 }
@@ -211,21 +255,59 @@ export function useValidateSubjects() {
 export function useStartAttempt() {
   const { getJWT } = useAuth();
   return useMutation({
-    mutationFn: async (payload: { examId: string; subjects?: string[] }) => {
+    mutationFn: async (payload: { examId: string; subjects?: string[]; year?: string; paperType?: string }) => {
       const jwt = await getJWT();
       const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(`${API_BASE}/attempts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
-        },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || 'Failed to start attempt');
-      return data;
+      
+      try {
+        const res = await fetch(`${API_BASE}/attempts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+            ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
+          },
+          body: JSON.stringify(payload),
+          credentials: 'include',
+        });
+        
+        if (res.status === 401) {
+          // Try to refresh JWT and retry
+          try {
+            const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
+            if (token) {
+              await fetch('/api/auth/jwt-cookie', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jwt: token }),
+                credentials: 'include',
+              });
+              const retryRes = await fetch(`${API_BASE}/attempts`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+                  ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
+                },
+                body: JSON.stringify(payload),
+                credentials: 'include',
+              });
+              const retryData = await retryRes.json();
+              if (!retryRes.ok) throw new Error(retryData?.message || 'Failed to start attempt');
+              return retryData;
+            }
+          } catch (refreshError) {
+            console.warn('Failed to refresh JWT for attempt start', refreshError);
+          }
+        }
+        
+        const data = await res.json();
+        if (!res.ok) throw new Error(data?.message || 'Failed to start attempt');
+        return data;
+      } catch (error) {
+        console.error('Error starting attempt:', error);
+        throw error;
+      }
     },
   });
 }
