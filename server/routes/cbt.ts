@@ -32,7 +32,8 @@ const notificationService = new NotificationService(databases);
 
 export const registerCBTRoutes = (app: any) => {
   // Get exams (CBT focus). Supports filters and full pagination.
-  app.get('/api/cbt/exams', auth, validateQuery(examQuerySchema), async (req: Request, res: Response) => {
+  // Make the general exams listing public to allow UI to render without auth
+  app.get('/api/cbt/exams', validateQuery(examQuerySchema), async (req: Request, res: Response) => {
     try {
       const limitParam = String(req.query.limit || '50');
       const withQuestions = req.query.withQuestions !== 'false'; // default true
@@ -113,7 +114,8 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No /api/cbt/exams/assigned route.
 
   // Get available exams (practice hub), subscription-gated for standardized types
-  app.get('/api/cbt/exams/available', auth, async (req: Request, res: Response) => {
+  // Make available exams listing require only a basic session (or relax entirely if needed)
+  app.get('/api/cbt/exams/available', sessionAuth, async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
@@ -177,7 +179,9 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get specific exam with questions
-  app.get('/api/cbt/exams/:id', auth, async (req: Request, res: Response) => {
+  // Allow practice exam generation without strict auth; real internal exams still require auth when starting attempts
+  // Public: practice exams must be retrievable without auth
+  app.get('/api/cbt/exams/:id', async (req: Request, res: Response) => {
     try {
       const examId = String(req.params.id || '').trim();
       logDebug('GET /api/cbt/exams/:id', { id: examId });
@@ -305,50 +309,78 @@ export const registerCBTRoutes = (app: any) => {
   // NOTE: Assigned exams concept removed. No assign/unassign routes.
 
   // Start exam attempt
-  app.post('/api/cbt/attempts', auth, validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
+  // Public for practice-* examId (no access gate); still gated for real internal exams
+  app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
-      const user = await req.appwrite!.account.get();
-      const { examId, subjects } = req.body as { examId?: string; subjects?: string[] };
+      const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
-      const role = (user as any)?.prefs?.role || null;
+      const isPractice = String(examId).startsWith('practice-');
 
-      // Check if user has access to this exam
-      if (role !== 'admin' && role !== 'teacher') {
-        const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
-          Query.equal('examId', examId),
-          Query.equal('userId', user.$id),
-          Query.limit(1)
-        ]);
+      let user: any = null;
+      let role: string | null = null;
+      try {
+        user = await req.appwrite?.account.get();
+        role = (user as any)?.prefs?.role || null;
+      } catch {}
 
-        if (assignments.documents.length === 0) {
-          return res.status(403).json({ message: 'You do not have access to this exam' });
+      // Enforce access only for real exams; practice-* is open
+      if (!isPractice) {
+        if (!user) return res.status(401).json({ message: 'Unauthorized' });
+        if (role !== 'admin' && role !== 'teacher') {
+          const assignments = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAssignments', [
+            Query.equal('examId', examId),
+            Query.equal('userId', user.$id),
+            Query.limit(1)
+          ]);
+          if (assignments.documents.length === 0) {
+            return res.status(403).json({ message: 'You do not have access to this exam' });
+          }
         }
       }
 
-      // Get exam details
-      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      // Get exam details or synthesize practice exam metadata
+      let exam: any = null;
+      if (isPractice) {
+        // synthesize a minimal exam-like record for practice flows
+        exam = {
+          $id: examId,
+          type: String(examId.replace('practice-', '')).toLowerCase(),
+          subject: (subjects || []).join(', '),
+          year: year || 'Mixed',
+        };
+      } else {
+        exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      }
       
-      // Check if user already has an active attempt
-      const existingAttempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
-        Query.equal('userId', user.$id),
-        Query.equal('examId', examId),
-        Query.equal('status', 'in_progress'),
-        Query.limit(1)
-      ]);
-
-      if (existingAttempts.documents.length > 0) {
-        return res.status(400).json({ message: 'You already have an active attempt for this exam' });
+      // Check if user already has an active attempt (only for authenticated users)
+      if (user?.$id) {
+        const existingAttempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
+          Query.equal('userId', user.$id),
+          Query.equal('examId', examId),
+          Query.equal('status', 'in_progress'),
+          Query.limit(1)
+        ]);
+        if (existingAttempts.documents.length > 0) {
+          return res.status(400).json({ message: 'You already have an active attempt for this exam' });
+        }
       }
 
       // Create new attempt
       const attemptData = {
-        userId: user.$id,
+        userId: user?.$id || 'guest',
+        studentId: user?.$id || 'guest',
         examId: examId,
         status: 'in_progress',
         startedAt: new Date().toISOString(),
         subjects: subjects || [],
+        practiceYear: year || undefined,
+        practicePaperType: paperType || undefined,
         answers: {},
         timeSpent: 0,
+        totalQuestions: 0,
+        correctAnswers: 0,
+        score: 0,
+        percentage: 0,
       };
 
       const attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), attemptData);
@@ -455,7 +487,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Validate subjects for exam creation
-  app.post('/api/cbt/exams/validate-subjects', auth, validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
+  // Make validation public so guests can plan practice sessions
+  app.post('/api/cbt/exams/validate-subjects', validateBody(subjectValidationSchema), async (req: Request, res: Response) => {
     try {
       const { type, selectedSubjects, year } = req.body as { type?: string; selectedSubjects?: string[]; year?: string };
       if (!type || !Array.isArray(selectedSubjects)) {
@@ -515,7 +548,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available subjects (derived from exams collection)
-  app.get('/api/cbt/subjects/available', sessionAuth, validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
+  // Make subjects listing public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
   const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
@@ -552,7 +586,6 @@ export const registerCBTRoutes = (app: any) => {
           const docType = String((doc as any).type || '').toLowerCase();
           const titleLower = String((doc as any).title || '').toLowerCase();
           if (!(docType === type || titleLower.includes(type))) continue;
-          if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
           const subjRaw = String((doc as any).subject || '').trim();
           if (!subjRaw) continue;
           const key = isEnglish(subjRaw) ? 'english' : normalizeKey(subjRaw);
@@ -561,6 +594,50 @@ export const registerCBTRoutes = (app: any) => {
         }
         offset += docs.length;
         if (offset >= (page.total || offset)) break;
+      }
+
+      // Fallback to questions collection if no subjects found from exams
+      if (subjectMap.size === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const canonicalSubject = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '').replace(/^english(language)?|useofenglish.*/,'english');
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subjRaw = String((q as any).subject || '').trim();
+            if (!subjRaw) continue;
+            const key = canonicalSubject(subjRaw) || normalizeKey(subjRaw);
+            const display = key === 'english' ? 'English' : subjRaw;
+            if (!subjectMap.has(key)) subjectMap.set(key, display);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
       }
 
       const subjectArray = Array.from(subjectMap.values()).sort();
@@ -574,7 +651,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get available years (union across selected subjects) derived from exams
-  app.get('/api/cbt/years/available', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Make years listing public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
   const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
@@ -629,7 +707,7 @@ export const registerCBTRoutes = (app: any) => {
             const docType = normalize((doc as any).type || '');
             const titleLower = normalize((doc as any).title || '');
             if (!(docType === type || titleLower.includes(type))) continue;
-            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            // Do not filter by exam-level paper_type; many datasets store per-question only
             const subj = canonicalSubject((doc as any).subject || '');
             const year = String((doc as any).year || '').trim();
             if (!year) continue;
@@ -668,6 +746,50 @@ export const registerCBTRoutes = (app: any) => {
         items = Array.from(union);
       }
 
+      // Fallback to scanning questions if no years found
+      if (items.length === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+        const canonicalSubject = (s: string) => normalizeKey(s).replace(/^english(language)?|useofenglish.*/,'english');
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const yearsSet = new Set<string>();
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subjKey = canonicalSubject(String((q as any).subject || ''));
+            if (subjectFilters.length > 0 && !subjectFilters.includes(subjKey)) continue;
+            const y = String((q as any).year || (q as any).questionYear || '').trim();
+            if (y) yearsSet.add(y);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
+        items = Array.from(yearsSet);
+      }
+
       items.sort((a, b) => Number(b) - Number(a));
       return res.json({ years: items });
     } catch (error) {
@@ -677,7 +799,8 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Get year availability per subject (array of entries) derived from exams
-  app.get('/api/cbt/years/availability', sessionAuth, validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
+  // Make years availability public and do NOT filter by exam-level paper_type
+  app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
       const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
@@ -727,7 +850,7 @@ export const registerCBTRoutes = (app: any) => {
             const docType = normalize((doc as any).type || '');
             const titleLower = normalize((doc as any).title || '');
             if (!(docType === type || titleLower.includes(type))) continue;
-            if (paperTypeParam && String((doc as any).paper_type || '').toLowerCase() !== paperTypeParam.toLowerCase()) continue;
+            // Do not filter by exam-level paper_type; many datasets store per-question only
             const subj = canonicalSubject((doc as any).subject || '');
             const year = String((doc as any).year || '').trim();
             if (!year || !subjectFilters.includes(subj)) continue;
@@ -759,6 +882,59 @@ export const registerCBTRoutes = (app: any) => {
           totalCount: subjectFilters.length,
         }))
         .sort((a, b) => Number(b.year) - Number(a.year));
+
+      // Fallback to questions if empty
+      if (availability.length === 0) {
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const matchesType = (q: any): boolean => {
+          const qt = String(q?.type || q?.examType || '').toLowerCase();
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
+          return qt === type || qt.includes(type) || ansUrl.includes(`exam_type=${type}`);
+        };
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        const yearToSubjectsFallback = new Map<string, Set<string>>();
+        let qOffset = 0;
+        while (true) {
+          const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
+            Query.limit(100),
+            Query.offset(qOffset),
+          ]);
+          const docs = page.documents || [];
+          if (docs.length === 0) break;
+          for (const q of docs) {
+            if (!matchesType(q)) continue;
+            if (requestedPaperType && resolveQuestionPaperType(q) !== requestedPaperType) continue;
+            const subj = canonicalSubject(String((q as any).subject || ''));
+            if (!subjectFilters.includes(subj)) continue;
+            const y = String((q as any).year || (q as any).questionYear || '').trim();
+            if (!y) continue;
+            if (!yearToSubjectsFallback.has(y)) yearToSubjectsFallback.set(y, new Set());
+            yearToSubjectsFallback.get(y)!.add(subj);
+          }
+          qOffset += docs.length;
+          if (qOffset >= (page.total || qOffset)) break;
+        }
+        const availabilityFallback = Array.from(yearToSubjectsFallback.entries())
+          .map(([year, subjects]) => ({
+            year,
+            subjects: Array.from(subjects),
+            availableCount: subjects.size,
+            totalCount: subjectFilters.length,
+          }))
+          .sort((a, b) => Number(b.year) - Number(a.year));
+        return res.json({ availability: availabilityFallback });
+      }
 
       return res.json({ availability });
     } catch (error) {

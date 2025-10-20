@@ -42,7 +42,9 @@ export const examAssignmentSchema = z.object({
 // Exam attempt start schema
 export const examAttemptStartSchema = z.object({
   examId: z.string().min(1, 'Exam ID is required'),
-  subjects: z.array(z.string()).optional()
+  subjects: z.array(z.string()).optional(),
+  year: z.string().optional(),
+  paperType: z.string().optional(),
 });
 
 // Exam attempt submit schema
