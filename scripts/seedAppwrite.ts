@@ -26,6 +26,9 @@ if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY || !APPWRITE
 const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID).setKey(APPWRITE_API_KEY);
 const databases = new Databases(client);
 const ALLOW_WRITE = process.env.APPWRITE_ALLOW_WRITE === 'true';
+// Seeding performance knobs (safe defaults for Appwrite free tier)
+const SEED_Q_CONCURRENCY = Math.max(1, parseInt(process.env.SEED_Q_CONCURRENCY || '5', 10));
+const SEED_BATCH_PAUSE_MS = Math.max(0, parseInt(process.env.SEED_BATCH_PAUSE_MS || '40', 10));
 if (!ALLOW_WRITE) {
   console.warn('APPWRITE_ALLOW_WRITE is not set to "true" — running in DRY-RUN mode. No changes will be made. Set APPWRITE_ALLOW_WRITE=true to apply changes.');
 }
@@ -46,6 +49,33 @@ const users = new Users(client);
 
 // Small helper delays to be kind to Appwrite limits
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+function isRateLimitOrTransient(e: any) {
+  const code = e?.code;
+  const type = e?.type || '';
+  return code === 429 || code === 503 || code === 500 || /rate|limit|too_many/i.test(String(type || e?.message || ''));
+}
+
+async function withRetry<T>(action: () => Promise<T>, label: string, maxRetries = 3, baseDelay = 250): Promise<T> {
+  let attempt = 0;
+  let lastErr: any;
+  while (attempt < maxRetries) {
+    try {
+      return await action();
+    } catch (e: any) {
+      lastErr = e;
+      if (isRateLimitOrTransient(e)) {
+        const wait = baseDelay * (attempt + 1);
+        console.warn(`[retry] ${label} attempt ${attempt + 1}/${maxRetries} due to ${e?.type || e?.code}; waiting ${wait}ms`);
+        await delay(wait);
+        attempt++;
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastErr;
+}
 
 // Helpers to create attributes safely (ignore 409 conflicts and attribute_limit_exceeded)
 function isAttrLimitExceeded(err: any): boolean {
@@ -434,13 +464,13 @@ async function seedPastQuestions() {
     // Create/Find exam
     let examId: string | null = null;
     try {
-    const existing = await db.listDocuments(APPWRITE_DATABASE_ID, 'exams', [Query.equal('title', title), Query.limit(1)]);
+      const existing = await db.listDocuments(APPWRITE_DATABASE_ID, 'exams', [Query.equal('title', title), Query.limit(1)]);
       if (existing.total > 0) {
         examId = existing.documents[0].$id;
       }
     } catch {}
     if (!examId) {
-  const examDoc = await db.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
+      const examDoc = await withRetry(() => db.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
         title,
         type,
         subject,
@@ -450,30 +480,36 @@ async function seedPastQuestions() {
         isActive: true,
         createdAt: new Date().toISOString(),
         search: [title, type, subject, year, paper_type].filter(Boolean).join(' '),
-      });
+      }), `create exam ${title}`);
       examId = examDoc.$id;
     }
 
     // Questions array
     const questionsArray: any[] = Array.isArray(raw) ? raw : (raw?.questions ?? []);
-    let created = 0;
-    for (let i = 0; i < questionsArray.length; i++) {
-      const qRaw = questionsArray[i];
-      const q = mapRawQuestion(qRaw, i);
-      try {
-  await db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
-        created++;
-      } catch (e: any) {
-        // If attribute limit or rate limit, delay and retry once
-        await delay(50);
-  await db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), { examId, ...q, year, subject, type, paper_type });
-        created++;
+    // Skip if this exam already has questions (idempotent fast-path)
+    try {
+      const existingQs = await db.listDocuments(APPWRITE_DATABASE_ID, 'questions', [Query.equal('examId', examId), Query.limit(1)]);
+      if (existingQs.total > 0) {
+        console.log(`${idx + 1}/${files.length} Skip (already seeded): ${title}`);
+        continue;
       }
-      if (i % 50 === 0) await delay(80); // small pacing for Appwrite Cloud limits
+    } catch {}
+
+    console.log(`${idx + 1}/${files.length} Seeding exam: ${title} (${questionsArray.length} questions) with concurrency=${SEED_Q_CONCURRENCY}`);
+    let created = 0;
+    const mkPayload = (qRaw: any, i: number) => ({ examId, ...mapRawQuestion(qRaw, i), year, subject, type, paper_type });
+    // Process in chunks to control concurrency
+    for (let start = 0; start < questionsArray.length; start += SEED_Q_CONCURRENCY) {
+      const slice = questionsArray.slice(start, start + SEED_Q_CONCURRENCY);
+      await Promise.all(slice.map((qRaw, j) => withRetry(
+        () => db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), mkPayload(qRaw, start + j)),
+        `create question ${title} #${start + j + 1}`
+      ).then(() => { created++; })));
+      if (SEED_BATCH_PAUSE_MS > 0) await delay(SEED_BATCH_PAUSE_MS);
     }
-    console.log(`${idx + 1}/${files.length} Seeded exam: ${title} (${created} questions)`);
-    // Short delay between files
-    await delay(120);
+    console.log(`${idx + 1}/${files.length} Seeded exam: ${title} (${created}/${questionsArray.length})`);
+    // Short delay between files to keep average QPS gentle
+    await delay(Math.max(60, SEED_BATCH_PAUSE_MS));
   }
 }
 
