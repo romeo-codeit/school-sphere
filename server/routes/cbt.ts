@@ -454,8 +454,7 @@ export const registerCBTRoutes = (app: any) => {
     try {
       // Ensure required attributes exist before any queries/creates that reference them
       await ensureExamAttemptAttributes();
-      const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
-      const answersAttrType = await getAnswersAttributeType();
+  const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const isPractice = String(examId).startsWith('practice-');
 
@@ -527,17 +526,17 @@ export const registerCBTRoutes = (app: any) => {
         ...(attrSet?.has('percentage') ? { percentage: 0 } : {}),
       } as any;
 
-      const answersAttrType = await getAnswersAttributeType();
+      const answersAttrTypeStart = await getAnswersAttributeType();
       const attemptWithJson = attrSet?.has('answers') ? { ...baseAttempt, answers: {} } : { ...baseAttempt };
       const attemptWithString = attrSet?.has('answers') ? { ...baseAttempt, answers: '{}' } : { ...baseAttempt };
 
       let attempt: any;
       try {
-        const payload = answersAttrType === 'json' ? attemptWithJson : attemptWithString;
+        const payload = answersAttrTypeStart === 'json' ? attemptWithJson : attemptWithString;
         attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), payload);
       } catch (e: any) {
         // Fallback to alternate representation if schema differs or answers is required
-        const fallback = answersAttrType === 'json' ? attemptWithString : attemptWithJson;
+        const fallback = answersAttrTypeStart === 'json' ? attemptWithString : attemptWithJson;
         attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), fallback);
       }
       res.status(201).json(attempt);

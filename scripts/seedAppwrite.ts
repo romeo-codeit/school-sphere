@@ -1,4 +1,4 @@
-import { Client, Databases, Users, ID, Permission, Role, Query } from 'node-appwrite';
+import { Client, Databases, ID, Permission, Role, Query } from 'node-appwrite';
 import fs from 'fs';
 import path from 'path';
 
@@ -45,7 +45,7 @@ const db: any = ALLOW_WRITE
         };
       }
     });
-const users = new Users(client);
+// Note: Users client not needed in this script; removed to avoid unused import
 
 // Small helper delays to be kind to Appwrite limits
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -89,30 +89,54 @@ function isAttrLimitExceeded(err: any): boolean {
   }
 }
 async function safeCreateStringAttribute(collectionId: string, id: string, size = 255, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createStringAttribute(APPWRITE_DATABASE_ID, collectionId, id, size, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createStringAttribute(APPWRITE_DATABASE_ID, collectionId, id, size, required, undefined, array), `attr:string ${collectionId}.${id}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e;
+  }
 }
 async function safeCreateIntegerAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createIntegerAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createIntegerAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array), `attr:integer ${collectionId}.${id}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e;
+  }
 }
 async function safeCreateFloatAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createFloatAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createFloatAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, undefined, undefined, array), `attr:float ${collectionId}.${id}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e;
+  }
 }
 async function safeCreateBooleanAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createBooleanAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createBooleanAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array), `attr:boolean ${collectionId}.${id}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e;
+  }
 }
 async function safeCreateDatetimeAttribute(collectionId: string, id: string, required = false, array = false) {
-  try { /* @ts-ignore */ await databases.createDatetimeAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array); } catch (e: any) { if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createDatetimeAttribute(APPWRITE_DATABASE_ID, collectionId, id, required, undefined, array), `attr:datetime ${collectionId}.${id}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409 && !isAttrLimitExceeded(e)) throw e;
+  }
 }
 async function safeCreateIndex(collectionId: string, name: string, attributes: string[], orders: ("ASC"|"DESC")[] = []) {
-  try { /* @ts-ignore */ await db.createIndex(APPWRITE_DATABASE_ID, collectionId, name, 'key' as any, attributes, orders.length ? orders : attributes.map(()=>'ASC')); } catch (e: any) { if (e.code !== 409) throw e; }
+  try {
+    /* @ts-ignore */ await withRetry(() => db.createIndex(APPWRITE_DATABASE_ID, collectionId, name, 'key' as any, attributes, orders.length ? orders : attributes.map(()=>'ASC')), `index ${collectionId}.${name}`, 5, 400);
+  } catch (e: any) {
+    if (e.code !== 409) throw e;
+  }
 }
 
 async function ensureCollection(id: string, name: string, perms: any[] = [Permission.read(Role.any()), Permission.create(Role.users()), Permission.update(Role.users()), Permission.delete(Role.users())]) {
   try {
-    await db.getCollection(APPWRITE_DATABASE_ID, id);
+    await withRetry(() => db.getCollection(APPWRITE_DATABASE_ID, id), `getCollection ${id}`, 4, 300);
   } catch (e: any) {
     if (e.code === 404) {
-  await db.createCollection(APPWRITE_DATABASE_ID, id, name, perms);
+  await withRetry(() => db.createCollection(APPWRITE_DATABASE_ID, id, name, perms), `createCollection ${id}`, 5, 400);
       // Wait a moment for the collection to be ready for attributes
       await delay(500);
     } else if (e.code !== 401) {
@@ -143,8 +167,10 @@ async function ensureAllCollections() {
   await safeCreateIntegerAttribute('questions', 'questionNumber', true);
   // Reduce string sizes to fit Appwrite Free tier attribute limits
   await safeCreateStringAttribute('questions', 'questionText', 16384, true);
-  await safeCreateStringAttribute('questions', 'options', 512, true, true);
-  await safeCreateStringAttribute('questions', 'correctAnswer', 500, false);
+    // Options not required to support theory questions
+    await safeCreateStringAttribute('questions', 'options', 1024, false, true);
+    // correctAnswer may be long for theory; allow large size
+    await safeCreateStringAttribute('questions', 'correctAnswer', 65535, false);
   await safeCreateStringAttribute('questions', 'explanation', 16384, false);
   await safeCreateStringAttribute('questions', 'imageUrl', 512, false);
   await safeCreateStringAttribute('questions', 'answerUrl', 512, false);
@@ -418,26 +444,46 @@ function mapRawQuestion(raw: any, i: number) {
     ? optionsObj.map((v: any) => String(v))
     : Object.values(optionsObj).map((v: any) => String(v));
 
-  const correct = (() => {
-    const rawCorrect = raw.correctAnswer ?? raw.correct_answer ?? raw.answer ?? '';
-    if (typeof rawCorrect === 'string') {
-      // If letter provided (A/B/C/...), map to actual text if options object was lettered
-      const letter = rawCorrect.trim().toUpperCase();
-      if (optionsObj && typeof optionsObj === 'object' && !Array.isArray(optionsObj)) {
-        const mapped = (optionsObj as any)[letter];
-        if (mapped) return String(mapped);
+  const MAX_CORRECT = 500;
+  const rawCorrect = raw.correctAnswer ?? raw.correct_answer ?? raw.answer ?? '';
+  let correct: string = '';
+  if (typeof rawCorrect === 'string') {
+    // If letter provided (A/B/C/...), map to actual text if options object was lettered
+    const letter = rawCorrect.trim().toUpperCase();
+    if (optionsObj && typeof optionsObj === 'object' && !Array.isArray(optionsObj) && letter && letter.length <= 2) {
+      const mapped = (optionsObj as any)[letter];
+      if (mapped) {
+        correct = String(mapped);
+      } else {
+        correct = String(rawCorrect);
       }
-      return String(rawCorrect);
+    } else {
+      correct = String(rawCorrect);
     }
-    return '';
-  })();
+  }
+  const isTheory = optionsArray.length === 0;
+  // For theory, move long answers into explanation and keep correctAnswer <= 500
+  let explanation: string | undefined = raw.explanation ? String(raw.explanation) : undefined;
+  if (isTheory) {
+    if (!explanation && typeof rawCorrect === 'string' && rawCorrect.trim().length > 0) {
+      explanation = String(rawCorrect);
+    }
+    if (typeof correct === 'string' && correct.length > MAX_CORRECT) {
+      correct = correct.slice(0, MAX_CORRECT);
+    }
+  } else {
+    // For objective, still ensure limit safety
+    if (typeof correct === 'string' && correct.length > MAX_CORRECT) {
+      correct = correct.slice(0, MAX_CORRECT);
+    }
+  }
 
   return {
     questionNumber: num,
     questionText: String(raw.text ?? raw.question ?? ''),
     options: optionsArray,
     correctAnswer: correct,
-    explanation: raw.explanation ? String(raw.explanation) : undefined,
+    explanation,
     imageUrl: raw.image || raw.imageUrl ? String(raw.image || raw.imageUrl) : undefined,
     answerUrl: raw.answer_url || raw.answerUrl ? String(raw.answer_url || raw.answerUrl) : undefined,
     section: raw.section ? String(raw.section) : undefined,
@@ -497,14 +543,51 @@ async function seedPastQuestions() {
 
     console.log(`${idx + 1}/${files.length} Seeding exam: ${title} (${questionsArray.length} questions) with concurrency=${SEED_Q_CONCURRENCY}`);
     let created = 0;
-    const mkPayload = (qRaw: any, i: number) => ({ examId, ...mapRawQuestion(qRaw, i), year, subject, type, paper_type });
+    const mkPayload = (qRaw: any, i: number) => {
+      const base: any = { examId, ...mapRawQuestion(qRaw, i), year, subject, type, paper_type };
+      // Guard against legacy schema limits (e.g., correctAnswer <= 500 chars)
+      if (typeof base.correctAnswer === 'string' && base.correctAnswer.length > 480) {
+        base.explanation = (base.explanation ? String(base.explanation) + '\n\n' : '') + base.correctAnswer;
+        base.correctAnswer = String(base.correctAnswer).slice(0, 480);
+      }
+      // Ensure strings for string fields
+      if (base.questionText != null) base.questionText = String(base.questionText);
+      if (base.explanation != null) base.explanation = String(base.explanation);
+      if (base.answerUrl != null) base.answerUrl = String(base.answerUrl);
+      if (base.imageUrl != null) base.imageUrl = String(base.imageUrl);
+      if (base.section != null) base.section = String(base.section);
+      if (base.instructions != null) base.instructions = String(base.instructions);
+      return base;
+    };
     // Process in chunks to control concurrency
     for (let start = 0; start < questionsArray.length; start += SEED_Q_CONCURRENCY) {
       const slice = questionsArray.slice(start, start + SEED_Q_CONCURRENCY);
-      await Promise.all(slice.map((qRaw, j) => withRetry(
-        () => db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), mkPayload(qRaw, start + j)),
-        `create question ${title} #${start + j + 1}`
-      ).then(() => { created++; })));
+      await Promise.all(slice.map(async (qRaw, j) => {
+        const idxGlobal = start + j;
+        const label = `create question ${title} #${idxGlobal + 1}`;
+        let payload = mkPayload(qRaw, idxGlobal);
+        try {
+          await withRetry(() => db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), payload), label);
+          created++;
+        } catch (e: any) {
+          // Fallback: aggressive sanitize and try once more
+          try {
+            if (typeof payload.correctAnswer === 'string' && payload.correctAnswer.length > 0) {
+              payload.explanation = (payload.explanation ? String(payload.explanation) + '\n\n' : '') + payload.correctAnswer;
+            }
+            payload.correctAnswer = payload.correctAnswer ? String(payload.correctAnswer).slice(0, 300) : '';
+            if (Array.isArray(payload.options)) {
+              payload.options = payload.options.map((s: any) => String(s).slice(0, 300)).slice(0, 10);
+            }
+            payload.questionText = String(payload.questionText).slice(0, 16000);
+            if (payload.explanation) payload.explanation = String(payload.explanation).slice(0, 16000);
+            await withRetry(() => db.createDocument(APPWRITE_DATABASE_ID, 'questions', ID.unique(), payload), label + ' [sanitized]');
+            created++;
+          } catch (e2: any) {
+            console.warn(`[skip] ${label}: ${e2?.type || e2?.code || e2}`);
+          }
+        }
+      }));
       if (SEED_BATCH_PAUSE_MS > 0) await delay(SEED_BATCH_PAUSE_MS);
     }
     console.log(`${idx + 1}/${files.length} Seeded exam: ${title} (${created}/${questionsArray.length})`);
@@ -518,7 +601,7 @@ async function seedBaseData() {
   try {
   const sch = await db.listDocuments(APPWRITE_DATABASE_ID, 'school', [Query.limit(1)]);
     if (sch.total === 0) {
-      await databases.createDocument(APPWRITE_DATABASE_ID, 'school', ID.unique(), { schoolName: 'Ohman Foundation School', motto: 'Excellence and Integrity', academicYear: String(new Date().getFullYear()) });
+      await db.createDocument(APPWRITE_DATABASE_ID, 'school', ID.unique(), { schoolName: 'Ohman Foundation School', motto: 'Excellence and Integrity', academicYear: String(new Date().getFullYear()) });
     }
   } catch {}
   const classNames = ['JSS 1','JSS 2','JSS 3','SS 1 Science','SS 1 Arts','SS 1 Commercial','SS 2 Science','SS 2 Arts','SS 2 Commercial','SS 3 Science','SS 3 Arts','SS 3 Commercial'];
@@ -528,7 +611,7 @@ async function seedBaseData() {
     classes = page.documents;
     if (page.total === 0) {
       for (const name of classNames) {
-        const c = await databases.createDocument(APPWRITE_DATABASE_ID, 'classes', ID.unique(), { name });
+        const c = await db.createDocument(APPWRITE_DATABASE_ID, 'classes', ID.unique(), { name });
         classes.push(c);
         await delay(40);
       }
@@ -547,14 +630,14 @@ async function seedBaseData() {
         }
       }
       for (const s of Array.from(found)) {
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'subjects', ID.unique(), { name: s });
+        await db.createDocument(APPWRITE_DATABASE_ID, 'subjects', ID.unique(), { name: s });
       }
     }
   } catch {}
   try {
   const t = await db.listDocuments(APPWRITE_DATABASE_ID, 'teachers', [Query.limit(1)]);
     if (t.total === 0) {
-      await databases.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), { employeeId: 'T-001', firstName: 'Ada', lastName: 'Obi', subjects: ['Mathematics'] });
+      await db.createDocument(APPWRITE_DATABASE_ID, 'teachers', ID.unique(), { employeeId: 'T-001', firstName: 'Ada', lastName: 'Obi', subjects: ['Mathematics'] });
     }
   } catch {}
   try {
@@ -562,7 +645,7 @@ async function seedBaseData() {
     if (s.total === 0 && classes.length > 0) {
       const classId = classes[0].$id;
       for (const st of [{ firstName: 'Chinedu', lastName: 'Okafor' },{ firstName: 'Nkechi', lastName: 'Eze' }]) {
-        await databases.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), { ...st, classId });
+        await db.createDocument(APPWRITE_DATABASE_ID, 'students', ID.unique(), { ...st, classId });
       }
     }
   } catch {}
