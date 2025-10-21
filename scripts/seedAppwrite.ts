@@ -1,4 +1,4 @@
-import { Client, Databases, ID, Permission, Role, Query } from 'node-appwrite';
+import { Client, Databases, Users, ID, Permission, Role, Query } from 'node-appwrite';
 import fs from 'fs';
 import path from 'path';
 
@@ -23,8 +23,9 @@ if (!APPWRITE_ENDPOINT || !APPWRITE_PROJECT_ID || !APPWRITE_API_KEY || !APPWRITE
   process.exit(1);
 }
 
-const client = new Client().setEndpoint(APPWRITE_ENDPOINT).setProject(APPWRITE_PROJECT_ID).setKey(APPWRITE_API_KEY);
+const client = new Client().setEndpoint(APPWRITE_ENDPOINT!).setProject(APPWRITE_PROJECT_ID!).setKey(APPWRITE_API_KEY);
 const databases = new Databases(client);
+const users = new Users(client);
 const ALLOW_WRITE = process.env.APPWRITE_ALLOW_WRITE === 'true';
 // Seeding performance knobs (safe defaults for Appwrite free tier)
 const SEED_Q_CONCURRENCY = Math.max(1, parseInt(process.env.SEED_Q_CONCURRENCY || '5', 10));
@@ -45,7 +46,20 @@ const db: any = ALLOW_WRITE
         };
       }
     });
-// Note: Users client not needed in this script; removed to avoid unused import
+
+const usersProxy: any = ALLOW_WRITE
+  ? users
+  : new Proxy({}, {
+      get(_, prop: string) {
+        return async (...args: any[]) => {
+          console.log(`[DRY-RUN] users.${prop} called with`, args.map(a => (typeof a === 'object' ? JSON.stringify(a).slice(0, 200) : a)));
+          if (prop === 'list') return { total: 0, users: [] };
+          if (prop === 'create') return { $id: `dry-user-${ID.unique()}`, email: args[1] || 'dry@example.com' };
+          return {};
+        };
+      }
+    });
+const users = new Users(client);
 
 // Small helper delays to be kind to Appwrite limits
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -146,42 +160,42 @@ async function ensureCollection(id: string, name: string, perms: any[] = [Permis
 }
 
 async function ensureAllCollections() {
-  // Exams
-  await ensureCollection('exams', 'Exams');
-  await safeCreateStringAttribute('exams', 'title', 255, true);
-  await safeCreateStringAttribute('exams', 'type', 50, true);
-  await safeCreateStringAttribute('exams', 'subject', 255, true);
-  await safeCreateStringAttribute('exams', 'year', 10, true);
-  await safeCreateStringAttribute('exams', 'paper_type', 50, false);
-  await safeCreateStringAttribute('exams', 'mode', 50, false); // 'practice' | 'exam'
-  await safeCreateStringAttribute('exams', 'search', 512, false);
-  await safeCreateDatetimeAttribute('exams', 'createdAt', false);
-  await safeCreateBooleanAttribute('exams', 'isActive', false);
-  await delay(500);
-  await safeCreateIndex('exams', 'idx_title', ['title']);
-  await safeCreateIndex('exams', 'idx_type_subject_year', ['type','subject','year']);
+  // Exams - SKIPPED: Never alter or touch exams collection
+  // await ensureCollection('exams', 'Exams');
+  // await safeCreateStringAttribute('exams', 'title', 255, true);
+  // await safeCreateStringAttribute('exams', 'type', 50, true);
+  // await safeCreateStringAttribute('exams', 'subject', 255, true);
+  // await safeCreateStringAttribute('exams', 'year', 10, true);
+  // await safeCreateStringAttribute('exams', 'paper_type', 50, false);
+  // await safeCreateStringAttribute('exams', 'mode', 50, false); // 'practice' | 'exam'
+  // await safeCreateStringAttribute('exams', 'search', 512, false);
+  // await safeCreateDatetimeAttribute('exams', 'createdAt', false);
+  // await safeCreateBooleanAttribute('exams', 'isActive', false);
+  // await delay(500);
+  // await safeCreateIndex('exams', 'idx_title', ['title']);
+  // await safeCreateIndex('exams', 'idx_type_subject_year', ['type','subject','year']);
 
-  // Questions
-  await ensureCollection('questions', 'Questions');
-  await safeCreateStringAttribute('questions', 'examId', 255, true);
-  await safeCreateIntegerAttribute('questions', 'questionNumber', true);
-  // Reduce string sizes to fit Appwrite Free tier attribute limits
-  await safeCreateStringAttribute('questions', 'questionText', 16384, true);
-    // Options not required to support theory questions
-    await safeCreateStringAttribute('questions', 'options', 1024, false, true);
-    // correctAnswer may be long for theory; allow large size
-    await safeCreateStringAttribute('questions', 'correctAnswer', 65535, false);
-  await safeCreateStringAttribute('questions', 'explanation', 16384, false);
-  await safeCreateStringAttribute('questions', 'imageUrl', 512, false);
-  await safeCreateStringAttribute('questions', 'answerUrl', 512, false);
-  await safeCreateStringAttribute('questions', 'section', 255, false);
-  await safeCreateStringAttribute('questions', 'instructions', 4096, false);
-  await safeCreateStringAttribute('questions', 'year', 10, false);
-  await safeCreateStringAttribute('questions', 'subject', 255, false);
-  await safeCreateStringAttribute('questions', 'type', 50, false);
-  await safeCreateStringAttribute('questions', 'paper_type', 50, false);
-  await delay(500);
-  await safeCreateIndex('questions', 'idx_exam_qnum', ['examId','questionNumber']);
+  // Questions - SKIPPED: Never alter or touch questions collection
+  // await ensureCollection('questions', 'Questions');
+  // await safeCreateStringAttribute('questions', 'examId', 255, true);
+  // await safeCreateIntegerAttribute('questions', 'questionNumber', true);
+  // // Reduce string sizes to fit Appwrite Free tier attribute limits
+  // await safeCreateStringAttribute('questions', 'questionText', 16384, true);
+  //   // Options not required to support theory questions
+  //   await safeCreateStringAttribute('questions', 'options', 1024, false, true);
+  //   // correctAnswer may be long for theory; allow large size
+  //   await safeCreateStringAttribute('questions', 'correctAnswer', 65535, false);
+  // await safeCreateStringAttribute('questions', 'explanation', 16384, false);
+  // await safeCreateStringAttribute('questions', 'imageUrl', 512, false);
+  // await safeCreateStringAttribute('questions', 'answerUrl', 512, false);
+  // await safeCreateStringAttribute('questions', 'section', 255, false);
+  // await safeCreateStringAttribute('questions', 'instructions', 4096, false);
+  // await safeCreateStringAttribute('questions', 'year', 10, false);
+  // await safeCreateStringAttribute('questions', 'subject', 255, false);
+  // await safeCreateStringAttribute('questions', 'type', 50, false);
+  // await safeCreateStringAttribute('questions', 'paper_type', 50, false);
+  // await delay(500);
+  // await safeCreateIndex('questions', 'idx_exam_qnum', ['examId','questionNumber']);
 
   // Exam Attempts (align to current backend/frontend expectations and your description)
   await ensureCollection('examAttempts', 'Exam Attempts');
@@ -651,13 +665,62 @@ async function seedBaseData() {
   } catch {}
 }
 
+async function seedAdminUser() {
+  const adminEmail = process.env.ADMIN_EMAIL;
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminName = process.env.ADMIN_NAME || 'Admin User';
+
+  if (!adminEmail || !adminPassword) {
+    console.log('Skipping admin user creation: ADMIN_EMAIL and ADMIN_PASSWORD not set');
+    return;
+  }
+
+  try {
+    // Check if admin user already exists
+    const existingUsers = await usersProxy.list([Query.equal('email', adminEmail), Query.limit(1)]);
+    if (existingUsers.total > 0) {
+      console.log('Admin user already exists, skipping creation');
+      const userId = existingUsers.users[0].$id;
+
+      // Ensure userProfile exists
+      const existingProfile = await db.listDocuments(APPWRITE_DATABASE_ID, 'userProfiles', [Query.equal('userId', userId), Query.limit(1)]);
+      if (existingProfile.total === 0) {
+        await db.createDocument(APPWRITE_DATABASE_ID, 'userProfiles', ID.unique(), {
+          userId,
+          role: 'admin',
+          subscriptionStatus: 'active',
+        });
+        console.log('Created userProfile for existing admin user');
+      }
+      return;
+    }
+
+    // Create new admin user
+    const user = await usersProxy.create(ID.unique(), adminEmail, undefined, adminPassword, adminName);
+    console.log('Created admin user:', user.email);
+
+    // Create userProfile
+    await db.createDocument(APPWRITE_DATABASE_ID, 'userProfiles', ID.unique(), {
+      userId: user.$id,
+      role: 'admin',
+      subscriptionStatus: 'active',
+    });
+    console.log('Created userProfile for admin user');
+
+  } catch (error: any) {
+    console.error('Failed to create admin user:', error.message);
+  }
+}
+
 async function main() {
   console.log('Ensuring collections and attributes...');
   await ensureAllCollections();
   console.log('Seeding base data...');
   await seedBaseData();
+  console.log('Seeding admin user...');
+  await seedAdminUser();
   console.log('Seeding past questions...');
-  await seedPastQuestions();
+  // await seedPastQuestions(); // SKIPPED: Never alter or touch exams/questions collections
   console.log('Done.');
 }
 
