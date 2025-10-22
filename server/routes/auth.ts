@@ -475,8 +475,8 @@ export const registerAuthRoutes = (app: any) => {
           assignments: assignments.documents.length,
           messages: sentMessages.documents.length + receivedMessages.documents.length,
           notifications: notifications.documents.length,
-          grades: grades.documents.length,
-          attendance: attendance.documents.length
+          grades: deletedGradesCount,
+          attendance: deletedAttendanceCount
         }
       });
     } catch (e) {

@@ -105,15 +105,15 @@ export default function HistoricalAttendance() {
                 <>
                   {/* Mobile: Card view (grouped by date) */}
                   <div className="grid grid-cols-1 gap-4 sm:hidden">
-                    {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
+                  {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
                       const key = String(rec.date).slice(0, 10);
                       const list = map.get(key) || [];
                       list.push(rec);
                       map.set(key, list);
                       return map;
-                    }, new Map()).entries())
-                      .sort((a, b) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
-                      .map(([date, recs]) => {
+                  }, new Map<string, any[]>()).entries())
+                      .sort(([a], [b]) => new Date(String(b)).getTime() - new Date(String(a)).getTime())
+                      .map(([date, recs]: [string, any[]]) => {
                         const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
                         const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
                         const late = (recs as any[]).filter((r: any) => r.status === 'late').length;
@@ -152,9 +152,9 @@ export default function HistoricalAttendance() {
                           list.push(rec);
                           map.set(key, list);
                           return map;
-                        }, new Map()).entries())
-                          .sort((a, b) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
-                          .map(([date, recs]) => {
+                        }, new Map<string, any[]>()).entries())
+                          .sort(([a], [b]) => new Date(String(b)).getTime() - new Date(String(a)).getTime())
+                          .map(([date, recs]: [string, any[]]) => {
                             const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
                             const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
                             const late = (recs as any[]).filter((r: any) => r.status === 'late').length;

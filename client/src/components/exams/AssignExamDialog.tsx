@@ -35,8 +35,8 @@ export function AssignExamDialog({ examId, open, onOpenChange }: Props) {
       const payload = {
         classIds: classIds.split(',').map(s => s.trim()).filter(Boolean),
         studentIds: studentIds.split(',').map(s => s.trim()).filter(Boolean),
-      };
-      await assign(payload);
+      } as any;
+      await assign(payload as never);
       toast({ title: 'Assigned', description: 'Exam assignment updated.' });
       onOpenChange(false);
     } catch (e: any) {
