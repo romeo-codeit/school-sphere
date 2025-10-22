@@ -111,9 +111,9 @@ export default function HistoricalAttendance() {
                       list.push(rec);
                       map.set(key, list);
                       return map;
-                    }, new Map()).entries())
-                      .sort((a, b) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
-                      .map(([date, recs]) => {
+                    }, new Map<string, any[]>()).entries())
+                      .sort((a: [string, any[]], b: [string, any[]]) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
+                      .map(([date, recs]: [string, any[]]) => {
                         const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
                         const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
                         const late = (recs as any[]).filter((r: any) => r.status === 'late').length;
@@ -152,9 +152,9 @@ export default function HistoricalAttendance() {
                           list.push(rec);
                           map.set(key, list);
                           return map;
-                        }, new Map()).entries())
-                          .sort((a, b) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
-                          .map(([date, recs]) => {
+                        }, new Map<string, any[]>()).entries())
+                          .sort((a: [string, any[]], b: [string, any[]]) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
+                          .map(([date, recs]: [string, any[]]) => {
                             const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
                             const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
                             const late = (recs as any[]).filter((r: any) => r.status === 'late').length;

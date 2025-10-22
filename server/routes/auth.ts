@@ -465,7 +465,7 @@ export const registerAuthRoutes = (app: any) => {
       logInfo('Deleted user account', { userId });
 
       return res.json({ 
-        ok: true, 
+        ok: true,
         message: 'User account and all linked data deleted successfully',
         deleted: {
           profile: profiles.documents.length > 0,
@@ -475,8 +475,8 @@ export const registerAuthRoutes = (app: any) => {
           assignments: assignments.documents.length,
           messages: sentMessages.documents.length + receivedMessages.documents.length,
           notifications: notifications.documents.length,
-          grades: grades.documents.length,
-          attendance: attendance.documents.length
+          grades: deletedGradesCount,
+          attendance: deletedAttendanceCount
         }
       });
     } catch (e) {
