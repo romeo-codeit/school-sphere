@@ -237,34 +237,33 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto pb-24 modern-scrollbar">
-          <nav className="px-2 py-4">
-            <div className="space-y-2">
-              {navigationItems.map((item) => (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={cn(
-                    "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
-                    { "justify-center": isCollapsed },
-                    isActive(item.href, item.exact)
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  )}
-                  data-testid={`link-${item.name.toLowerCase()}`}
-                >
-                  <item.icon className="w-5 h-5" />
-                  <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
-                  {item.badge && !isCollapsed && (
-                    <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
-                      {item.badge}
-                    </Badge>
-                  )}
-                </Link>
-              ))}
-            </div>
-          </nav>
-        </div>
+        <nav className="flex-1 overflow-y-auto pb-24 modern-scrollbar" aria-label="Main navigation">
+          <div className="px-2 py-4 space-y-2">
+            {navigationItems.map((item) => (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={cn(
+                  "flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200",
+                  { "justify-center": isCollapsed },
+                  isActive(item.href, item.exact)
+                    ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                )}
+                data-testid={`link-${item.name.toLowerCase()}`}
+                aria-label={item.name}
+              >
+                <item.icon className="w-5 h-5" />
+                <span className={cn("font-medium", { "hidden": isCollapsed })}>{item.name}</span>
+                {item.badge && !isCollapsed && (
+                  <Badge variant="secondary" className="ml-auto bg-accent text-accent-foreground">
+                    {item.badge}
+                  </Badge>
+                )}
+              </Link>
+            ))}
+          </div>
+        </nav>
         {/* Bottom section with settings and logout (fixed at bottom, always visible above scroll) */}
         <div className="w-full border-t border-border p-2 absolute bottom-0 left-0 bg-card">
           {settingsItems.map((item) => (
