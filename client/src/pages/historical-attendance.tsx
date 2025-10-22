@@ -105,7 +105,7 @@ export default function HistoricalAttendance() {
                 <>
                   {/* Mobile: Card view (grouped by date) */}
                   <div className="grid grid-cols-1 gap-4 sm:hidden">
-                    {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
+                  {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
                       const key = String(rec.date).slice(0, 10);
                       const list = map.get(key) || [];
                       list.push(rec);
