@@ -47,7 +47,7 @@ const AttendanceReports: React.FC = () => {
         const fetchData = async () => {
             try {
                 const [attendanceResponse, classesResponse] = await Promise.all([
-                    getAllAttendanceRecords(100, 0), // Fetching last 100 records for demo
+                    getAllAttendanceRecords(500, 0), // last 500 normalized records
                     getAllClasses()
                 ]);
                 setRecords(attendanceResponse.documents);
@@ -83,7 +83,7 @@ const AttendanceReports: React.FC = () => {
             if (!classId) return;
             if (!classData[classId]) classData[classId] = { present: 0, total: 0 };
 
-            // Records are stored per student with a 'status' field
+            // Normalized records are per-student with a 'status'
             const status = String(record.status || '').toLowerCase();
             if (status === 'present') {
                 totalPresent++;
@@ -93,8 +93,6 @@ const AttendanceReports: React.FC = () => {
             totalStudents++;
             dailyData[date].total++;
             classData[classId].total++;
-
-            // Build aggregates for Recent Attendance view
             const key = `${classId}|${date}`;
             const agg = aggregates.get(key) || { classId, date, present: 0, total: 0 };
             agg.total += 1;

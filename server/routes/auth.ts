@@ -191,78 +191,135 @@ export const registerAuthRoutes = (app: any) => {
     }
   });
 
-  // Get user subscription status
+  // Get user subscription status (source of truth: userSubscriptions; fallback to userProfiles for legacy)
   app.get('/api/users/subscription', auth, async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      const profile = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
-        Query.equal('userId', userId),
-        Query.limit(1)
-      ]);
+      // Prefer userSubscriptions collection
+      let subStatus = 'inactive' as string;
+      let subExpiry: Date | null = null;
 
-      if (profile.documents.length === 0) {
-        return res.status(404).json({ message: 'User profile not found' });
+      try {
+        const subs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userSubscriptions', [
+          Query.equal('userId', userId),
+          Query.limit(1)
+        ]);
+        if (subs.total > 0) {
+          const doc: any = subs.documents[0];
+          subStatus = String(doc.subscriptionStatus || 'inactive');
+          subExpiry = doc.subscriptionExpiry ? new Date(doc.subscriptionExpiry) : null;
+        } else {
+          // Fallback to legacy userProfiles fields
+          const profile = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
+            Query.equal('userId', userId),
+            Query.limit(1)
+          ]);
+          if (profile.total > 0) {
+            const userProfile: any = profile.documents[0];
+            subStatus = String(userProfile.subscriptionStatus || 'inactive');
+            subExpiry = userProfile.subscriptionExpiry ? new Date(userProfile.subscriptionExpiry) : null;
+          }
+        }
+      } catch (e) {
+        // If subs collection not accessible, fallback silently
+        try {
+          const profile = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
+            Query.equal('userId', userId),
+            Query.limit(1)
+          ]);
+          if (profile.total > 0) {
+            const userProfile: any = profile.documents[0];
+            subStatus = String(userProfile.subscriptionStatus || 'inactive');
+            subExpiry = userProfile.subscriptionExpiry ? new Date(userProfile.subscriptionExpiry) : null;
+          }
+        } catch {}
       }
 
-      const userProfile = profile.documents[0];
-      const status = userProfile.subscriptionStatus || 'inactive';
-      const expiry = userProfile.subscriptionExpiry ? new Date(userProfile.subscriptionExpiry) : null;
-      const examAccess = status === 'active' && (!expiry || expiry > new Date());
-
-      return res.json({ subscriptionStatus: status, subscriptionExpiry: expiry, examAccess });
+      const examAccess = subStatus === 'active' && (!subExpiry || subExpiry > new Date());
+      return res.json({ subscriptionStatus: subStatus, subscriptionExpiry: subExpiry, examAccess });
     } catch (error) {
       logError('Failed to get subscription status', error);
       res.status(500).json({ message: 'Failed to get subscription status' });
     }
   });
 
-  // Activate subscription with code
+  // Activate subscription with code (accepts { code } or { activationCode })
   app.post('/api/users/activate-subscription', auth, validateBody(subscriptionActivationSchema), async (req: Request, res: Response) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
-      const { code } = req.body;
+      const rawCode = (req.body as any).code || (req.body as any).activationCode;
+      const code = String(rawCode || '').trim();
       if (!code) return res.status(400).json({ message: 'Activation code is required' });
 
-      // Find the activation code
+      // Find the activation code by code only; validate status/used flags in-process for cross-schema compatibility
       const codes = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'activationCodes', [
-        Query.equal('code', String(code)),
-        Query.equal('used', false),
+        Query.equal('code', code),
         Query.limit(1)
       ]);
-
-      if (codes.documents.length === 0) {
+      if (codes.total === 0) {
         return res.status(400).json({ message: 'Invalid or already used activation code' });
       }
 
-      const activationCode = codes.documents[0];
-      const expiry = new Date();
-      expiry.setDate(expiry.getDate() + 30); // 30 days from now
-
-      // Update user profile (find by userId field, then update by document $id)
-      const profileDocs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
-        Query.equal('userId', userId),
-        Query.limit(1)
-      ]);
-      if (profileDocs.documents.length === 0) {
-        return res.status(404).json({ message: 'User profile not found' });
+      const activationCode: any = codes.documents[0];
+      const statusVal = String(activationCode.status || '').toLowerCase();
+      const alreadyUsed = statusVal ? statusVal !== 'unused' : Boolean(activationCode.used);
+      if (alreadyUsed) {
+        return res.status(400).json({ message: 'Invalid or already used activation code' });
       }
-      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileDocs.documents[0].$id, {
+
+      // Determine duration
+      const durationDays = Number(activationCode.durationDays) || (String(activationCode.codeType || '').toLowerCase() === 'annual_1y' ? 365 : 30);
+      const expiry = new Date();
+      expiry.setDate(expiry.getDate() + durationDays);
+
+      // Create or update userSubscriptions doc
+      let existing: any = null;
+      try {
+        const subs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userSubscriptions', [
+          Query.equal('userId', userId),
+          Query.limit(1)
+        ]);
+        if (subs.total > 0) existing = subs.documents[0];
+      } catch {}
+
+      const payload: any = {
         subscriptionStatus: 'active',
         subscriptionExpiry: expiry.toISOString(),
-      });
+        updatedAt: new Date().toISOString(),
+      };
+      // Track used codes list as JSON string (for compatibility with schema)
+      try {
+        const prevCodes = existing?.activationCodes ? JSON.parse(existing.activationCodes) : [];
+        payload.activationCodes = JSON.stringify([...(Array.isArray(prevCodes) ? prevCodes : []), code]);
+      } catch {
+        payload.activationCodes = JSON.stringify([code]);
+      }
 
-      // Mark code as used
-      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'activationCodes', activationCode.$id, {
-        used: true,
-        usedBy: userId,
-        usedAt: new Date().toISOString(),
-      });
+      if (existing) {
+        await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userSubscriptions', existing.$id, payload);
+      } else {
+        await databases.createDocument(APPWRITE_DATABASE_ID!, 'userSubscriptions', ID.unique(), {
+          userId,
+          ...payload,
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      // Mark code as used in activationCodes
+      try {
+        await databases.updateDocument(APPWRITE_DATABASE_ID!, 'activationCodes', activationCode.$id, {
+          status: 'used',
+          usedAt: new Date().toISOString(),
+          assignedTo: userId,
+          used: true, // legacy boolean for older schemas
+        });
+      } catch {}
 
       try {
         const planName = String(activationCode.codeType || 'Subscription');
@@ -320,9 +377,9 @@ export const registerAuthRoutes = (app: any) => {
         logInfo('Deleted teacher record', { userId });
       }
 
-      // 4. Delete exam attempts
+      // 4. Delete exam attempts (stored with studentId = userId)
       const attempts = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttempts', [
-        Query.equal('userId', userId),
+        Query.equal('studentId', userId),
         Query.limit(1000)
       ]);
 
@@ -373,32 +430,42 @@ export const registerAuthRoutes = (app: any) => {
       }
       logInfo('Deleted notifications', { userId, count: notifications.documents.length });
 
-      // 8. Delete grades/attendance records
-      const grades = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'grades', [
-        Query.equal('studentId', userId),
-        Query.limit(1000)
-      ]);
-
-      for (const grade of grades.documents) {
-        await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'grades', grade.$id);
-      }
-
-      const attendance = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'attendance', [
-        Query.equal('studentId', userId),
-        Query.limit(1000)
-      ]);
-
-      for (const record of attendance.documents) {
-        await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'attendance', record.$id);
-      }
-      logInfo('Deleted grades and attendance', { userId, grades: grades.documents.length, attendance: attendance.documents.length });
+      // 8. Delete grades and attendanceRecords by Student document IDs
+      let deletedGradesCount = 0;
+      let deletedAttendanceCount = 0;
+      try {
+        const studentDocs = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'students', [
+          Query.equal('userId', userId),
+          Query.limit(1000)
+        ]);
+        for (const student of studentDocs.documents) {
+          const sid = String((student as any).$id);
+          const grades = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'grades', [
+            Query.equal('studentId', sid),
+            Query.limit(1000)
+          ]);
+          for (const grade of grades.documents) {
+            await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'grades', grade.$id);
+            deletedGradesCount++;
+          }
+          const attendance = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'attendanceRecords', [
+            Query.equal('studentId', sid),
+            Query.limit(1000)
+          ]);
+          for (const record of attendance.documents) {
+            await databases.deleteDocument(APPWRITE_DATABASE_ID!, 'attendanceRecords', record.$id);
+            deletedAttendanceCount++;
+          }
+        }
+      } catch {}
+      logInfo('Deleted grades and attendance', { userId, grades: deletedGradesCount, attendance: deletedAttendanceCount });
 
       // 9. Finally, delete the user account
       await users.delete(userId);
       logInfo('Deleted user account', { userId });
 
       return res.json({ 
-        ok: true, 
+        ok: true,
         message: 'User account and all linked data deleted successfully',
         deleted: {
           profile: profiles.documents.length > 0,
@@ -408,8 +475,8 @@ export const registerAuthRoutes = (app: any) => {
           assignments: assignments.documents.length,
           messages: sentMessages.documents.length + receivedMessages.documents.length,
           notifications: notifications.documents.length,
-          grades: grades.documents.length,
-          attendance: attendance.documents.length
+          grades: deletedGradesCount,
+          attendance: deletedAttendanceCount
         }
       });
     } catch (e) {

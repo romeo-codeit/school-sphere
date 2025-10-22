@@ -11,8 +11,10 @@ export async function getTeacherClasses(teacherId: string) {
     if (!teacher.classIds || teacher.classIds.length === 0) {
         return [];
     }
-    const classQueries = teacher.classIds.map((id: string) => Query.equal("$id", id));
-    const classes = await databases.listDocuments(DATABASE_ID, CLASSES_COLLECTION_ID, classQueries);
+    // Use a single equality with array to match any of the ids
+    const classes = await databases.listDocuments(DATABASE_ID, CLASSES_COLLECTION_ID, [
+        Query.equal("$id", teacher.classIds as string[])
+    ]);
     return classes.documents;
 }
 

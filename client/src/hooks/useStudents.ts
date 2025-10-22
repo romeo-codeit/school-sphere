@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { isOnline, queueAppwriteOperation } from '@/lib/offline';
+import { getDB } from '@/lib/idbCache';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 
@@ -33,31 +34,41 @@ export function useStudents(filters: StudentFilters = {}) {
         baseQueries.push(Query.search('search', search));
       }
 
+      const cacheKey = `students:${JSON.stringify({ page, limit, search, classId })}`;
+
       // If classId is specified, fetch by both 'classId' (new schema) and legacy 'class', then merge
       if (classId) {
         const q1 = [...baseQueries, Query.equal('classId', classId)];
         const q2 = [...baseQueries, Query.equal('class', classId)];
 
-        const [res1, res2] = await Promise.all([
-          databases.listDocuments(DATABASE_ID, 'students', q1).catch(() => ({ documents: [], total: 0 } as any)),
-          databases.listDocuments(DATABASE_ID, 'students', q2).catch(() => ({ documents: [], total: 0 } as any)),
-        ]);
+        try {
+          const [res1, res2] = await Promise.all([
+            databases.listDocuments(DATABASE_ID, 'students', q1).catch(() => ({ documents: [], total: 0 } as any)),
+            databases.listDocuments(DATABASE_ID, 'students', q2).catch(() => ({ documents: [], total: 0 } as any)),
+          ]);
 
-        // Merge by $id to avoid duplicates when both fields exist
-        const map = new Map<string, any>();
-        for (const d of [...res1.documents, ...res2.documents]) {
-          map.set(String((d as any).$id), d);
+          const map = new Map<string, any>();
+          for (const d of [...res1.documents, ...res2.documents]) {
+            map.set(String((d as any).$id), d);
+          }
+          const merged = Array.from(map.values());
+          const start = (page - 1) * limit;
+          const paged = merged.slice(start, start + limit);
+          try { const db = await getDB(); await db.put('meta' as any, { documents: paged, total: merged.length }, cacheKey); } catch {}
+          return { documents: paged, total: merged.length } as any;
+        } catch (e) {
+          try { const db = await getDB(); const cached = await db.get('meta' as any, cacheKey); return cached || { documents: [], total: 0 }; } catch { return { documents: [], total: 0 }; }
         }
-        const merged = Array.from(map.values());
-        // Emulate pagination after merge
-        const start = (page - 1) * limit;
-        const paged = merged.slice(start, start + limit);
-        return { documents: paged, total: merged.length } as any;
       }
 
       // No class filter: single query
-      const response = await databases.listDocuments(DATABASE_ID, 'students', baseQueries);
-      return response;
+      try {
+        const response = await databases.listDocuments(DATABASE_ID, 'students', baseQueries);
+        try { const db = await getDB(); await db.put('meta' as any, response, cacheKey); } catch {}
+        return response;
+      } catch (e) {
+        try { const db = await getDB(); const cached = await db.get('meta' as any, cacheKey); return cached || { documents: [], total: 0 }; } catch { return { documents: [], total: 0 }; }
+      }
     },
   });
 

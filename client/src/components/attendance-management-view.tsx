@@ -37,22 +37,18 @@ export function AttendanceManagementView() {
 
   const flattenedAttendance = useMemo(() => {
     if (!attendanceRecords?.documents || !students || !classes) return [];
-
-    return attendanceRecords.documents.flatMap(record => {
-      const classInfo = classes.find(c => c.$id === record.classId);
-      const studentAttendances = JSON.parse(record.studentAttendances);
-
-      return studentAttendances.map((att: any) => {
-        const studentInfo = students.find((s: any) => s.$id === att.studentId);
-        return {
-          id: `${record.$id}-${att.studentId}`,
-          date: record.date,
-          status: att.status,
-          studentName: studentInfo ? `${studentInfo.firstName} ${studentInfo.lastName}` : 'Unknown Student',
-          className: classInfo ? classInfo.name : 'Unknown Class',
-        };
-      });
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // attendanceRecords are per-student normalized docs
+    return attendanceRecords.documents.map((rec: any) => {
+      const classInfo = classes.find((c: any) => c.$id === rec.classId);
+      const studentInfo = students.find((s: any) => s.$id === rec.studentId);
+      return {
+        id: rec.$id,
+        date: rec.date,
+        status: rec.status,
+        studentName: studentInfo ? `${studentInfo.firstName} ${studentInfo.lastName}` : 'Unknown Student',
+        className: classInfo ? classInfo.name : 'Unknown Class',
+      };
+    }).sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [attendanceRecords, students, classes]);
 
   const filteredAttendance = useMemo(() => {

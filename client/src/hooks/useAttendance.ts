@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { isOnline, queueRequest } from '@/lib/offline';
+import { getDB } from '@/lib/idbCache';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const ATTENDANCE_COLLECTION_ID = 'attendanceRecords';
@@ -24,9 +25,24 @@ export function useAttendance(studentId?: string, limit?: number, offset?: numbe
       if (offset) {
         queries.push(Query.offset(offset));
       }
-
-      const response = await databases.listDocuments(DATABASE_ID, ATTENDANCE_COLLECTION_ID, queries);
-      return response.documents;
+      try {
+        const response = await databases.listDocuments(DATABASE_ID, ATTENDANCE_COLLECTION_ID, queries);
+        // Cache latest result for offline read-only
+        try {
+          const db = await getDB();
+          await db.put('meta' as any, response.documents, `attendance:${studentId || 'all'}:${limit || 'default'}:${offset || 0}`);
+        } catch {}
+        return response.documents;
+      } catch (e) {
+        // Offline fallback to cached meta
+        try {
+          const db = await getDB();
+          const cached = await db.get('meta' as any, `attendance:${studentId || 'all'}:${limit || 'default'}:${offset || 0}`);
+          return cached || [];
+        } catch {
+          return [];
+        }
+      }
     },
   });
 

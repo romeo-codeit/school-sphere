@@ -20,6 +20,7 @@ import {
 import { useClasses } from "@/hooks/useClasses";
 import { useStudents } from "@/hooks/useStudents";
 import { useAttendance } from "@/hooks/useAttendance";
+import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useTeachers } from "@/hooks/useTeachers";
@@ -127,21 +128,27 @@ export default function TakeAttendance() {
     }
 
     try {
-      // Create attendance records for all students (use stored status or default to 'present')
-      const attendancePromises = students.map((student: any) =>
-        createAttendance({
-          classId: classIdToUse,
-          date: new Date().toISOString().split('T')[0], // YYYY-MM-DD
-          studentId: student.$id,
-          status: attendance[student.$id] || 'present', // Default to 'present' if not explicitly set
-        })
-      );
+      // Build batch payload
+      const date = new Date().toISOString().split('T')[0];
+      const records = students.map((student: any) => ({
+        classId: classIdToUse,
+        date,
+        studentId: student.$id,
+        status: attendance[student.$id] || 'present',
+      }));
 
-      await Promise.all(attendancePromises);
-
-      toast({ title: "Success", description: "Attendance submitted successfully." });
+      // Single batch call
+      const res = await apiRequest('POST', '/api/attendance/batch', {
+        classId: classIdToUse,
+        date,
+        records,
+        notifyClass: true,
+      });
+      const data = await res.json();
+      const count = Number(data?.count || records.length);
+      const msg = `Attendance submitted for ${count} student${count === 1 ? '' : 's'}.`;
+      toast({ title: "Success", description: msg });
       setAttendance({});
-      // Notify Historical Attendance page to refetch
       window.dispatchEvent(new Event('attendanceSubmitted'));
     } catch (error: any) {
       toast({ title: "Error", description: `Failed to submit attendance: ${error.message}`, variant: "destructive" });

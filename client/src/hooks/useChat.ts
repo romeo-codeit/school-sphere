@@ -139,28 +139,32 @@ export function useConversations() {
         refetchOnWindowFocus: false,
     });
 
-    // Real-time subscription for conversations
-    useEffect(() => {
-        if (!user?.$id) return;
-        const channel = `databases.${DATABASE_ID}.collections.${CONVERSATIONS_COLLECTION_ID}.documents`;
-        const unsubscribe = client.subscribe(channel, (response: RealtimeResponseEvent<any>) => {
-            // If the current user is a member of the conversation, update the cached list in-place to avoid extra reads
-            const doc = response.payload as any;
-            if (!Array.isArray(doc?.members) || !doc.members.includes(user.$id)) return;
-            queryClient.setQueryData<any[]>(['conversations', user.$id], (old) => {
-              const prev = Array.isArray(old) ? old : [];
-              const idx = prev.findIndex((c: any) => c.$id === doc.$id);
-              if (idx >= 0) {
-                const updated = [...prev];
-                updated[idx] = { ...prev[idx], ...doc };
-                return updated;
-              }
-              // New conversation: prepend
-              return [doc, ...prev];
-            });
+  // Real-time subscription: subscribe to at most N conversations to reduce event volume
+  useEffect(() => {
+    if (!user?.$id) return;
+    const MAX_SUBS = Number(import.meta.env.VITE_MAX_CONVERSATION_SUBS || 10);
+    const list = (conversations || []).slice(0, MAX_SUBS);
+    const unsubs: Array<() => void> = [];
+    list.forEach((conv: any) => {
+      const channel = `databases.${DATABASE_ID}.collections.${CONVERSATIONS_COLLECTION_ID}.documents`;
+      const unsub = client.subscribe(channel, (response: RealtimeResponseEvent<any>) => {
+        const doc = response.payload as any;
+        if (doc.$id !== conv.$id) return;
+        queryClient.setQueryData<any[]>(['conversations', user.$id], (old) => {
+          const prev = Array.isArray(old) ? old : [];
+          const idx = prev.findIndex((c: any) => c.$id === doc.$id);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = { ...prev[idx], ...doc };
+            return updated;
+          }
+          return prev;
         });
-        return () => unsubscribe();
-    }, [user?.$id, queryClient]);
+      });
+      unsubs.push(unsub);
+    });
+    return () => { unsubs.forEach((u) => u && u()); };
+  }, [user?.$id, (conversations || []).map((c: any)=>c.$id).join(','), queryClient]);
 
     return { conversations, isLoading };
 }

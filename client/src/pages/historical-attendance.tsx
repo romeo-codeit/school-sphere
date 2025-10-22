@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useClasses } from "@/hooks/useClasses";
 import { useToast } from "@/hooks/use-toast";
 import { databases } from '@/lib/appwrite';
+import { Query } from 'appwrite';
 import { useAuth } from '@/hooks/useAuth';
 import ErrorBoundary from "@/components/ui/error-boundary";
 import { TableSkeleton } from "@/components/skeletons/table-skeleton";
@@ -19,6 +20,8 @@ export default function HistoricalAttendance() {
   const { classes, isLoading: classesLoading } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -46,15 +49,15 @@ export default function HistoricalAttendance() {
     }
   }, []);
 
-  const fetchAttendance = async (classId: string) => {
+  const fetchAttendance = async (classId: string, pageNum = 0) => {
     setLoading(true);
     try {
       const response = await databases.listDocuments(
         DATABASE_ID,
-        'attendance',
-        []
+        'attendanceRecords',
+        [Query.equal('classId', classId), Query.orderDesc('date'), Query.limit(PAGE_SIZE), Query.offset(pageNum * PAGE_SIZE)]
       );
-      setRecords(response.documents.filter((r: any) => r.classId === classId));
+      setRecords(response.documents);
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -94,65 +97,87 @@ export default function HistoricalAttendance() {
           </CardHeader>
           <CardContent className="pt-6">
             {loading ? <TableSkeleton columns={5} rows={5} /> :
-              !selectedClassId ? <p className="text-center text-muted-foreground py-8">Please select a class to view attendance records.</p> :
-              records.length === 0 ? <p className="text-center text-muted-foreground py-8">No attendance records found for this class.</p> :
-              <>
-                {/* Mobile: Card view */}
-                <div className="grid grid-cols-1 gap-4 sm:hidden">
-                  {records.map((record: any) => {
-                    const attendances = JSON.parse(record.studentAttendances);
-                    const present = attendances.filter((a: any) => a.status === 'present').length;
-                    const absent = attendances.filter((a: any) => a.status === 'absent').length;
-                    const late = attendances.filter((a: any) => a.status === 'late').length;
-                    const excused = attendances.filter((a: any) => a.status === 'excused').length;
-                    return (
-                      <Card key={record.$id} className="p-4">
-                        <div className="flex justify-between items-center mb-2">
-                          <div className="font-medium text-base">{new Date(record.date).toLocaleDateString()}</div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div><span className="font-medium">Present:</span> {present}</div>
-                          <div><span className="font-medium">Absent:</span> {absent}</div>
-                          <div><span className="font-medium">Late:</span> {late}</div>
-                          <div><span className="font-medium">Excused:</span> {excused}</div>
-                        </div>
-                      </Card>
-                    );
-                  })}
-                </div>
-                {/* Desktop: Table view */}
-                <div className="rounded-md border overflow-x-auto hidden sm:block">
-                  <Table className="min-w-[600px]">
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Present</TableHead>
-                        <TableHead>Absent</TableHead>
-                        <TableHead>Late</TableHead>
-                        <TableHead>Excused</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {records.map((record: any) => {
-                        const attendances = JSON.parse(record.studentAttendances);
-                        const present = attendances.filter((a: any) => a.status === 'present').length;
-                        const absent = attendances.filter((a: any) => a.status === 'absent').length;
-                        const late = attendances.filter((a: any) => a.status === 'late').length;
-                        const excused = attendances.filter((a: any) => a.status === 'excused').length;
+              !selectedClassId ? (
+                <p className="text-center text-muted-foreground py-8">Please select a class to view attendance records.</p>
+              ) : records.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No attendance records found for this class.</p>
+              ) : (
+                <>
+                  {/* Mobile: Card view (grouped by date) */}
+                  <div className="grid grid-cols-1 gap-4 sm:hidden">
+                  {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
+                      const key = String(rec.date).slice(0, 10);
+                      const list = map.get(key) || [];
+                      list.push(rec);
+                      map.set(key, list);
+                      return map;
+                    }, new Map<string, any[]>()).entries())
+                      .sort((a: [string, any[]], b: [string, any[]]) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
+                      .map(([date, recs]: [string, any[]]) => {
+                        const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
+                        const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
+                        const late = (recs as any[]).filter((r: any) => r.status === 'late').length;
+                        const excused = (recs as any[]).filter((r: any) => r.status === 'excused').length;
                         return (
-                          <TableRow key={record.$id}>
-                            <TableCell className="text-sm">{new Date(record.date).toLocaleDateString()}</TableCell>
-                            <TableCell className="text-sm">{present}</TableCell>
-                            <TableCell className="text-sm">{absent}</TableCell>
-                            <TableCell className="text-sm">{late}</TableCell>
-                            <TableCell className="text-sm">{excused}</TableCell>
-                          </TableRow>
+                          <Card key={String(date)} className="p-4">
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="font-medium text-base">{new Date(String(date)).toLocaleDateString()}</div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div><span className="font-medium">Present:</span> {present}</div>
+                              <div><span className="font-medium">Absent:</span> {absent}</div>
+                              <div><span className="font-medium">Late:</span> {late}</div>
+                              <div><span className="font-medium">Excused:</span> {excused}</div>
+                            </div>
+                          </Card>
                         );
                       })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </>}
+                  </div>
+                  {/* Desktop: Table view (grouped by date) */}
+                  <div className="rounded-md border overflow-x-auto hidden sm:block">
+                    <Table className="min-w-[600px]">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Present</TableHead>
+                          <TableHead>Absent</TableHead>
+                          <TableHead>Late</TableHead>
+                          <TableHead>Excused</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {Array.from((records as any[]).reduce((map: Map<string, any[]>, rec: any) => {
+                          const key = String(rec.date).slice(0, 10);
+                          const list = map.get(key) || [];
+                          list.push(rec);
+                          map.set(key, list);
+                          return map;
+                        }, new Map<string, any[]>()).entries())
+                          .sort((a: [string, any[]], b: [string, any[]]) => new Date(String(b[0])).getTime() - new Date(String(a[0])).getTime())
+                          .map(([date, recs]: [string, any[]]) => {
+                            const present = (recs as any[]).filter((r: any) => r.status === 'present').length;
+                            const absent = (recs as any[]).filter((r: any) => r.status === 'absent').length;
+                            const late = (recs as any[]).filter((r: any) => r.status === 'late').length;
+                            const excused = (recs as any[]).filter((r: any) => r.status === 'excused').length;
+                            return (
+                              <TableRow key={String(date)}>
+                                <TableCell className="text-sm">{new Date(String(date)).toLocaleDateString()}</TableCell>
+                                <TableCell className="text-sm">{present}</TableCell>
+                                <TableCell className="text-sm">{absent}</TableCell>
+                                <TableCell className="text-sm">{late}</TableCell>
+                                <TableCell className="text-sm">{excused}</TableCell>
+                              </TableRow>
+                            );
+                          })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mt-4">
+                    <button className="px-3 py-1 border rounded" disabled={page === 0} onClick={() => { const next = Math.max(0, page - 1); setPage(next); if (selectedClassId) fetchAttendance(selectedClassId, next); }}>Prev</button>
+                    <button className="px-3 py-1 border rounded" onClick={() => { const next = page + 1; setPage(next); if (selectedClassId) fetchAttendance(selectedClassId, next); }}>Next</button>
+                  </div>
+                </>
+              )}
           </CardContent>
         </Card>
         </ErrorBoundary>

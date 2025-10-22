@@ -265,6 +265,38 @@ export async function processAppwriteQueueOnce() {
   }
 }
 
+// Exam autosave/submit queue processor (uses idbCache queue)
+import { getQueue as getIDBQueue, removeFromQueue as removeFromIDBQueue } from '@/lib/idbCache';
+export async function processExamQueueOnce() {
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return;
+  try {
+    const q = await getIDBQueue();
+    for (const item of q) {
+      try {
+        if (item.type === 'autosave') {
+          await fetch('/api/cbt/attempts/autosave', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(item.payload),
+            credentials: 'include',
+          });
+        } else if (item.type === 'submit') {
+          const { attemptId, answers } = item.payload || {};
+          await fetch(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ answers }),
+            credentials: 'include',
+          });
+        }
+        await removeFromIDBQueue(item.id);
+      } catch {
+        // keep for next round
+      }
+    }
+  } catch {}
+}
+
 // Hook-like utilities
 export function onNetworkChange(cb: (online: boolean) => void) {
   const handler = () => cb(navigator.onLine);

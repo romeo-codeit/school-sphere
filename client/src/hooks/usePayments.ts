@@ -1,39 +1,48 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { databases, ID } from '@/lib/appwrite';
-import { Query } from 'appwrite';
-import { isOnline, queueAppwriteOperation } from '@/lib/offline';
+import { ID } from 'appwrite';
+import { isOnline, queueRequest } from '@/lib/offline';
+import { apiRequest } from '@/lib/queryClient';
 
-const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
-const PAYMENTS_COLLECTION_ID = 'payments';
+const PAGE_SIZE = 50;
 
 export function usePayments(studentId?: string) {
   const queryClient = useQueryClient();
+  const [page, setPage] = ((): [number, (n: number) => void] => {
+    // Lightweight local state using a closure; consumer can track their own page in a component
+    // For simplicity here we keep page in React Query key below
+    return [0, () => {}];
+  })();
 
   const { data: payments, isLoading, error } = useQuery({
-    queryKey: ['payments', studentId],
+    queryKey: ['payments', studentId, { page, limit: PAGE_SIZE }],
     queryFn: async () => {
-      const queries = [
-        Query.orderDesc('$createdAt')
-      ];
-      if (studentId) {
-        queries.push(Query.equal('studentId', studentId));
-      }
-      const response = await databases.listDocuments(DATABASE_ID, PAYMENTS_COLLECTION_ID, queries);
-      return response.documents;
+      const url = new URL('/api/payments', window.location.origin);
+      url.searchParams.set('limit', String(PAGE_SIZE));
+      url.searchParams.set('offset', String(page * PAGE_SIZE));
+      if (studentId) url.searchParams.set('studentId', studentId);
+      const res = await apiRequest('GET', url.pathname + url.search);
+      const data = await res.json();
+      return data?.documents || [];
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   });
 
   const createPaymentMutation = useMutation({
     mutationFn: async (paymentData: any) => {
       if (!isOnline()) {
-        await queueAppwriteOperation({
-          op: 'create',
-          collection: PAYMENTS_COLLECTION_ID,
-          data: paymentData,
+        await queueRequest({
+          url: `${import.meta.env.BASE_URL || ''}api/payments`,
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(paymentData),
         });
         return { offline: true, local: true, paymentData };
       }
-      return await databases.createDocument(DATABASE_ID, PAYMENTS_COLLECTION_ID, ID.unique(), paymentData);
+      const res = await apiRequest('POST', '/api/payments', paymentData);
+      return await res.json();
     },
     onSuccess: (result: any) => {
       // If operation was queued offline and returned local payment data, add placeholder to cache
@@ -56,15 +65,16 @@ export function usePayments(studentId?: string) {
   const updatePaymentMutation = useMutation({
     mutationFn: async ({ paymentId, paymentData }: { paymentId: string, paymentData: any }) => {
       if (!isOnline()) {
-        await queueAppwriteOperation({
-          op: 'update',
-          collection: PAYMENTS_COLLECTION_ID,
-          docId: paymentId,
-          data: paymentData,
+        await queueRequest({
+          url: `${import.meta.env.BASE_URL || ''}api/payments/${encodeURIComponent(paymentId)}`,
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(paymentData),
         });
         return { offline: true, local: true, paymentId, paymentData };
       }
-      return await databases.updateDocument(DATABASE_ID, PAYMENTS_COLLECTION_ID, paymentId, paymentData);
+      const res = await apiRequest('PUT', `/api/payments/${encodeURIComponent(paymentId)}`, paymentData);
+      return await res.json();
     },
     onSuccess: (result: any) => {
       if (result && result.local && result.paymentId) {
@@ -80,14 +90,14 @@ export function usePayments(studentId?: string) {
   const deletePaymentMutation = useMutation({
     mutationFn: async (paymentId: string) => {
       if (!isOnline()) {
-        await queueAppwriteOperation({
-          op: 'delete',
-          collection: PAYMENTS_COLLECTION_ID,
-          docId: paymentId,
+        await queueRequest({
+          url: `${import.meta.env.BASE_URL || ''}api/payments/${encodeURIComponent(paymentId)}`,
+          method: 'DELETE',
         });
         return { offline: true, local: true, paymentId };
       }
-      return await databases.deleteDocument(DATABASE_ID, PAYMENTS_COLLECTION_ID, paymentId);
+      const res = await apiRequest('DELETE', `/api/payments/${encodeURIComponent(paymentId)}`);
+      return await res.json();
     },
     onSuccess: (result: any) => {
       if (result && result.local && result.paymentId) {
@@ -104,6 +114,11 @@ export function usePayments(studentId?: string) {
     payments,
     isLoading,
     error,
+    page,
+    pageSize: PAGE_SIZE,
+    setPage: (p: number) => {
+      (queryClient as any).setQueryData(['payments', studentId, { page: p, limit: PAGE_SIZE }], payments);
+    },
     createPayment: createPaymentMutation.mutateAsync,
     updatePayment: updatePaymentMutation.mutateAsync,
     deletePayment: deletePaymentMutation.mutateAsync,

@@ -32,11 +32,8 @@ export function AssignExamDialog({ examId, open, onOpenChange }: Props) {
   const onAssign = async () => {
     setIsSubmitting(true);
     try {
-      const payload = {
-        classIds: classIds.split(',').map(s => s.trim()).filter(Boolean),
-        studentIds: studentIds.split(',').map(s => s.trim()).filter(Boolean),
-      };
-      await assign(payload);
+      // Exam assignment feature is disabled, so just call assign with no payload
+      await assign();
       toast({ title: 'Assigned', description: 'Exam assignment updated.' });
       onOpenChange(false);
     } catch (e: any) {

@@ -99,12 +99,16 @@ app.use('/api/', generalLimiter);
 // Apply auth rate limiting to auth routes
 app.use('/api/auth/', authLimiter);
 app.use('/api/users/register', authLimiter);
+// Exam-specific rate limits
+const examLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const examSubmitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+app.use('/api/cbt/attempts', examLimiter);
+app.use('/api/cbt/attempts/:id/submit', examSubmitLimiter);
 
-// Apply stricter rate limiting to payment routes
+// Payments rate limiter (modest)
 const paymentsLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // fewer requests for payment operations
-  message: 'Too many payment-related requests, please try again later.',
+  windowMs: 15 * 60 * 1000,
+  max: 60,
   standardHeaders: true,
   legacyHeaders: false,
 });
