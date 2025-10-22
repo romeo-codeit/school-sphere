@@ -100,7 +100,14 @@ app.use('/api/', generalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/users/register', authLimiter);
 
-// Payments API currently not implemented — remove special limiter to avoid dangling middleware
+// Payments rate limiter (modest)
+const paymentsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/payments', paymentsLimiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));

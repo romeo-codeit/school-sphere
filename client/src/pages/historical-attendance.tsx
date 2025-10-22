@@ -20,6 +20,8 @@ export default function HistoricalAttendance() {
   const { classes, isLoading: classesLoading } = useClasses();
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [records, setRecords] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 100;
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -47,13 +49,13 @@ export default function HistoricalAttendance() {
     }
   }, []);
 
-  const fetchAttendance = async (classId: string) => {
+  const fetchAttendance = async (classId: string, pageNum = 0) => {
     setLoading(true);
     try {
       const response = await databases.listDocuments(
         DATABASE_ID,
         'attendanceRecords',
-        [Query.equal('classId', classId), Query.limit(1000)]
+        [Query.equal('classId', classId), Query.orderDesc('date'), Query.limit(PAGE_SIZE), Query.offset(pageNum * PAGE_SIZE)]
       );
       setRecords(response.documents);
     } catch (error: any) {
@@ -169,6 +171,10 @@ export default function HistoricalAttendance() {
                           })}
                       </TableBody>
                     </Table>
+                  </div>
+                  <div className="flex items-center justify-end gap-2 mt-4">
+                    <button className="px-3 py-1 border rounded" disabled={page === 0} onClick={() => { const next = Math.max(0, page - 1); setPage(next); if (selectedClassId) fetchAttendance(selectedClassId, next); }}>Prev</button>
+                    <button className="px-3 py-1 border rounded" onClick={() => { const next = page + 1; setPage(next); if (selectedClassId) fetchAttendance(selectedClassId, next); }}>Next</button>
                   </div>
                 </>
               )}

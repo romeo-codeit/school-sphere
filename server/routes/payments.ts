@@ -20,15 +20,17 @@ const notificationService = new NotificationService(databases);
 
 export const registerPaymentRoutes = (app: any) => {
   // List payments with optional filters
-  app.get('/api/payments', auth, validateQuery(paymentQuerySchema), async (req: Request, res: Response) => {
+  app.get('/api/payments', auth, async (req: Request, res: Response) => {
     try {
       const { studentId, status } = req.query as { studentId?: string; status?: string };
-      const queries: any[] = [Query.orderDesc('$createdAt'), Query.limit(100)];
+      const limitParam = Math.max(1, Math.min(200, parseInt(String(req.query.limit || '50'), 10) || 50));
+      const offsetParam = Math.max(0, parseInt(String(req.query.offset || '0'), 10) || 0);
+      const queries: any[] = [Query.orderDesc('$createdAt'), Query.limit(limitParam), Query.offset(offsetParam)];
       if (studentId) queries.push(Query.equal('studentId', String(studentId)));
       if (status) queries.push(Query.equal('status', String(status)));
 
       const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'payments', queries);
-      res.json(page.documents);
+      res.json({ documents: page.documents, total: page.total });
     } catch (error) {
       logError('Failed to list payments', error);
       res.status(500).json({ message: 'Failed to list payments' });
