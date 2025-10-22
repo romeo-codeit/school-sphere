@@ -13,14 +13,6 @@
   ],
   "rewrites": [
     {
-      "source": "/api/:match*",
-      "destination": "/dist/index.js"
-    },
-    {
-      "source": "/assets/:match*",
-      "destination": "/dist/public/assets/:match*"
-    },
-    {
       "source": "/:match*",
       "destination": "/dist/public/index.html"
     }
