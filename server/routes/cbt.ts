@@ -32,6 +32,7 @@ const notificationService = new NotificationService(databases);
 
 // In-memory throttle for autosave to prevent excessive writes per attempt
 const lastAutosaveAt = new Map<string, number>();
+const lastAutosaveHash = new Map<string, string>();
 const AUTOSAVE_THROTTLE_MS = (() => {
   const v = Number(process.env.AUTOSAVE_THROTTLE_MS || 5000);
   return Number.isFinite(v) && v >= 0 ? v : 5000;
@@ -1269,6 +1270,17 @@ export const registerCBTRoutes = (app: any) => {
       }
 
       const nextAnswers = typeof answers === 'undefined' ? attempt.answers : (typeof answers === 'string' ? answers : JSON.stringify(answers || {}));
+
+      // Only-save-on-change: compute hash and skip identical payloads
+      try {
+        const payloadToHash = JSON.stringify({ a: nextAnswers, t: timeSpent ?? attempt.timeSpent });
+        const hash = require('crypto').createHash('sha1').update(payloadToHash).digest('hex');
+        const prevHash = lastAutosaveHash.get(attemptId);
+        if (prevHash && prevHash === hash) {
+          return res.json({ ok: true, skipped: true, reason: 'no_change' });
+        }
+        lastAutosaveHash.set(attemptId, hash);
+      } catch {}
 
       const baseUpdates: any = {};
       const detailUpdates: any = {};

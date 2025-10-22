@@ -105,8 +105,10 @@ export const queryClient = new QueryClient({
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 3, // Retry failed requests up to 3 times
+      refetchOnReconnect: false,
+      staleTime: 1000 * 60 * 10, // 10 minutes
+      gcTime: 1000 * 60 * 60, // 1 hour
+      retry: 3,
     },
     mutations: {
       // Mutations are not retried by default, which is the desired behavior.

@@ -382,6 +382,11 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('payments', 'term', 255, false);
   await safeCreateStringAttribute('payments', 'academicYear', 255, false);
   await delay(500);
+  // Indexes for faster filters
+  await safeCreateIndex('payments', 'idx_payment_student', ['studentId']);
+  await safeCreateIndex('payments', 'idx_payment_status', ['status']);
+  await safeCreateIndex('payments', 'idx_payment_student_status', ['studentId','status']);
+  await safeCreateIndex('payments', 'idx_payment_duedate', ['dueDate']);
 
   await ensureCollection('notices', 'Notices');
   await safeCreateStringAttribute('notices', 'activity', 1024, true);
