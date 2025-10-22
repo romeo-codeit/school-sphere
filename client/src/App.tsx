@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SplashScreen } from "@/components/ui/splash-screen";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { useEffect } from "react";
-import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce, processFileQueueOnce } from "@/lib/offline";
+import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce, processFileQueueOnce, processExamQueueOnce } from "@/lib/offline";
 import { storage, databases } from "@/lib/appwrite";
 
 // Lazy load all the pages for better performance
@@ -89,6 +89,7 @@ function Router() {
       processQueueOnce();
       processAppwriteQueueOnce();
       processFileQueueOnce(storage, databases, bucketId, databaseId, resourcesCollectionId);
+      processExamQueueOnce();
     };
 
     const off = onNetworkChange((online) => {

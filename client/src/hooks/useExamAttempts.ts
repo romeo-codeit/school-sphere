@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { apiRequest } from '@/lib/queryClient';
+import { addToQueue, getAnswers as idbGetAnswers, setAnswers as idbSetAnswers } from '@/lib/idbCache';
 
 const API_URL = '/api/cbt/attempts';
 
@@ -30,8 +31,15 @@ export function useExamAttempts(studentId?: string) {
   // Start a new exam attempt
   const startAttemptMutation = useMutation({
     mutationFn: async (examId: string) => {
-      const res = await apiRequest('POST', API_URL, { examId });
-      return await res.json();
+      try {
+        const res = await apiRequest('POST', API_URL, { examId });
+        return await res.json();
+      } catch (e) {
+        // Offline: create a synthetic attempt id for local storage
+        const attempt = { $id: `offline-${Date.now()}`, examId, status: 'in_progress', answers: '{}' };
+        await idbSetAnswers(attempt.$id, {});
+        return attempt;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['examAttempts'] });
@@ -41,8 +49,16 @@ export function useExamAttempts(studentId?: string) {
   // Submit an exam attempt
   const submitAttemptMutation = useMutation({
     mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: any }) => {
-      const res = await apiRequest('POST', `${API_URL}/${attemptId}/submit`, { answers });
-      return await res.json();
+      try {
+        const res = await apiRequest('POST', `${API_URL}/${attemptId}/submit`, { answers });
+        await idbSetAnswers(attemptId, null);
+        return await res.json();
+      } catch (e) {
+        // Queue submit for later
+        await addToQueue('submit', { attemptId, answers });
+        await idbSetAnswers(attemptId, answers);
+        return { offline: true, attemptId } as any;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['examAttempts'] });
