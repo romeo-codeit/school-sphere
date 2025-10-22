@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRole } from "@/hooks/useRole";
 import { useAuth } from "@/hooks/useAuth";
 import React from "react";
+import logo from "@/assets/ohman-no-bg.png";
 
 const getNavigationItems = (role: string | null) => {
   const baseItems = [
@@ -219,7 +220,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
             aria-label="Toggle sidebar"
           >
             <div className="w-20 h-20 sm:w-14 sm:h-14 flex items-center justify-center">
-              <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+              <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
             </div>
             {!isCollapsed && (
               <span className="ml-2 text-base font-bold tracking-tight text-primary select-none leading-tight">

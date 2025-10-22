@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import logo from "@/assets/ohman-no-bg.png";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useState, useEffect } from "react";
@@ -151,7 +152,7 @@ export default function LoginPage() {
           <CardHeader className="flex flex-col items-center gap-3 pb-4 pt-8">
             {/* Logo */}
             <div className="mb-2 w-16 h-16">
-              <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+              <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
             </div>
             <CardTitle className="text-3xl sm:text-4xl font-bold text-center bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               Welcome Back

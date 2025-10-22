@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import logo from '@/assets/ohman-no-bg.png';
 import { 
   GraduationCap, 
   Users, 
@@ -57,7 +58,7 @@ export default function Landing() {
           <div className="flex items-center justify-between h-16 sm:h-20">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
-                <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+                <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
               </div>
               <div className="hidden sm:flex flex-col">
                 <span className="text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
@@ -639,7 +640,7 @@ export default function Landing() {
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-10 h-10 flex items-center justify-center">
-                  <img src="/src/assets/ohman-no-bg.png" alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
+                  <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
                 </div>
                 <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                   OhmanFoundations
