@@ -42,11 +42,18 @@ import { z } from 'zod';
   });
 import { logInfo, logWarn, logError, logDebug } from './logger';
 import NotificationService from './services/notificationService';
+import jwt from 'jsonwebtoken';
 
 const APPWRITE_ENDPOINT = process.env.VITE_APPWRITE_ENDPOINT;
 const APPWRITE_PROJECT_ID = process.env.VITE_APPWRITE_PROJECT_ID;
 const APPWRITE_API_KEY = process.env.APPWRITE_API_KEY;
 const APPWRITE_DATABASE_ID = process.env.VITE_APPWRITE_DATABASE_ID;
+
+// Jitsi/JaaS JWT config (optional)
+const JITSI_JWT_SECRET = process.env.JITSI_JWT_SECRET; // HS256 secret or PEM for RS256
+const JITSI_JWT_APP_ID = process.env.JITSI_JWT_APP_ID; // iss (app id / kid)
+const JITSI_JWT_SUB = process.env.JITSI_JWT_SUB || 'meet.jit.si'; // sub/domain (8x8.vc/<tenant> for JaaS)
+const JITSI_DOMAIN = process.env.VITE_JITSI_DOMAIN || 'meet.jit.si';
 
 // CDN Configuration for static assets
 const CDN_BASE_URL = process.env.CDN_BASE_URL || process.env.VITE_APPWRITE_ENDPOINT?.replace('/v1', '') || '';
@@ -315,6 +322,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (e) {
       console.error(e);
       return res.status(500).json({ message: 'Failed to fetch meetings' });
+    }
+  });
+
+  // Issue a Jitsi/JaaS JWT for a room. If env is missing, skip with 204 and let client fall back to anonymous.
+  app.post('/api/jitsi/token', auth, async (req, res) => {
+    try {
+      if (!JITSI_JWT_SECRET || !JITSI_JWT_APP_ID || !JITSI_JWT_SUB) {
+        return res.status(204).end();
+      }
+      const user: any = (req as any).user;
+      const { roomId } = req.body || {};
+      if (!roomId) return res.status(400).json({ message: 'roomId required' });
+
+      // Check meeting ownership to determine moderator role
+      const meetingPage = await databases.listDocuments(
+        APPWRITE_DATABASE_ID!,
+        'videoMeetings',
+        [Query.equal('roomId', roomId), Query.limit(1)]
+      );
+      const meeting = meetingPage.documents[0];
+      const isModerator = meeting && String(meeting.createdBy) === String(user?.$id);
+
+      const now = Math.floor(Date.now() / 1000);
+      const payload: any = {
+        aud: 'jitsi',
+        iss: JITSI_JWT_APP_ID,
+        sub: JITSI_JWT_SUB,
+        room: roomId,
+        exp: now + 60 * 60, // 1 hour
+        nbf: now - 5,
+        context: {
+          user: {
+            id: user?.$id,
+            name: user?.name || [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'User',
+            email: user?.email || undefined,
+            moderator: isModerator,
+          },
+          // Keep features minimal on free tier
+          features: {
+            livestreaming: false,
+            recording: false,
+            transcription: false,
+            "outbound-call": false,
+          },
+        },
+        // Some deployments look for top-level flag too
+        moderator: isModerator,
+      };
+
+      // Default HS256
+      const token = jwt.sign(payload, JITSI_JWT_SECRET, { algorithm: 'HS256' as any });
+      return res.json({ token, domain: JITSI_DOMAIN, roomId, moderator: isModerator });
+    } catch (e) {
+      console.error('Failed to issue Jitsi token', e);
+      return res.status(500).json({ message: 'Failed to issue token' });
     }
   });
 

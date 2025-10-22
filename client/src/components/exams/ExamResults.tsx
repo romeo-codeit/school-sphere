@@ -23,7 +23,7 @@ export function ExamResults({ summary, perQuestion }: { summary: { total: number
       </div>
       <div className="space-y-2">
         <div className="font-medium">Per-question</div>
-        <ul className="text-sm space-y-1 max-h-64 overflow-auto">
+        <ul className="text-sm space-y-1 max-h-64 overflow-auto modern-scrollbar">
           {perQuestion.map((q) => (
             <li key={q.questionNumber} className={`flex items-center justify-between p-2 rounded ${q.isCorrect ? 'bg-green-50' : 'bg-red-50'}`}>
               <span>Q{q.questionNumber}</span>

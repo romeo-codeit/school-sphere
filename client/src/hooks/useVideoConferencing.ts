@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { databases, client } from '../lib/appwrite';
-import { ID, Query, RealtimeResponseEvent } from 'appwrite';
+import { ID, Query, RealtimeResponseEvent, Permission, Role } from 'appwrite';
 import { useEffect } from 'react';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
@@ -59,8 +59,18 @@ export function useVideoConferencing() {
   }, [DATABASE_ID, queryClient]);
 
   const createMeetingMutation = useMutation({
-    mutationFn: (meetingData: any) =>
-      databases.createDocument(DATABASE_ID, MEETINGS_COLLECTION_ID, ID.unique(), meetingData),
+    mutationFn: async (meetingData: any) => {
+      const ownerId = String(meetingData?.createdBy || '');
+      const permissions = [
+        // Everybody can read to discover and join
+        Permission.read(Role.any()),
+        // Any signed-in user may update participant counts; creator updates/end meeting
+        Permission.update(Role.users()),
+        // Only creator can delete the room
+        ...(ownerId ? [Permission.delete(Role.user(ownerId))] : []),
+      ];
+      return databases.createDocument(DATABASE_ID, MEETINGS_COLLECTION_ID, ID.unique(), meetingData, permissions as any);
+    },
     // No onSuccess invalidation needed due to real-time updates
   });
 

@@ -45,5 +45,12 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<!-- Video conferencing permissions -->
+	<key>NSCameraUsageDescription</key>
+	<string>OhmanFoundations needs access to your camera for video conferencing.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>OhmanFoundations needs access to your microphone for video conferencing.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>OhmanFoundations needs access to your photo library to share images in meetings.</string>
 </dict>
 </plist>

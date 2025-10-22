@@ -163,7 +163,8 @@ const collections = [
     attributes: [
         { id: 'examId', type: 'string', size: 255, required: false },
         { id: 'studentId', type: 'string', size: 255, required: false },
-        { id: 'answers', type: 'string', size: 1024, required: false },
+        // Store answers as a large JSON string for compatibility
+        { id: 'answers', type: 'string', size: 65535, required: false },
         { id: 'score', type: 'integer', required: false },
         { id: 'totalQuestions', type: 'integer', required: false },
         { id: 'correctAnswers', type: 'integer', required: false },
@@ -171,6 +172,15 @@ const collections = [
         // Phase 1: Subject selection tracking and analytics
         { id: 'subjects', type: 'string', size: 255, required: false, array: true },
         { id: 'timePerQuestion', type: 'integer', required: false },
+        // New attributes to support CBT flows
+        { id: 'status', type: 'string', size: 50, required: false },
+        { id: 'percentage', type: 'integer', required: false },
+        { id: 'passed', type: 'boolean', required: false },
+        { id: 'startedAt', type: 'datetime', required: false },
+        { id: 'submittedAt', type: 'datetime', required: false },
+        { id: 'lastSavedAt', type: 'datetime', required: false },
+        { id: 'practiceYear', type: 'string', size: 10, required: false },
+        { id: 'practicePaperType', type: 'string', size: 50, required: false },
         { id: 'completedAt', type: 'string', size: 255, required: false },
     ]
   },

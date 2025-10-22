@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
+import { apiRequest } from '@/lib/queryClient';
 
 const API_URL = '/api/cbt/attempts';
 
 export function useExamAttempts(studentId?: string) {
-  const { getJWT } = useAuth();
+  const { getJWT, isAuthenticated } = useAuth();
   const queryClient = useQueryClient();
 
   // Fetch all attempts for the current user (or specified student for admin/teacher)
@@ -15,35 +16,22 @@ export function useExamAttempts(studentId?: string) {
       if (studentId) {
         url += `?studentId=${studentId}`;
       }
-      const jwt = await getJWT();
-      const response = await fetch(url, {
-        headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-      });
-      if (!response.ok) {
-        throw new Error('Failed to fetch exam attempts');
+      const res = await apiRequest('GET', url);
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        const preview = (await res.text()).slice(0, 80);
+        throw new Error(`Unexpected response (not JSON): ${preview}`);
       }
-      return await response.json();
+      return await res.json();
     },
+    enabled: !!isAuthenticated,
   });
 
   // Start a new exam attempt
   const startAttemptMutation = useMutation({
     mutationFn: async (examId: string) => {
-      const jwt = await getJWT();
-      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-        },
-        body: JSON.stringify({ examId }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to start exam attempt');
-      }
-      return await response.json();
+      const res = await apiRequest('POST', API_URL, { examId });
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['examAttempts'] });
@@ -53,21 +41,8 @@ export function useExamAttempts(studentId?: string) {
   // Submit an exam attempt
   const submitAttemptMutation = useMutation({
     mutationFn: async ({ attemptId, answers }: { attemptId: string; answers: any }) => {
-      const jwt = await getJWT();
-      const csrf2 = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const response = await fetch(`${API_URL}/${attemptId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          ...(csrf2 ? { 'X-CSRF-Token': csrf2 } : {}),
-        },
-        body: JSON.stringify({ answers }),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to submit exam attempt');
-      }
-      return await response.json();
+      const res = await apiRequest('POST', `${API_URL}/${attemptId}/submit`, { answers });
+      return await res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['examAttempts'] });

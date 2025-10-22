@@ -20,7 +20,8 @@ import {
 import { Label } from '@/components/ui/label';
 import { SubjectSelector } from './SubjectSelector';
 import { useAvailableSubjects, useAvailableYears, useYearAvailability, useValidateSubjects } from '@/hooks/useCBT';
-import { AlertCircle, Loader2, Calendar, CheckCircle, Info } from 'lucide-react';
+import { AlertCircle, Loader2, Calendar, CheckCircle, Info, BookOpen, Sparkles, ArrowRight } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export type SubjectSelectionDialogProps = {
   open: boolean;
@@ -159,16 +160,16 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
   if (examType === 'internal') {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-xl">Start Internal Exam</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground mt-2">
+            <DialogTitle className="text-lg sm:text-xl">Start Internal Exam</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-2">
               This is an internal exam. No subject selection required.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4">
-            <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto">Cancel</Button>
-            <Button onClick={() => { onConfirm([]); onOpenChange(false); }} className="w-full sm:w-auto">Start Exam</Button>
+            <Button variant="outline" onClick={handleCancel} className="w-full sm:w-auto text-sm" size="sm">Cancel</Button>
+            <Button onClick={() => { onConfirm([]); onOpenChange(false); }} className="w-full sm:w-auto text-sm" size="sm">Start Exam</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -177,38 +178,56 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col" onPointerDownOutside={(e) => e.preventDefault()}>
-        <DialogHeader className="px-6 pt-6 pb-4">
-          <DialogTitle className="text-xl sm:text-2xl">Select Subjects for {examType.toUpperCase()}</DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground mt-2">
-            {examType === 'jamb'
-              ? 'English is mandatory. Select exactly 3 additional subjects to continue.'
-              : 'Choose one or more subjects to include in your exam session.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-6 px-6 flex-1 overflow-y-auto py-4">
-          {/* Year Selection - Only for standardized exams */}
+      <DialogContent className="w-[95vw] max-w-4xl max-h-[92vh] overflow-hidden flex flex-col gap-0 p-0" onPointerDownOutside={(e) => e.preventDefault()}>
+        {/* Modern Header with Gradient */}
+        <div className="relative px-4 sm:px-6 pt-5 sm:pt-6 pb-4 sm:pb-5 bg-gradient-to-br from-primary/10 via-primary/5 to-background border-b">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="p-2 sm:p-2.5 rounded-xl bg-primary/10 shrink-0">
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="text-base sm:text-lg md:text-xl font-semibold flex items-center gap-2">
+                {examType.toUpperCase()} Practice Session
+                <Badge variant="outline" className="text-xs font-normal">
+                  {examType === 'jamb' ? '4 Subjects' : 'Multi-subject'}
+                </Badge>
+              </DialogTitle>
+              <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-1.5">
+                {examType === 'jamb'
+                  ? 'English is pre-selected. Choose 3 more subjects to begin.'
+                  : 'Select your subjects and exam year to start practicing.'}
+              </DialogDescription>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 space-y-5 sm:space-y-6 modern-scrollbar">
+          {/* Year Selection - Modern Card Style */}
           {['jamb', 'waec', 'neco'].includes(examType) && (
-            <div className="space-y-2">
-              <Label htmlFor="year-select" className="flex items-center gap-2 text-sm font-medium">
-                <Calendar className="w-4 h-4" />
-                Select Exam Year
-                {selectedSubjects.length > 0 && (
-                  <span className="text-xs text-muted-foreground">
-                    (availability shown for selected subjects)
-                  </span>
-                )}
-              </Label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <Label htmlFor="year-select" className="text-sm sm:text-base font-semibold">Exam Year</Label>
+                  {selectedSubjects.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-0.5">Showing availability for your selected subjects</p>
+                  )}
+                </div>
+              </div>
+
               {loadingYears || loadingAvailability ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground p-4 bg-muted/30 rounded-xl border border-dashed">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   Loading available years...
                 </div>
               ) : yearsData?.years?.length ? (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Select value={year} onValueChange={setYear}>
-                    <SelectTrigger id="year-select" className="w-full sm:w-48">
-                      <SelectValue placeholder="Select year" />
+                    <SelectTrigger id="year-select" className="h-11 sm:h-12 w-full bg-background hover:bg-muted/50 transition-colors">
+                      <SelectValue placeholder="Choose a year" />
                     </SelectTrigger>
                     <SelectContent>
                       {yearsData.years
@@ -218,187 +237,185 @@ export function SubjectSelectionDialog({ open, onOpenChange, examType, onConfirm
                           const hasAllSubjects = availInfo ? availInfo.availableCount === availInfo.totalCount : false;
                           const availCount = availInfo?.availableCount || 0;
                           const totalCount = availInfo?.totalCount || selectedSubjects.length;
-                          
                           return (
-                            <SelectItem key={y} value={y} className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                {y}
+                            <SelectItem key={y} value={y}>
+                              <div className="flex items-center gap-2 py-0.5">
+                                <span className="font-medium">{y}</span>
                                 {availInfo && (
-                                  <Badge 
-                                    variant={hasAllSubjects ? "primary" : "secondary"} 
-                                    className="ml-2 text-xs"
-                                  >
+                                  <Badge variant={hasAllSubjects ? 'primary' : 'secondary'} className={cn('text-xs font-normal', hasAllSubjects ? 'bg-green-100 text-green-700 border-green-200' : '')}>
                                     {availCount}/{totalCount}
                                   </Badge>
                                 )}
-                              </span>
+                              </div>
                             </SelectItem>
                           );
                         })}
                     </SelectContent>
                   </Select>
-                  
-                  {/* Show availability info for selected year */}
-                  {year && yearAvailabilityData?.availability && (
-                    (() => {
-                      const yearInfo = yearAvailabilityData.availability.find(av => av.year === year);
-                      if (!yearInfo) return null;
-                      
-                      const hasAll = yearInfo.availableCount === yearInfo.totalCount;
-                      
-                      return (
-                        <Alert className={hasAll ? "border-green-500/50 bg-green-500/10" : "border-yellow-500/50 bg-yellow-500/10"}>
-                          <div className="flex items-start gap-2">
+
+                  {year && yearAvailabilityData?.availability && (() => {
+                    const yearInfo = yearAvailabilityData.availability.find(av => av.year === year);
+                    if (!yearInfo) return null;
+                    const hasAll = yearInfo.availableCount === yearInfo.totalCount;
+                    return (
+                      <div className={cn('p-3 sm:p-4 rounded-xl border-2 transition-all', hasAll ? 'bg-green-50/50 dark:bg-green-950/20 border-green-200 dark:border-green-800' : 'bg-yellow-50/50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800')}>
+                        <div className="flex items-start gap-3">
+                          {hasAll ? (
+                            <div className="p-1.5 rounded-lg bg-green-100 dark:bg-green-900/40 shrink-0">
+                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
+                            </div>
+                          ) : (
+                            <div className="p-1.5 rounded-lg bg-yellow-100 dark:bg-yellow-900/40 shrink-0">
+                              <Info className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
                             {hasAll ? (
-                              <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5" />
+                              <p className="text-xs sm:text-sm font-medium text-green-700 dark:text-green-300">Perfect! All {yearInfo.totalCount} subjects available for {year}</p>
                             ) : (
-                              <Info className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5" />
+                              <div className="space-y-1">
+                                <p className="text-xs sm:text-sm font-medium text-yellow-700 dark:text-yellow-300">{yearInfo.availableCount} of {yearInfo.totalCount} subjects available</p>
+                                <p className="text-xs text-yellow-600/80 dark:text-yellow-400/80">Practice with available subjects only</p>
+                              </div>
                             )}
-                            <AlertDescription className="text-xs">
-                              {hasAll ? (
-                                <span className="text-green-700 dark:text-green-300">
-                                  ✓ All {yearInfo.totalCount} subjects available for {year}
-                                </span>
-                              ) : (
-                                <div className="text-yellow-700 dark:text-yellow-300 space-y-1">
-                                  <p>
-                                    Only {yearInfo.availableCount} of {yearInfo.totalCount} subjects available for {year}
-                                  </p>
-                                  <p className="text-xs opacity-90">
-                                    The exam will include questions only from available subjects.
-                                  </p>
-                                </div>
-                              )}
-                            </AlertDescription>
                           </div>
-                        </Alert>
-                      );
-                    })()
-                  )}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : selectedSubjects.length === 0 ? (
-                <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border">
-                  Select subjects first to see available years
-                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground p-4 bg-muted/30 rounded-xl border border-dashed text-center">👆 Select subjects first to see available years</div>
               ) : (
-                <div className="text-sm text-muted-foreground p-3 bg-muted/50 rounded-md border">
-                  No years available for the selected subjects combination
-                </div>
+                <div className="text-xs sm:text-sm text-muted-foreground p-4 bg-destructive/5 rounded-xl border border-destructive/20 text-center">No exam years available for this combination</div>
               )}
             </div>
           )}
 
-          {/* Paper Type Selection - Only for WAEC/NECO */}
+          {/* Paper Type Selection - Modern Toggle Style */}
           {['waec', 'neco'].includes(examType) && (
-            <div className="space-y-2">
-              <Label htmlFor="paper-type-select" className="text-sm font-medium">Question Type</Label>
-              <Select value={paperType} onValueChange={(v: any) => setPaperType(v)}>
-                <SelectTrigger id="paper-type-select" className="w-full sm:w-48">
-                  <SelectValue placeholder="Select type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="objective">Objective (MCQ)</SelectItem>
-                  <SelectItem value="theory">Theory</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">We'll fetch only {paperType} questions where available.</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-primary/10">
+                  <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                </div>
+                <Label htmlFor="paper-type-select" className="text-sm sm:text-base font-semibold">Question Type</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button type="button" onClick={() => setPaperType('objective')} className={cn('p-3 sm:p-4 rounded-xl border-2 transition-all text-left hover:scale-[1.02] active:scale-[0.98]', paperType === 'objective' ? 'bg-primary/10 border-primary shadow-sm' : 'bg-background border-border hover:bg-muted/30')}>
+                  <div className="font-semibold text-sm mb-1">Objective</div>
+                  <div className="text-xs text-muted-foreground">Multiple Choice</div>
+                </button>
+                <button type="button" onClick={() => setPaperType('theory')} className={cn('p-3 sm:p-4 rounded-xl border-2 transition-all text-left hover:scale-[1.02] active:scale-[0.98]', paperType === 'theory' ? 'bg-primary/10 border-primary shadow-sm' : 'bg-background border-border hover:bg-muted/30')}>
+                  <div className="font-semibold text-sm mb-1">Theory</div>
+                  <div className="text-xs text-muted-foreground">Essay Questions</div>
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground text-center p-2 bg-muted/20 rounded-lg">💡 Fetching {paperType} questions only</p>
             </div>
           )}
 
-          {/* Subject Selection */}
+          {/* Subject Selection - Modern Design */}
           {loadingSubjects ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">Loading subjects...</span>
+            <div className="flex flex-col items-center justify-center py-12 gap-3">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <span className="text-sm text-muted-foreground">Loading subjects...</span>
             </div>
           ) : available.length === 0 ? (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>No subjects available for this exam type.</AlertDescription>
-            </Alert>
+            <div className="p-4 sm:p-6 rounded-xl border-2 border-dashed border-muted-foreground/20 text-center">
+              <AlertCircle className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+              <p className="text-sm font-medium text-muted-foreground">No subjects available</p>
+              <p className="text-xs text-muted-foreground mt-1">Check back later or try a different exam type</p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">Select Subjects</Label>
-                <SubjectSelector
-                  type={examType}
-                  available={available}
-                  value={selectedSubjects}
-                  onChange={setSelectedSubjects}
-                />
-              </div>
-              
-              {/* Selection Summary */}
-              <div className="text-xs text-muted-foreground p-3 bg-muted/30 rounded-md border">
+            <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Selected ({selectedSubjects.length}):</strong> {selectedSubjects.join(', ') || 'None'}
-                  </span>
+                  <Label className="text-sm sm:text-base font-semibold">Your Subjects</Label>
                   {examType === 'jamb' && (
-                    <Badge variant={selectedSubjects.length === 4 ? 'primary' : 'secondary'} className="text-xs">
-                      {selectedSubjects.length}/4 required
+                    <Badge variant={selectedSubjects.length === 4 ? 'primary' : 'secondary'} className={cn('text-xs font-medium', selectedSubjects.length === 4 && 'bg-green-100 text-green-700 border-green-200')}>
+                      {selectedSubjects.length}/4
                     </Badge>
                   )}
                 </div>
+                <SubjectSelector type={examType} available={available} value={selectedSubjects} onChange={setSelectedSubjects} />
+              </div>
+              {selectedSubjects.length > 0 && (
+                <div className="p-3 sm:p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                  <div className="flex items-start gap-3">
+                    <div className="p-1.5 rounded-lg bg-primary/10 shrink-0 mt-0.5">
+                      <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs sm:text-sm font-medium mb-1">{selectedSubjects.length} subject{selectedSubjects.length > 1 ? 's' : ''} selected</p>
+                      <p className="text-xs text-muted-foreground break-words">{selectedSubjects.join(', ')}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Error Messages - Modern Alert Style */}
+          {error && (
+            <div className={cn('p-3 sm:p-4 rounded-xl border-2', validationResult && validationResult.available > 0 ? 'bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800' : 'bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800')}>
+              <div className="flex items-start gap-3">
+                <div className={cn('p-1.5 rounded-lg shrink-0', validationResult && validationResult.available > 0 ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-red-100 dark:bg-red-900/40')}>
+                  <AlertCircle className={cn('h-4 w-4', validationResult && validationResult.available > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400')} />
+                </div>
+                <p className={cn('text-xs sm:text-sm flex-1', validationResult && validationResult.available > 0 ? 'text-blue-700 dark:text-blue-300' : 'text-red-700 dark:text-red-300')}>{error}</p>
               </div>
             </div>
           )}
 
-          {error && (
-            <Alert variant={validationResult && validationResult.available > 0 ? "default" : "destructive"}>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
           {validationResult && validationResult.insufficient && validationResult.insufficient.length > 0 && (
-            <Alert className="border-blue-500/50 bg-blue-500/10">
-              <Info className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-              <AlertDescription className="text-xs sm:text-sm">
-                <p className="font-medium mb-1">Practice Mode: Partial Data Available</p>
-                <p className="mb-2">
-                  {validationResult.available} of {validationResult.total} subjects have questions for year {year}.
-                </p>
-                <p className="text-xs opacity-90">
-                  Missing: {validationResult.insufficient.join(', ')}
-                </p>
-                <p className="text-xs opacity-90 mt-1">
-                  Click "Proceed with Available Subjects" to practice with the {validationResult.available} available subject{validationResult.available > 1 ? 's' : ''}.
-                </p>
-              </AlertDescription>
-            </Alert>
+            <div className="p-4 sm:p-5 rounded-xl border-2 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 dark:from-blue-950/20 dark:to-indigo-950/20 border-blue-200 dark:border-blue-800">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-900/40 shrink-0">
+                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm sm:text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">Partial Content Available</p>
+                  <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">{validationResult.available} of {validationResult.total} subjects have questions for {year}</p>
+                </div>
+              </div>
+              <div className="space-y-2 pl-11 sm:pl-[52px]">
+                <div className="p-2 bg-blue-100/50 dark:bg-blue-900/20 rounded-lg">
+                  <p className="text-xs font-medium text-blue-800 dark:text-blue-200 mb-1">Missing:</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400">{validationResult.insufficient.join(', ')}</p>
+                </div>
+                <p className="text-xs text-blue-600/80 dark:text-blue-400/80">💡 You can still practice with {validationResult.available} available subject{validationResult.available > 1 ? 's' : ''}</p>
+              </div>
+            </div>
           )}
         </div>
-        <DialogFooter className="px-6 pb-6 pt-4 border-t flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-          <Button variant="outline" onClick={handleCancel} disabled={validateMutation.isPending} className="w-full sm:w-auto">
-            Cancel
-          </Button>
-          {validationResult && validationResult.insufficient && validationResult.insufficient.length > 0 ? (
-            <Button onClick={handleProceed} disabled={validateMutation.isPending || validationResult.available === 0}>
-              Proceed with Available Subjects ({validationResult.available})
-            </Button>
-          ) : (
-            <Button 
-              onClick={handleConfirm} 
-              disabled={
-                validateMutation.isPending || 
-                available.length === 0 || 
-                selectedSubjects.length === 0 ||
-                (['jamb', 'waec', 'neco'].includes(examType) && !year)
-              }
-              className="w-full sm:w-auto"
-            >
-              {validateMutation.isPending ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Validating...
-                </>
-              ) : (
-                'Confirm & Start Exam'
-              )}
-            </Button>
-          )}
-        </DialogFooter>
+
+        {/* Modern Footer with Gradient */}
+        <div className="px-4 sm:px-6 py-4 sm:py-5 border-t bg-gradient-to-br from-muted/30 to-background">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sm:gap-3">
+            <Button variant="outline" onClick={handleCancel} disabled={validateMutation.isPending} className="w-full sm:w-auto text-sm" size="sm">Cancel</Button>
+            {validationResult && validationResult.insufficient && validationResult.insufficient.length > 0 ? (
+              <Button onClick={handleProceed} disabled={validateMutation.isPending || validationResult.available === 0} className="w-full sm:w-auto text-sm group" size="sm">
+                <span>Continue with {validationResult.available} Subject{validationResult.available > 1 ? 's' : ''}</span>
+                <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+              </Button>
+            ) : (
+              <Button onClick={handleConfirm} disabled={validateMutation.isPending || available.length === 0 || selectedSubjects.length === 0 || (['jamb', 'waec', 'neco'].includes(examType) && !year)} className="w-full sm:w-auto text-sm group" size="sm">
+                {validateMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <span>Validating...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Start Practice Session</span>
+                    <ArrowRight className="w-4 h-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
+                  </>
+                )}
+              </Button>
+            )}
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );

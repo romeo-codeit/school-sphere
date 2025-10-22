@@ -30,7 +30,234 @@ const client = new Client()
 const databases = new Databases(client);
 const notificationService = new NotificationService(databases);
 
+// In-memory throttle for autosave to prevent excessive writes per attempt
+const lastAutosaveAt = new Map<string, number>();
+const AUTOSAVE_THROTTLE_MS = (() => {
+  const v = Number(process.env.AUTOSAVE_THROTTLE_MS || 5000);
+  return Number.isFinite(v) && v >= 0 ? v : 5000;
+})();
+
+// Helper to get complete attempt data from split collections
+async function getCompleteAttempt(attemptId: string): Promise<any> {
+  const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+
+  // Try to get details (optional)
+  try {
+    const details = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttemptDetails', [
+      Query.equal('attemptId', attemptId),
+      Query.limit(1)
+    ]);
+    if (details.total > 0) {
+      return { ...attempt, ...details.documents[0] };
+    }
+  } catch (e) {
+    // Details collection might not exist or be accessible
+    logDebug('Could not fetch attempt details', { error: (e as Error).message });
+  }
+
+  return attempt;
+}
+
+// Helper to create/update attempt with split data
+async function createSplitAttempt(baseData: any, detailData?: any): Promise<any> {
+  // Create main attempt
+  const attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), baseData);
+
+  // Create details if provided
+  if (detailData) {
+    try {
+      const details = {
+        attemptId: attempt.$id,
+        ...detailData
+      };
+      await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttemptDetails', ID.unique(), details);
+    } catch (e) {
+      logDebug('Could not create attempt details', { error: (e as Error).message });
+    }
+  }
+
+  return attempt;
+}
+
+// Helper to update attempt with split data
+async function updateSplitAttempt(attemptId: string, baseUpdates?: any, detailUpdates?: any): Promise<any> {
+  let updatedAttempt = null;
+
+  // Update main attempt if needed
+  if (baseUpdates && Object.keys(baseUpdates).length > 0) {
+    updatedAttempt = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId, baseUpdates);
+  } else {
+    updatedAttempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+  }
+
+  // Update details if provided
+  if (detailUpdates && Object.keys(detailUpdates).length > 0) {
+    try {
+      // Find existing details
+      const existingDetails = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'examAttemptDetails', [
+        Query.equal('attemptId', attemptId),
+        Query.limit(1)
+      ]);
+
+      if (existingDetails.total > 0) {
+        await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttemptDetails', existingDetails.documents[0].$id, detailUpdates);
+      } else {
+        // Create new details
+        const details = {
+          attemptId: attemptId,
+          ...detailUpdates
+        };
+        await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttemptDetails', ID.unique(), details);
+      }
+    } catch (e) {
+      logDebug('Could not update attempt details', { error: (e as Error).message });
+    }
+  }
+
+  return updatedAttempt;
+}
+
+// Ensure examAttempts collection has the attributes used by the CBT flows
+async function ensureExamAttemptAttributes() {
+  const dbId = APPWRITE_DATABASE_ID!;
+  const collectionId = 'examAttempts';
+
+  const safeCreateStringAttribute = async (
+    id: string,
+    size = 255,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore - SDK typing variations across versions
+      await databases.createStringAttribute(dbId, collectionId, id, size, required, undefined, array);
+    } catch (e: any) {
+      // Ignore permission errors in read-only environments and 409 conflicts
+      if (!(e && (e.code === 409 || e.code === 401))) {
+        // Swallow other errors to avoid blocking requests
+      }
+    }
+  };
+
+  const safeCreateIntegerAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createIntegerAttribute(dbId, collectionId, id, required, undefined, undefined, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateBooleanAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createBooleanAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateJsonAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createJsonAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  const safeCreateDatetimeAttribute = async (
+    id: string,
+    required = false,
+    array = false
+  ) => {
+    try {
+      // @ts-ignore
+      await databases.createDatetimeAttribute(dbId, collectionId, id, required, undefined, array);
+    } catch (e: any) {
+      if (!(e && (e.code === 409 || e.code === 401))) {
+      }
+    }
+  };
+
+  // Attributes referenced by CBT flows
+  await Promise.all([
+    safeCreateStringAttribute('status', 50, false, false), // 'in_progress' | 'completed'
+    safeCreateJsonAttribute('answers', false, false),
+    safeCreateDatetimeAttribute('startedAt', false, false),
+    safeCreateDatetimeAttribute('submittedAt', false, false),
+    safeCreateDatetimeAttribute('lastSavedAt', false, false),
+    safeCreateIntegerAttribute('percentage', false, false),
+    safeCreateBooleanAttribute('passed', false, false),
+    safeCreateStringAttribute('practiceYear', 10, false, false),
+    safeCreateStringAttribute('practicePaperType', 50, false, false),
+  ]);
+}
+
+// Helpers to adapt to environments where 'answers' might be defined as JSON or STRING
+async function getAnswersAttributeType(): Promise<'json' | 'string' | null> {
+  try {
+    const coll: any = await databases.getCollection(APPWRITE_DATABASE_ID!, 'examAttempts');
+    const attrs: any[] = Array.isArray(coll?.attributes) ? coll.attributes : [];
+    const answersAttr = attrs.find((a: any) => a?.key === 'answers' || a?.id === 'answers' || a?.$id === 'answers');
+    if (!answersAttr) return null;
+    const t = String(answersAttr?.type || '').toLowerCase();
+    return t === 'json' ? 'json' : t === 'string' ? 'string' : null;
+  } catch {
+    return null;
+  }
+}
+
+function coerceAnswersForStorage(input: any, attrType: 'json' | 'string' | null): any {
+  // If we definitively know it's JSON, store as object
+  if (attrType === 'json') {
+    if (typeof input === 'string') {
+      try { return JSON.parse(input); } catch { return {}; }
+    }
+    return input || {};
+  }
+  // Default to STRING storage for maximum compatibility with legacy schemas
+  try {
+    return typeof input === 'string' ? input : JSON.stringify(input || {});
+  } catch {
+    return '{}';
+  }
+}
+
+// Read the 'examAttempts' collection attribute names; returns null on permission errors
+async function getExamAttemptAttributeSet(): Promise<Set<string> | null> {
+  try {
+    const coll: any = await databases.getCollection(APPWRITE_DATABASE_ID!, 'examAttempts');
+    const attrs: any[] = Array.isArray(coll?.attributes) ? coll.attributes : [];
+    const names = new Set<string>();
+    for (const a of attrs) {
+      const id = (a?.key ?? a?.id ?? a?.$id ?? '').toString();
+      if (id) names.add(id);
+    }
+    return names;
+  } catch {
+    return null;
+  }
+}
+
 export const registerCBTRoutes = (app: any) => {
+  // Best-effort schema ensure on startup (non-blocking)
+  void ensureExamAttemptAttributes();
   // Get exams (CBT focus). Supports filters and full pagination.
   // Make the general exams listing public to allow UI to render without auth
   app.get('/api/cbt/exams', validateQuery(examQuerySchema), async (req: Request, res: Response) => {
@@ -121,6 +348,12 @@ export const registerCBTRoutes = (app: any) => {
       const userId = sessionUser?.$id;
       if (!userId) return res.status(401).json({ message: 'Unauthorized' });
 
+      // Try cache first to reduce Appwrite reads
+      const cachedAvail = cache.get<{ exams: any[]; total: number }>(cacheKeys.availableExams());
+      if (cachedAvail) {
+        return res.json(cachedAvail);
+      }
+
       // Get all exams with cursor-based pagination to avoid 100 cap
       const allExams: any[] = [];
       try {
@@ -171,7 +404,9 @@ export const registerCBTRoutes = (app: any) => {
       );
 
       const standardizedExams = availableExams.filter(exam => exam.hasQuestions);
-      return res.json({ exams: standardizedExams, total: standardizedExams.length });
+      const payload = { exams: standardizedExams, total: standardizedExams.length };
+      cache.set(cacheKeys.availableExams(), payload, CACHE_TTL.AVAILABLE_EXAMS);
+      return res.json(payload);
     } catch (error) {
       logError('Failed to fetch available exams', error);
       res.status(500).json({ message: 'Failed to fetch available exams' });
@@ -199,8 +434,13 @@ export const registerCBTRoutes = (app: any) => {
           return res.status(400).json({ message: 'At least one subject must be selected for practice exams' });
         }
 
-        // Generate practice exam
-        const questions = await fetchPracticeExamQuestions(databases, type, selectedSubjects, yearParam, paperTypeParam);
+        // Generate practice exam with caching to reduce Appwrite reads
+        const pqKey = cacheKeys.practiceQuestions(type, selectedSubjects, yearParam, paperTypeParam);
+        let questions = cache.get<any[]>(pqKey) || [];
+        if (questions.length === 0) {
+          questions = await fetchPracticeExamQuestions(databases, type, selectedSubjects, yearParam, paperTypeParam);
+          cache.set(pqKey, questions, CACHE_TTL.PRACTICE_QUESTIONS);
+        }
 
         if (questions.length === 0) {
           return res.status(404).json({ message: 'No questions found for the selected subjects and criteria' });
@@ -276,7 +516,13 @@ export const registerCBTRoutes = (app: any) => {
         return res.status(400).json({ message: 'Invalid exam ID' });
       }
 
-      const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+      // Try cache first for exam detail
+      const cacheKeyExam = cacheKeys.examDetail(examId);
+      let exam: any = cache.get(cacheKeyExam);
+      if (!exam) {
+        exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', examId);
+        cache.set(cacheKeyExam, exam, CACHE_TTL.EXAM_DETAIL);
+      }
       
       let questions = [];
       let questionCount = 0;
@@ -287,12 +533,32 @@ export const registerCBTRoutes = (app: any) => {
         questionCount = questions.length;
       } else {
         // Fetch questions separately
-        const questionsResult = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', [
-          Query.equal('examId', examId),
-          Query.orderAsc('questionNumber')
-        ]);
-        questions = questionsResult.documents;
-        questionCount = questions.length;
+        // Use cache per exam questions
+        const cacheKeyQs = cacheKeys.questionsByExam(examId);
+        const cachedQs = cache.get<any[]>(cacheKeyQs);
+        if (cachedQs) {
+          questions = cachedQs;
+          questionCount = cachedQs.length;
+        } else {
+          // Page through in batches to avoid single heavy call at Appwrite
+          const all: any[] = [];
+          let lastId: string | null = null;
+          while (true) {
+            const q = [Query.equal('examId', examId), Query.orderAsc('$id'), Query.limit(100)];
+            if (lastId) q.push(Query.cursorAfter(lastId));
+            const page = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'questions', q);
+            const docs = page.documents || [];
+            if (docs.length === 0) break;
+            all.push(...docs);
+            lastId = String(docs[docs.length - 1].$id);
+            if (all.length >= (page.total || all.length)) break;
+          }
+          // Sort by questionNumber if present
+          all.sort((a, b) => (Number(a.questionNumber || 0) - Number(b.questionNumber || 0)) || String(a.$id).localeCompare(String(b.$id)));
+          questions = all;
+          questionCount = all.length;
+          cache.set(cacheKeyQs, questions, CACHE_TTL.QUESTIONS);
+        }
       }
 
       if (questionCount === 0) {
@@ -312,7 +578,11 @@ export const registerCBTRoutes = (app: any) => {
   // Public for practice-* examId (no access gate); still gated for real internal exams
   app.post('/api/cbt/attempts', validateBody(examAttemptStartSchema), async (req: Request, res: Response) => {
     try {
-      const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
+      // Add small random jitter to spread bursts under load (free tier friendly)
+      await new Promise(r => setTimeout(r, Math.floor(Math.random() * 80)));
+      // Ensure required attributes exist before any queries/creates that reference them
+      await ensureExamAttemptAttributes();
+  const { examId, subjects, year, paperType } = req.body as { examId?: string; subjects?: string[]; year?: string; paperType?: string };
       if (!examId) return res.status(400).json({ message: 'Missing examId' });
       const isPractice = String(examId).startsWith('practice-');
 
@@ -365,24 +635,27 @@ export const registerCBTRoutes = (app: any) => {
         }
       }
 
-      // Create new attempt
-      const attemptData = {
+      // Create new attempt using split collections
+      const baseAttempt = {
         studentId: user?.$id || 'guest',
         examId: examId,
-        status: 'in_progress',
-        startedAt: new Date().toISOString(),
-        subjects: subjects || [],
-        practiceYear: year || undefined,
-        practicePaperType: paperType || undefined,
-        answers: {},
+        status: 'in_progress', // Always include status in main collection
         timeSpent: 0,
         totalQuestions: 0,
         correctAnswers: 0,
         score: 0,
-        percentage: 0,
+        answers: '{}' // Default empty answers
       };
 
-      const attempt = await databases.createDocument(APPWRITE_DATABASE_ID!, 'examAttempts', ID.unique(), attemptData);
+      const detailAttempt = {
+        startedAt: new Date().toISOString(),
+        ...(subjects && subjects.length > 0 ? { subjects } : {}),
+        ...(year ? { practiceYear: year } : {}),
+        ...(paperType ? { practicePaperType: paperType } : {}),
+        percentage: 0
+      };
+
+      const attempt = await createSplitAttempt(baseAttempt, detailAttempt);
       res.status(201).json(attempt);
     } catch (error) {
       logError('Failed to start attempt', error);
@@ -393,19 +666,20 @@ export const registerCBTRoutes = (app: any) => {
   // Submit exam attempt
   app.post('/api/cbt/attempts/:id/submit', auth, validateBody(examAttemptSubmitSchema), async (req: Request, res: Response) => {
     try {
+      await new Promise(r => setTimeout(r, Math.floor(Math.random() * 120)));
       const user = await req.appwrite!.account.get();
       const attemptId = req.params.id;
       const { answers } = req.body as { answers?: Record<string, any> | string };
       if (!answers) return res.status(400).json({ message: 'Missing answers' });
 
-      // Get the attempt
-      const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+      // Get the complete attempt (from both collections)
+      const attempt = await getCompleteAttempt(attemptId);
       
       if (attempt.studentId !== user.$id) {
         return res.status(403).json({ message: 'You can only submit your own attempts' });
       }
 
-      if (attempt.status !== 'in_progress') {
+      if (('status' in attempt) && attempt.status !== 'in_progress') {
         return res.status(400).json({ message: 'This attempt has already been submitted' });
       }
 
@@ -436,16 +710,25 @@ export const registerCBTRoutes = (app: any) => {
       const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
       const passed = percentage >= 50; // 50% passing grade
 
-      // Update attempt
-      const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId, {
+      // Update attempt using split collections
+      const storedAnswers = typeof answers === 'string' ? answers : JSON.stringify(answers || {});
+      const baseUpdates = {
         status: 'completed',
+        answers: storedAnswers,
+        score,
+        totalQuestions,
+        correctAnswers: score, // Assuming score = correct answers for now
+        timeSpent: attempt.timeSpent || 0
+      };
+
+      const detailUpdates = {
         submittedAt: new Date().toISOString(),
-        answers: answers,
-        score: score,
-        totalQuestions: totalQuestions,
-        percentage: percentage,
-        passed: passed,
-      });
+        completedAt: new Date().toISOString(),
+        percentage,
+        passed
+      };
+
+      const updated = await updateSplitAttempt(attemptId, baseUpdates, detailUpdates);
 
       try {
         await notificationService.notifyExamSubmitted(user.$id, examTitle, score, totalQuestions, attemptId);
@@ -943,27 +1226,67 @@ export const registerCBTRoutes = (app: any) => {
   });
 
   // Autosave exam attempt
-  app.post('/api/cbt/attempts/autosave', auth, validateBody(examAttemptAutosaveSchema), async (req: Request, res: Response) => {
+  // Allow guests to autosave practice attempts (studentId === 'guest');
+  // For authenticated users, verify ownership when possible.
+  app.post('/api/cbt/attempts/autosave', validateBody(examAttemptAutosaveSchema), async (req: Request, res: Response) => {
     try {
-      const user = await req.appwrite!.account.get();
+      await new Promise(r => setTimeout(r, Math.floor(Math.random() * 120)));
+      // Best-effort user resolution (optional)
+      let user: any = null;
+      try {
+        // Attempt to authenticate using Authorization header if present
+        const headerToken = req.headers.authorization?.split(' ')[1];
+        if (headerToken) {
+          const { Client, Account } = await import('node-appwrite');
+          const tmpClient = new Client().setEndpoint(APPWRITE_ENDPOINT!).setProject(APPWRITE_PROJECT_ID!).setJWT(headerToken);
+          const tmpAccount = new Account(tmpClient);
+          user = await tmpAccount.get();
+        }
+      } catch {}
       const { attemptId, answers, timeSpent } = req.body as { attemptId?: string; answers?: any; timeSpent?: number };
       if (!attemptId) return res.status(400).json({ message: 'attemptId is required' });
+
+      // Throttle autosave per attempt (configurable): no more than once every AUTOSAVE_THROTTLE_MS
+      const now = Date.now();
+      const last = lastAutosaveAt.get(attemptId) || 0;
+      if (now - last < AUTOSAVE_THROTTLE_MS) {
+        return res.json({ ok: true, throttled: true });
+      }
+      lastAutosaveAt.set(attemptId, now);
       
-      const attempt = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId));
-      
-      if (attempt.studentId !== user.$id) {
-        return res.status(403).json({ message: 'You can only autosave your own attempts' });
+      const attempt = await getCompleteAttempt(attemptId);
+
+      // For guest attempts, allow autosave without auth
+      if (attempt.studentId !== 'guest') {
+        // For non-guest attempts, require matching user if available
+        if (!user || attempt.studentId !== user.$id) {
+          return res.status(401).json({ message: 'Unauthorized' });
+        }
       }
 
-      if (attempt.status !== 'in_progress') {
+      if (('status' in attempt) && attempt.status !== 'in_progress') {
         return res.status(400).json({ message: 'This attempt is no longer active' });
       }
 
-      const updated = await databases.updateDocument(APPWRITE_DATABASE_ID!, 'examAttempts', String(attemptId), {
-        answers: answers || attempt.answers,
-        timeSpent: timeSpent || attempt.timeSpent || 0,
-        lastSavedAt: new Date().toISOString(),
-      });
+      const nextAnswers = typeof answers === 'undefined' ? attempt.answers : (typeof answers === 'string' ? answers : JSON.stringify(answers || {}));
+
+      const baseUpdates: any = {};
+      const detailUpdates: any = {};
+
+      // Answers go in main collection
+      if (typeof answers !== 'undefined') {
+        baseUpdates.answers = nextAnswers;
+      }
+
+      // Time spent goes in main collection
+      if (typeof timeSpent !== 'undefined') {
+        baseUpdates.timeSpent = timeSpent;
+      }
+
+      // Last saved timestamp goes in details
+      detailUpdates.lastSavedAt = new Date().toISOString();
+
+      const updated = await updateSplitAttempt(attemptId, baseUpdates, detailUpdates);
 
       res.json({ ok: true, attempt: updated });
     } catch (error) {
@@ -978,7 +1301,7 @@ export const registerCBTRoutes = (app: any) => {
       const sessionUser: any = (req as any).user;
       const role = sessionUser?.prefs?.role;
       const attemptId = String(req.params.id);
-      const attempt: any = await databases.getDocument(APPWRITE_DATABASE_ID!, 'examAttempts', attemptId);
+      const attempt: any = await getCompleteAttempt(attemptId);
 
       // Check if user can view this attempt
       if (attempt.studentId !== sessionUser.$id && role !== 'admin' && role !== 'teacher') {

@@ -1,6 +1,7 @@
 import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
+import compression from "compression";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes/index";
@@ -43,6 +44,12 @@ app.use(helmet({
     preload: true,
   },
   referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+}));
+
+// Enable gzip/deflate compression to reduce bandwidth and speed up responses
+app.use(compression({
+  // Compress all responses larger than 1KB
+  threshold: 1024,
 }));
 
 // CORS Configuration

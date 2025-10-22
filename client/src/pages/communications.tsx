@@ -298,7 +298,7 @@ function NewChatDialog({ onConversationCreated }: { onConversationCreated: (id: 
                 )}
 
                 {/* User List */}
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto modern-scrollbar">
                     {isLoading ? (
                         <div className="flex items-center justify-center h-full">
                             <div className="text-muted-foreground">Loading users...</div>
@@ -405,7 +405,7 @@ function ConversationList({ onSelect, selectedConversationId }: { onSelect: (id:
             <div className="p-4 border-b">
                 <h2 className="text-xl font-bold">Chats</h2>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto modern-scrollbar">
                 {isLoading ? (
                   <div className="p-4 space-y-3">
                     {[...Array(3)].map((_, i) => (
@@ -487,7 +487,7 @@ function ChatPanel({ conversationId, onBack }: { conversationId: string | null, 
                     <CardTitle>{getConversationName(conversation)}</CardTitle>
                 </div>
             </CardHeader>
-            <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+            <CardContent className="flex-1 overflow-y-auto modern-scrollbar p-4 space-y-4">
                 {isLoadingMessages ? (
                   <div className="space-y-4">
                     {[...Array(4)].map((_, i) => (

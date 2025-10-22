@@ -62,7 +62,7 @@ export function AssignExamDialog({ examId, open, onOpenChange }: Props) {
             Select classes and students to assign this exam. You can choose multiple options.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 px-6 flex-1 overflow-y-auto py-4">
+        <div className="space-y-6 px-6 flex-1 overflow-y-auto py-4 modern-scrollbar">
           <div>
             <div className="text-sm font-medium mb-1">Assign to Classes</div>
             <Popover open={classOpen} onOpenChange={setClassOpen}>

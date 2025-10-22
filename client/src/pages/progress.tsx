@@ -14,7 +14,7 @@ import { getStudentByParentEmail } from "@/lib/api/students";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Button } from "@/components/ui/button";
-import { ChevronsUpDown, Check, TrendingUp } from "lucide-react";
+import { ChevronsUpDown, Check, TrendingUp, Users, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Bar } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -116,7 +116,13 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
     }, [attendance]);
 
     if (!attendance || attendance.length === 0) {
-        return <p className="text-sm text-muted-foreground">No attendance records available.</p>;
+        return (
+          <EmptyState
+            icon={Users}
+            title="No Attendance Records"
+            description="Attendance records will appear here once they are marked."
+          />
+        );
     }
 
     return (
@@ -143,7 +149,13 @@ export function AttendanceSummary({ attendance }: { attendance: Attendance[] }) 
 
 export function ExamAttemptsTable({ examAttempts, exams }: { examAttempts: ExamAttempt[], exams: Exam[] }) {
     if (!examAttempts || examAttempts.length === 0) {
-        return <p className="text-sm text-muted-foreground">No exam attempts available.</p>;
+        return (
+          <EmptyState
+            icon={FileText}
+            title="No Exam Attempts"
+            description="When you complete exams, your attempts will be listed here."
+          />
+        );
     }
 
     return (

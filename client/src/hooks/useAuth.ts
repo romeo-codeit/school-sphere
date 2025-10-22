@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
 import { isOnline, queueAppwriteOperation } from '@/lib/offline';
@@ -33,16 +33,33 @@ export function useAuth() {
     retry: false,
   });
 
+  // Bootstrap HttpOnly auth cookie on load if we have a JWT in localStorage
+  useEffect(() => {
+    (async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        const token = localStorage.getItem('appwrite_jwt');
+        if (!token) return;
+        await fetch('/api/auth/jwt-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: token }),
+          credentials: 'include',
+        });
+      } catch {}
+    })();
+  }, []);
+
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
-      await account.createEmailPasswordSession(email, password);
+      const sess = await account.createEmailPasswordSession(email, password);
       // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
       try {
         const { jwt: token } = await account.createJWT();
         await fetch('/api/auth/jwt-cookie', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token }),
+          body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
           credentials: 'include',
         });
         try { localStorage.setItem('appwrite_jwt', token); } catch {}

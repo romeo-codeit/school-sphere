@@ -289,7 +289,7 @@ export default function Resources() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="overflow-y-auto px-6 flex-1">
+          <div className="overflow-y-auto modern-scrollbar px-6 flex-1">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
               <FormField control={form.control} name="title" render={({ field }) => (<FormItem><FormLabel className="block mb-1">Title</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>)}/>
