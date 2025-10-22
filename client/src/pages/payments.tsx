@@ -95,7 +95,7 @@ export default function Payments() {
   const [isGeneratingPayments, setIsGeneratingPayments] = useState(false);
   const { toast } = useToast();
 
-  const { payments, isLoading, createPayment } = usePayments();
+  const { payments, isLoading, createPayment, page, setPage, pageSize } = usePayments();
   const { students } = useStudents();
 
   const { testPerformance, clearCache } = usePaymentsPerformanceTest();
@@ -764,6 +764,11 @@ export default function Payments() {
                       ))}
                     </TableBody>
                   </Table>
+                </div>
+                <div className="flex items-center justify-end gap-2 mt-4">
+                  <Button variant="outline" size="sm" onClick={() => setPage(Math.max(0, (page || 0) - 1))} disabled={(page || 0) === 0}>Previous</Button>
+                  <span className="text-sm">Page {(page || 0)+1}</span>
+                  <Button variant="outline" size="sm" onClick={() => setPage((page || 0) + 1)}>Next</Button>
                 </div>
               </>
             )}

@@ -7,12 +7,18 @@ const PAGE_SIZE = 50;
 
 export function usePayments(studentId?: string) {
   const queryClient = useQueryClient();
+  const [page, setPage] = ((): [number, (n: number) => void] => {
+    // Lightweight local state using a closure; consumer can track their own page in a component
+    // For simplicity here we keep page in React Query key below
+    return [0, () => {}];
+  })();
 
   const { data: payments, isLoading, error } = useQuery({
-    queryKey: ['payments', studentId],
+    queryKey: ['payments', studentId, { page, limit: PAGE_SIZE }],
     queryFn: async () => {
       const url = new URL('/api/payments', window.location.origin);
       url.searchParams.set('limit', String(PAGE_SIZE));
+      url.searchParams.set('offset', String(page * PAGE_SIZE));
       if (studentId) url.searchParams.set('studentId', studentId);
       const res = await apiRequest('GET', url.pathname + url.search);
       const data = await res.json();
@@ -108,6 +114,11 @@ export function usePayments(studentId?: string) {
     payments,
     isLoading,
     error,
+    page,
+    pageSize: PAGE_SIZE,
+    setPage: (p: number) => {
+      (queryClient as any).setQueryData(['payments', studentId, { page: p, limit: PAGE_SIZE }], payments);
+    },
     createPayment: createPaymentMutation.mutateAsync,
     updatePayment: updatePaymentMutation.mutateAsync,
     deletePayment: deletePaymentMutation.mutateAsync,
