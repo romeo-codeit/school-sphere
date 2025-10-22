@@ -250,7 +250,7 @@ export default function Messages() {
                       </DialogDescription>
                     </DialogHeader>
                     
-                    <div className="overflow-y-auto px-6 flex-1">
+                    <div className="overflow-y-auto modern-scrollbar px-6 flex-1">
                       <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

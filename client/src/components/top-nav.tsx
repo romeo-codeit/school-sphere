@@ -50,7 +50,7 @@ function NotificationsDropdown() {
           </div>
           <Button variant="outline" size="sm" className="w-full mt-2" onClick={() => setLocation('/notifications')}>View All</Button>
         </div>
-        <div className="max-h-96 overflow-y-auto">{isLoading ? <p className="p-4 text-sm text-center">Loading...</p> : !notifications || notifications.length === 0 ? <p className="p-4 text-sm text-center text-muted-foreground">No notifications.</p> : notifications.map(n => (<div key={n.$id} onClick={() => handleNotificationClick(n)} className={cn("p-3 border-b hover:bg-muted/50 cursor-pointer", !n.isRead && "bg-blue-500/10")}> <p className="text-sm">{n.message}</p> <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.$createdAt))} ago</p></div>))}</div>
+        <div className="max-h-96 overflow-y-auto modern-scrollbar">{isLoading ? <p className="p-4 text-sm text-center">Loading...</p> : !notifications || notifications.length === 0 ? <p className="p-4 text-sm text-center text-muted-foreground">No notifications.</p> : notifications.map(n => (<div key={n.$id} onClick={() => handleNotificationClick(n)} className={cn("p-3 border-b hover:bg-muted/50 cursor-pointer", !n.isRead && "bg-blue-500/10")}> <p className="text-sm">{n.message}</p> <p className="text-xs text-muted-foreground mt-1">{formatDistanceToNow(new Date(n.$createdAt))} ago</p></div>))}</div>
       </PopoverContent>
     </Popover>
   );

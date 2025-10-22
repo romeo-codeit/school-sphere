@@ -17,6 +17,9 @@ import {
 } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExams } from "@/hooks/useExams";
+import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
+import { LocalCache } from '@/lib/localCache';
+import { getAnswers, setAnswers as setAnswersCache, getMeta, setMeta } from '@/lib/idbCache';
 import { useExamAttempts } from "@/hooks/useExamAttempts";
 import { useAutosaveAttempt } from "@/hooks/useCBT";
 import { useToast } from "@/hooks/use-toast";
@@ -58,6 +61,10 @@ export default function ExamTaking() {
     ? `${examFetchId}?subjects=${subjects.join(',')}${year ? `&year=${encodeURIComponent(year)}` : ''}${paperType ? `&paperType=${encodeURIComponent(paperType)}` : ''}`
     : examFetchId;
   const { data: exam, isLoading: isLoadingExam } = useExam(examUrl);
+
+  // In-memory cache helps to avoid rehydrating from localStorage many times
+  const examCache = useRef<LocalCache<any> | null>(null);
+  if (!examCache.current) examCache.current = new LocalCache<any>(20);
   
   const { startAttempt, submitAttempt } = useExamAttempts();
   const { toast } = useToast();
@@ -89,17 +96,49 @@ export default function ExamTaking() {
   const [retryDelay, setRetryDelay] = useState<number>(5000); // start 5s, max 2m
   const retryTimeoutRef = useRef<number | null>(null);
   const isSavingRef = useRef<boolean>(false);
+  // Reduce backend writes on free tier: only autosave when answers changed or heartbeat interval elapses
+  const lastSavedSnapshotRef = useRef<string | null>(null);
+  const heartbeatLastSentRef = useRef<number>(0);
+  const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
   const [showReference, setShowReference] = useState(false);
   const [referenceHtml, setReferenceHtml] = useState<string | null>(null);
   const [loadingReference, setLoadingReference] = useState(false);
+  const SCHEMA_VERSION = 1;
+  const { debounced: debouncedSave, cancel: cancelDebounced } = useDebouncedCallback(async (payload: any) => {
+    await setMeta('answers_version', SCHEMA_VERSION);
+    await setAnswersCache(storageKey, payload);
+  }, 2000);
 
   // Progressive loading: Initialize loaded questions when exam loads
   useEffect(() => {
-    if (exam?.questions && exam.questions.length > 0) {
-      const initialBatch = exam.questions.slice(0, QUESTIONS_BATCH_SIZE);
-      setLoadedQuestions(initialBatch);
-      setHasMoreQuestions(exam.questions.length > QUESTIONS_BATCH_SIZE);
-    }
+    if (!exam) return;
+    const key = storageKey;
+    const hydrate = async () => {
+      // Try in-memory cache first, then IndexedDB
+      const inMem = examCache.current?.get(key);
+      if (inMem && Array.isArray(inMem.loadedQuestions)) {
+        setLoadedQuestions(inMem.loadedQuestions);
+        setHasMoreQuestions(inMem.hasMoreQuestions ?? (exam.questions?.length > (inMem.loadedQuestions?.length || 0)));
+        return;
+      }
+      const meta = await getMeta('answers_version');
+      if (meta === SCHEMA_VERSION) {
+        const saved = await getAnswers(key);
+        if (saved && Array.isArray(saved.loadedQuestions) && saved.loadedQuestions.length > 0) {
+          setLoadedQuestions(saved.loadedQuestions.slice(0, QUESTIONS_BATCH_SIZE));
+          setHasMoreQuestions((exam.questions?.length || 0) > QUESTIONS_BATCH_SIZE);
+          examCache.current?.set(key, { loadedQuestions: saved.loadedQuestions, hasMoreQuestions: saved.hasMoreQuestions });
+          return;
+        }
+      }
+      if (exam?.questions && exam.questions.length > 0) {
+        const initialBatch = exam.questions.slice(0, QUESTIONS_BATCH_SIZE);
+        setLoadedQuestions(initialBatch);
+        setHasMoreQuestions(exam.questions.length > QUESTIONS_BATCH_SIZE);
+        examCache.current?.set(key, { loadedQuestions: initialBatch, hasMoreQuestions: exam.questions.length > QUESTIONS_BATCH_SIZE });
+      }
+    };
+    hydrate();
   }, [exam]);
 
   // Function to load more questions progressively
@@ -114,8 +153,18 @@ export default function ExamTaking() {
     const currentLoaded = loadedQuestions.length;
     const nextBatch = exam.questions.slice(currentLoaded, currentLoaded + QUESTIONS_BATCH_SIZE);
 
-    setLoadedQuestions(prev => [...prev, ...nextBatch]);
-    setHasMoreQuestions(currentLoaded + nextBatch.length < exam.questions.length);
+    const newLoaded = [...loadedQuestions, ...nextBatch];
+    setLoadedQuestions(newLoaded);
+    const more = currentLoaded + nextBatch.length < exam.questions.length;
+    setHasMoreQuestions(more);
+    // update in-memory + localStorage cache with combined loaded questions
+    try {
+      const key = storageKey;
+      examCache.current?.set(key, { loadedQuestions: newLoaded, hasMoreQuestions: more });
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : {};
+      localStorage.setItem(key, JSON.stringify({ ...parsed, loadedQuestions: newLoaded, hasMoreQuestions: more, updatedAt: Date.now() }));
+    } catch {}
     setIsLoadingMore(false);
   }, [exam, loadedQuestions.length, isLoadingMore, hasMoreQuestions]);
 
@@ -163,19 +212,22 @@ export default function ExamTaking() {
   useEffect(() => {
     if (!exam?.duration) return;
     if (timeLeft !== null) return;
-    // Prefer restored timeLeft from localStorage if available
-    try {
-      const key = attemptId ? `cbt:attempt:${attemptId}` : (examId ? `cbt:exam:${examId}` : 'cbt:exam:unknown');
-      const raw = localStorage.getItem(key);
-      if (raw) {
-        const saved = JSON.parse(raw || '{}');
-        if (typeof saved.timeLeft === 'number' && saved.timeLeft > 0) {
-          setTimeLeft(saved.timeLeft);
-          return;
+    // Prefer restored timeLeft from IndexedDB if available
+    const restore = async () => {
+      try {
+        const meta = await getMeta('answers_version');
+        if (meta === SCHEMA_VERSION) {
+          const key = attemptId ? `cbt:attempt:${attemptId}` : (examId ? `cbt:exam:${encodeURIComponent(String(examId))}` : 'cbt:exam:unknown');
+          const saved = await getAnswers(key);
+          if (saved && typeof saved.timeLeft === 'number' && saved.timeLeft > 0) {
+            setTimeLeft(saved.timeLeft);
+            return;
+          }
         }
-      }
-    } catch {}
-    setTimeLeft(Math.max(1, Math.floor(Number(exam.duration) || 0) * 60)); // Convert minutes to seconds, guard
+      } catch {}
+      setTimeLeft(Math.max(1, Math.floor(Number(exam.duration) || 0) * 60)); // Convert minutes to seconds, guard
+    };
+    restore();
   }, [exam, timeLeft, attemptId, examId]);
 
   useEffect(() => {
@@ -200,10 +252,11 @@ export default function ExamTaking() {
   }, [timeLeft, showTenMinuteWarning]);
 
   const handleStartAttempt = async () => {
-    if (!examId) return;
+    if (!examId && !practiceType) return;
     try {
       // For practice sessions, pass subjects and other parameters
-      const attemptData: any = { examId };
+      const attemptExamId = practiceType ? `practice-${practiceType}` : String(examId);
+      const attemptData: any = { examId: attemptExamId };
       if (practiceType && subjects.length > 0) {
         attemptData.subjects = subjects;
         if (year) attemptData.year = year;
@@ -458,25 +511,28 @@ export default function ExamTaking() {
     };
   }, [isFullscreenDialogOpen, isTabSwitchDialogOpen]);
 
-  const storageKey = attemptId ? `cbt:attempt:${attemptId}` : (examId ? `cbt:exam:${examId}` : 'cbt:exam:unknown');
+  const storageKey = attemptId ? `cbt:attempt:${attemptId}` : (examId ? `cbt:exam:${encodeURIComponent(String(examId))}` : 'cbt:exam:unknown');
 
   // Restore from localStorage once when exam is ready
   useEffect(() => {
     if (!exam) return;
     if (hasRestoredRef.current) return;
-    try {
-      const raw = localStorage.getItem(storageKey);
-      if (raw) {
-        const saved = JSON.parse(raw || '{}');
+    const hydrate = async () => {
+      const meta = await getMeta('answers_version');
+      if (meta === SCHEMA_VERSION) {
+        const saved = await getAnswers(storageKey);
         if (saved && typeof saved === 'object') {
           if (saved.answers && typeof saved.answers === 'object') {
             setAnswers((prev) => ({ ...prev, ...saved.answers }));
           }
-          toast({ title: 'Restored progress', description: 'Recovered unsaved answers from this device.' });
+          if (saved.answers && Object.keys(saved.answers).length > 0) {
+            toast({ title: 'Restored progress', description: 'Recovered unsaved answers from this device.' });
+          }
         }
       }
-    } catch {}
-    hasRestoredRef.current = true;
+      hasRestoredRef.current = true;
+    };
+    hydrate();
   }, [exam, storageKey]);
 
   // One-minute remaining toast
@@ -491,17 +547,36 @@ export default function ExamTaking() {
     if (!timeLeft && timeLeft !== 0) return; // need timer
     if (autosaveRef.current) window.clearInterval(autosaveRef.current);
     const saveLocal = () => {
-      // Local save
+      // Local save (debounced)
       try {
-        localStorage.setItem(storageKey, JSON.stringify({ answers, timeLeft, updatedAt: Date.now() }));
+        debouncedSave({ answers, timeLeft, updatedAt: Date.now(), loadedQuestions });
       } catch {}
     };
+    const stableStringify = (obj: any) => {
+      try {
+        const keys = Object.keys(obj || {}).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const out: Record<string, any> = {};
+        for (const k of keys) out[k] = (obj as any)[k];
+        return JSON.stringify(out);
+      } catch {
+        return JSON.stringify(obj || {});
+      }
+    };
+
     const triggerAutosave = () => {
       if (!attemptId || isOffline) return;
       if (isSavingRef.current) return; // avoid concurrent autosaves
       // Compute time spent from timer
       const totalSec = (exam?.duration ? exam.duration * 60 : 0);
       const timeSpent = totalSec && typeof timeLeft === 'number' ? Math.max(0, totalSec - timeLeft) : 0;
+
+      // Only autosave when answers changed since last save, or at heartbeat interval
+      const signature = stableStringify(answers);
+      const now = Date.now();
+      const heartbeatDue = now - (heartbeatLastSentRef.current || 0) >= HEARTBEAT_INTERVAL_MS;
+      const answersChanged = signature !== lastSavedSnapshotRef.current;
+      if (!answersChanged && !heartbeatDue) return;
+
       isSavingRef.current = true;
       setAutosaveStatus('saving');
       setAutosaveError(null);
@@ -514,6 +589,9 @@ export default function ExamTaking() {
             setLastSavedAt(Date.now());
             setAutosaveError(null);
             setRetryDelay(5000);
+            // Update change signature and heartbeat
+            lastSavedSnapshotRef.current = signature;
+            heartbeatLastSentRef.current = now;
             // Clear any scheduled retry
             if (retryTimeoutRef.current) {
               window.clearTimeout(retryTimeoutRef.current);
@@ -547,8 +625,8 @@ export default function ExamTaking() {
     return () => {
       if (autosaveRef.current) window.clearInterval(autosaveRef.current);
       if (retryTimeoutRef.current) window.clearTimeout(retryTimeoutRef.current);
-      // Final local save on unmount
-      try { localStorage.setItem(storageKey, JSON.stringify({ answers, timeLeft, updatedAt: Date.now() })); } catch {}
+      // Final local save on unmount (IndexedDB)
+  try { cancelDebounced(); setAnswersCache(storageKey, { answers, timeLeft, updatedAt: Date.now(), loadedQuestions }); } catch {}
     };
   }, [attemptId, answers, timeLeft, isOffline, storageKey, autosaveMutation, exam?.duration]);
 
@@ -603,110 +681,123 @@ export default function ExamTaking() {
         showGoBackButton={false}
       />
 
-      {/* Timer and Progress Bar */}
+      {/* Timer and Progress Bar - Mobile Optimized */}
       <div className="sticky top-0 z-10 bg-background border-b shadow-sm">
-        <div className="px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <Clock className={cn(
-                  "w-5 h-5",
-                  timeLeft && timeLeft <= 60 ? "text-destructive" : timeLeft && timeLeft < 600 ? "text-yellow-600" : "text-primary"
-                )} />
-                <span className={cn(
-                  "text-lg font-semibold",
-                  timeLeft && timeLeft <= 60 ? "text-destructive animate-pulse" : timeLeft && timeLeft < 600 ? "text-yellow-600" : ""
-                )}>
-                  {timeLeft !== null ? formatTime(timeLeft) : "--:--"}
-                </span>
+        <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-2 sm:py-3 md:py-4">
+          <div className="flex flex-col gap-2 sm:gap-3 md:gap-4">
+            {/* Top Row: Timer and Stats */}
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <Clock className={cn(
+                    "w-4 h-4 sm:w-5 sm:h-5",
+                    timeLeft && timeLeft <= 60 ? "text-destructive" : timeLeft && timeLeft < 600 ? "text-yellow-600" : "text-primary"
+                  )} />
+                  <span className={cn(
+                    "text-sm sm:text-base md:text-lg font-semibold whitespace-nowrap",
+                    timeLeft && timeLeft <= 60 ? "text-destructive animate-pulse" : timeLeft && timeLeft < 600 ? "text-yellow-600" : ""
+                  )}>
+                    {timeLeft !== null ? formatTime(timeLeft) : "--:--"}
+                  </span>
+                </div>
+                <Badge variant="secondary" className="text-xs sm:text-sm whitespace-nowrap">
+                  {answeredCount} / {questions.length}
+                </Badge>
               </div>
-              <Badge variant="secondary">
-                {answeredCount} / {questions.length} Answered
-              </Badge>
+
+              {/* Alert Messages */}
+              <div className="flex flex-col gap-1 items-end">
+                {isOffline && (
+                  <div className="text-xs text-destructive flex items-center gap-1" role="alert" aria-live="assertive">
+                    <span className="inline-block w-2 h-2 bg-destructive rounded-full"></span>
+                    Offline - Saving locally
+                  </div>
+                )}
+                {securityWarnings > 0 && (
+                  <div className="text-xs text-yellow-600 flex items-center gap-1" role="alert" aria-live="assertive">
+                    <span className="inline-block w-2 h-2 bg-yellow-600 rounded-full"></span>
+                    {securityWarnings} warning{securityWarnings > 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
             </div>
-            {isOffline && (
-              <div className="text-xs text-destructive flex items-center gap-1" role="alert" aria-live="assertive">
-                <span className="inline-block w-2 h-2 bg-destructive rounded-full"></span>
-                Offline: answers saved locally, timer paused.
-              </div>
-            )}
-            {securityWarnings > 0 && (
-              <div className="text-xs text-yellow-600 flex items-center gap-1" role="alert" aria-live="assertive">
-                <span className="inline-block w-2 h-2 bg-yellow-600 rounded-full"></span>
-                Security warnings: {securityWarnings}
-              </div>
-            )}
-            <div className="flex gap-2">
+
+            {/* Action Buttons Row - Mobile full width */}
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
               <Button
                 onClick={() => setShowExitDialog(true)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto sm:flex-1 text-xs sm:text-sm h-8 sm:h-10"
                 variant="outline"
+                size="sm"
               >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Exit Exam
+                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                Exit
               </Button>
               <Button
                 onClick={() => setShowSubmitDialog(true)}
-                className="w-full sm:w-auto"
+                className="w-full sm:w-auto sm:flex-1 text-xs sm:text-sm h-8 sm:h-10"
                 variant="default"
+                size="sm"
               >
-                <Send className="w-4 h-4 mr-2" />
+                <Send className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                 Submit Exam
               </Button>
-            </div>
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div className="flex items-center gap-1 sm:ml-2 mt-2 sm:mt-0 select-none">
-                    {autosaveStatus === 'saving' && (
-                      <Save className="w-4 h-4 text-muted-foreground animate-pulse" />
-                    )}
+              
+              {/* Autosave Status */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="hidden sm:flex items-center justify-center w-10 h-10 select-none">
+                      {autosaveStatus === 'saving' && (
+                        <Save className="w-4 h-4 text-muted-foreground animate-pulse" />
+                      )}
+                      {autosaveStatus === 'saved' && (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      )}
+                      {autosaveStatus === 'error' && (
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                      )}
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {autosaveStatus === 'saving' && <span>Saving your progress…</span>}
                     {autosaveStatus === 'saved' && (
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      <span>Saved{lastSavedAt ? ` at ${new Date(lastSavedAt).toLocaleTimeString()}` : ''}</span>
                     )}
                     {autosaveStatus === 'error' && (
-                      <AlertTriangle className="w-4 h-4 text-destructive" />
+                      <div>
+                        <div className="font-medium text-destructive">Autosave failed</div>
+                        <div className="text-xs opacity-80">Retrying in the background{autosaveError ? `: ${autosaveError}` : ''}</div>
+                      </div>
                     )}
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {autosaveStatus === 'saving' && <span>Saving your progress…</span>}
-                  {autosaveStatus === 'saved' && (
-                    <span>Saved{lastSavedAt ? ` at ${new Date(lastSavedAt).toLocaleTimeString()}` : ''}</span>
-                  )}
-                  {autosaveStatus === 'error' && (
-                    <div>
-                      <div className="font-medium text-destructive">Autosave failed</div>
-                      <div className="text-xs opacity-80">Retrying in the background{autosaveError ? `: ${autosaveError}` : ''}</div>
-                    </div>
-                  )}
-                  {autosaveStatus === 'idle' && <span>Autosave idle</span>}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+                    {autosaveStatus === 'idle' && <span>Autosave idle</span>}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
           <Progress value={progress} className="mt-2" />
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <div className="px-3 sm:px-4 md:px-6 lg:px-8 py-3 sm:py-4 md:py-6">
         {showTenMinuteWarning && (
-          <div className="mb-4 p-3 rounded-md border border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950 text-sm text-yellow-800 dark:text-yellow-200" role="alert" aria-live="polite">
-            <span className="font-medium">⏰ 10 minutes remaining.</span> Please review your answers and manage your time.
+          <div className="mb-3 sm:mb-4 p-2 sm:p-3 rounded-md border border-yellow-500/40 bg-yellow-50 dark:bg-yellow-950 text-xs sm:text-sm text-yellow-800 dark:text-yellow-200" role="alert" aria-live="polite">
+            <span className="font-medium">⏰ 10 minutes remaining.</span> Please review your answers.
           </div>
         )}
-        <div className="max-w-3xl mx-auto">
-          {/* Subject Switcher (JAMB) */}
+        <div className="max-w-4xl mx-auto">
+          {/* Subject Switcher (JAMB) - Mobile Optimized */}
           {practiceType === 'jamb' && subjectsInExam.length > 0 && (
-            <Card className="mb-4">
-              <CardContent className="p-3">
-                <div className="flex flex-wrap gap-2">
+            <Card className="mb-3 sm:mb-4 shadow-sm">
+              <CardContent className="p-2 sm:p-3">
+                <div className="flex flex-wrap gap-1 sm:gap-2">
                   {subjectsInExam.map((subj) => (
                     <button
                       key={subj}
                       onClick={() => { setActiveSubject(subj); setCurrentQuestionIndex(0); }}
                       className={cn(
-                        "px-3 py-1 rounded border text-sm",
+                        "px-2 sm:px-3 py-1 rounded border text-xs sm:text-sm whitespace-nowrap touch-manipulation",
                         activeSubject === subj ? "bg-primary text-primary-foreground border-primary" : "bg-secondary/40 border-border"
                       )}
                     >
@@ -718,17 +809,17 @@ export default function ExamTaking() {
             </Card>
           )}
 
-          {/* Question Display - Single column CBT layout */}
+          {/* Question Display - Mobile-First CBT Layout */}
           <div>
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>
+            <Card className="shadow-sm">
+              <CardHeader className="p-3 sm:p-4 md:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
+                  <CardTitle className="text-sm sm:text-base md:text-lg">
                     Question {currentQuestionIndex + 1} of {exam?.questionCount || filteredQuestions.length}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     {/* Question Type Badge */}
-                    <Badge variant="outline" className="text-xs">
+                    <Badge variant="outline" className="text-xs whitespace-nowrap">
                       {Array.isArray(currentFilteredQuestion?.options) && currentFilteredQuestion.options.length > 0 ? 'Objective' : 'Theory'}
                     </Badge>
                     <Button
@@ -736,30 +827,33 @@ export default function ExamTaking() {
                       size="sm"
                       onClick={toggleMarkForReview}
                       className={cn(
+                        "text-xs sm:text-sm h-7 sm:h-8 px-2 sm:px-3 touch-manipulation",
                         markedForReview.has(currentQuestionIndex) && "bg-destructive/10 text-destructive"
                       )}
                     >
                       <Flag className={cn(
-                        "w-4 h-4 mr-2",
+                        "w-3 h-3 sm:w-4 sm:h-4 sm:mr-1",
                         markedForReview.has(currentQuestionIndex) && "fill-current"
                       )} />
-                      {markedForReview.has(currentQuestionIndex) ? "Marked" : "Mark for Review"}
+                      <span className="hidden sm:inline">
+                        {markedForReview.has(currentQuestionIndex) ? "Marked" : "Mark"}
+                      </span>
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="p-3 sm:p-4 md:p-6 space-y-4 sm:space-y-6">
                 {currentFilteredQuestion ? (
                   <>
-                    <div className="text-lg leading-relaxed whitespace-pre-wrap font-medium text-foreground">{currentFilteredQuestion.question}</div>
+                    <div className="text-sm sm:text-base md:text-lg leading-relaxed whitespace-pre-wrap font-medium text-foreground">{currentFilteredQuestion.question}</div>
 
-                    {/* Question Image */}
+                    {/* Question Image - Responsive */}
                     {currentFilteredQuestion.imageUrl && (
-                      <div className="my-4 flex justify-center">
+                      <div className="my-3 sm:my-4 flex justify-center">
                         <img
                           src={currentFilteredQuestion.imageUrl}
                           alt="Question illustration"
-                          className="max-w-full max-h-64 object-contain rounded-lg border shadow-sm"
+                          className="w-full max-w-full sm:max-w-md md:max-w-lg max-h-48 sm:max-h-64 object-contain rounded-lg border shadow-sm"
                           loading="lazy"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -768,19 +862,19 @@ export default function ExamTaking() {
                       </div>
                     )}
 
-                    {/* Objective (options) vs Theory (no options) */}
+                    {/* Objective (options) vs Theory (no options) - Mobile Touch Optimized */}
                     {Array.isArray(currentFilteredQuestion.options) && currentFilteredQuestion.options.length > 0 ? (
                       <RadioGroup
                         value={answers[currentQuestionIndex] || ""}
                         onValueChange={handleAnswerChange}
-                        className="space-y-3"
+                        className="space-y-2 sm:space-y-3"
                         aria-label={`Answer options for question ${currentQuestionIndex + 1}`}
                       >
                         {currentFilteredQuestion.options.map((option: string, i: number) => (
                           <div
                             key={i}
                             className={cn(
-                              "flex items-start space-x-3 p-3 sm:p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-accent touch-manipulation",
+                              "flex items-start space-x-2 sm:space-x-3 p-2 sm:p-3 md:p-4 rounded-lg border-2 transition-all cursor-pointer hover:bg-accent touch-manipulation active:scale-[0.98]",
                               answers[currentQuestionIndex] === option && "border-primary bg-primary/5"
                             )}
                             role="button"
@@ -792,10 +886,10 @@ export default function ExamTaking() {
                               }
                             }}
                           >
-                            <RadioGroupItem value={option} id={`option-${i}`} className="mt-1" aria-label={`Option ${i + 1}`} />
+                            <RadioGroupItem value={option} id={`option-${i}`} className="mt-0.5 sm:mt-1 shrink-0" aria-label={`Option ${i + 1}`} />
                             <Label
                               htmlFor={`option-${i}`}
-                              className="flex-1 cursor-pointer text-base leading-relaxed text-foreground"
+                              className="flex-1 cursor-pointer text-sm sm:text-base leading-relaxed text-foreground"
                             >
                               {option}
                             </Label>
@@ -804,17 +898,17 @@ export default function ExamTaking() {
                       </RadioGroup>
                     ) : (
                       <div className="space-y-2" aria-live="polite">
-                        <div className="text-sm text-muted-foreground">Theory response</div>
+                        <div className="text-xs sm:text-sm text-muted-foreground">Theory response</div>
                         <textarea
                           value={String(answers[currentQuestionIndex] ?? '')}
                           onChange={(e) => handleAnswerChange(e.target.value)}
-                          className="w-full min-h-[120px] p-3 border rounded-md bg-background resize-y"
+                          className="w-full min-h-[120px] sm:min-h-[150px] p-2 sm:p-3 border rounded-md bg-background resize-y text-sm sm:text-base"
                           placeholder="Type your answer here..."
                         />
                       </div>
                     )}
 
-                    {/* Answer reference: inline viewer without leaving the app */}
+                    {/* Answer reference: inline viewer - Mobile Optimized */}
                     {currentFilteredQuestion.answerUrl && (
                       <div className="pt-2 flex items-center gap-2">
                         <Button
@@ -822,41 +916,47 @@ export default function ExamTaking() {
                           size="sm"
                           onClick={() => fetchReference(currentFilteredQuestion.answerUrl)}
                           disabled={loadingReference}
-                          className="inline-flex items-center gap-2"
+                          className="inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-8 touch-manipulation"
                         >
-                          {loadingReference ? <Loader2 className="w-4 h-4 animate-spin" /> : <BookOpen className="w-4 h-4" />}
-                          {showReference ? 'Reload Reference' : 'View Reference Answer'}
+                          {loadingReference ? <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <BookOpen className="w-3 h-3 sm:w-4 sm:h-4" />}
+                          <span className="hidden sm:inline">{showReference ? 'Reload Reference' : 'View Reference'}</span>
+                          <span className="sm:hidden">{showReference ? 'Reload' : 'Reference'}</span>
                         </Button>
                       </div>
                     )}
 
-                    {/* Navigation Buttons */}
-                    <div className="flex items-center justify-between pt-4 border-t gap-2">
+                    {/* Navigation Buttons - Mobile Full Width */}
+                    <div className="flex items-center justify-between pt-3 sm:pt-4 border-t gap-2 sm:gap-3">
                       <Button
                         variant="outline"
                         onClick={handlePrevious}
                         disabled={currentQuestionIndex === 0}
-                        className="flex-1 sm:flex-none touch-manipulation"
+                        className="flex-1 sm:flex-none touch-manipulation text-xs sm:text-sm h-8 sm:h-10"
                         aria-label="Go to previous question"
+                        size="sm"
                       >
-                        <ArrowLeft className="w-4 h-4 sm:mr-2" />
+                        <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
                         <span className="hidden sm:inline">Previous</span>
+                        <span className="sm:hidden">Prev</span>
                       </Button>
                       <Button
                         onClick={handleNext}
                         disabled={currentQuestionIndex === filteredQuestions.length - 1 && !hasMoreQuestions}
-                        className="flex-1 sm:flex-none touch-manipulation"
+                        className="flex-1 sm:flex-none touch-manipulation text-xs sm:text-sm h-8 sm:h-10"
                         aria-label="Go to next question"
+                        size="sm"
                       >
                         {isLoadingMore ? (
                           <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                            <div className="animate-spin rounded-full h-3 w-3 sm:h-4 sm:w-4 border-b-2 border-current mr-1 sm:mr-2" />
                             <span className="hidden sm:inline">Loading...</span>
+                            <span className="sm:hidden">...</span>
                           </>
                         ) : (
                           <>
                             <span className="hidden sm:inline">Next</span>
-                            <ArrowRight className="w-4 h-4 sm:ml-2" />
+                            <span className="sm:hidden">Next</span>
+                            <ArrowRight className="w-3 h-3 sm:w-4 sm:h-4 sm:ml-2" />
                           </>
                         )}
                       </Button>
@@ -868,21 +968,21 @@ export default function ExamTaking() {
               </CardContent>
             </Card>
           </div>
-          {/* Inline Reference Panel */}
+          {/* Inline Reference Panel - Mobile Optimized */}
           {showReference && (
-            <div className="px-4 sm:px-6 lg:px-8 pb-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">Reference Answer</CardTitle>
+            <div className="mt-3 sm:mt-4">
+              <Card className="shadow-sm">
+                <CardHeader className="p-3 sm:p-4 md:p-6">
+                  <CardTitle className="text-sm sm:text-base">Reference Answer</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="p-3 sm:p-4 md:p-6">
                   {loadingReference ? (
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                      <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
                       Loading reference...
                     </div>
                   ) : (
-                    <div className="prose prose-sm max-w-none dark:prose-invert overflow-auto" dangerouslySetInnerHTML={{ __html: referenceHtml || '<div class="text-sm text-muted-foreground">No reference content.</div>' }} />
+                    <div className="prose prose-sm max-w-none dark:prose-invert overflow-auto modern-scrollbar text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: referenceHtml || '<div class="text-sm text-muted-foreground">No reference content.</div>' }} />
                   )}
                 </CardContent>
               </Card>
@@ -891,106 +991,106 @@ export default function ExamTaking() {
         </div>
       </div>
 
-      {/* Submit Confirmation Dialog */}
+      {/* Submit Confirmation Dialog - Mobile Optimized */}
       <Dialog open={showSubmitDialog} onOpenChange={setShowSubmitDialog}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
-            <DialogTitle>Submit Exam?</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Submit Exam?</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Are you sure you want to submit your exam? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="py-3 sm:py-4 space-y-2">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Total Questions:</span>
               <span className="font-semibold">{questions.length}</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Answered:</span>
               <span className="font-semibold">{answeredCount}</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Not Answered:</span>
               <span className="font-semibold text-destructive">{questions.length - answeredCount}</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Marked for Review:</span>
               <span className="font-semibold">{markedForReview.size}</span>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSubmitDialog(false)} disabled={isSubmitting}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowSubmitDialog(false)} disabled={isSubmitting} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Cancel
             </Button>
-            <Button onClick={handleSubmitConfirmed} disabled={isSubmitting}>
+            <Button onClick={handleSubmitConfirmed} disabled={isSubmitting} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               {isSubmitting ? "Submitting..." : "Submit Exam"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Exit Exam Dialog */}
+      {/* Exit Exam Dialog - Mobile Optimized */}
       <Dialog open={showExitDialog} onOpenChange={setShowExitDialog}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
-            <DialogTitle>Exit Exam?</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-base sm:text-lg">Exit Exam?</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               Are you sure you want to exit the exam? Your progress will be saved, but you may lose remaining time.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-2">
-            <div className="flex justify-between text-sm">
+          <div className="py-3 sm:py-4 space-y-2">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Progress:</span>
               <span className="font-semibold">{answeredCount} / {questions.length} answered</span>
             </div>
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between text-xs sm:text-sm">
               <span>Time Remaining:</span>
               <span className="font-semibold">{formatTime(timeLeft || 0)}</span>
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowExitDialog(false)}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setShowExitDialog(false)} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Continue Exam
             </Button>
-            <Button variant="destructive" onClick={() => setLocation('/exams')}>
+            <Button variant="destructive" onClick={() => setLocation('/exams')} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Exit Exam
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Fullscreen required dialog */}
+      {/* Fullscreen required dialog - Mobile Optimized */}
       <Dialog open={isFullscreenDialogOpen} onOpenChange={(open) => setIsFullscreenDialogOpen(open)}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Fullscreen Required</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg"><ShieldAlert className="w-4 h-4" /> Fullscreen Required</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               You exited fullscreen or blocked it. The exam is paused. Re-enter fullscreen to continue.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSubmitConfirmed}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleSubmitConfirmed} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Submit & Exit
             </Button>
-            <Button onClick={enterFullscreen}>Re-enter Fullscreen</Button>
+            <Button onClick={enterFullscreen} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">Re-enter Fullscreen</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Tab switch warning dialog */}
+      {/* Tab switch warning dialog - Mobile Optimized */}
       <Dialog open={isTabSwitchDialogOpen} onOpenChange={(open) => setIsTabSwitchDialogOpen(open)}>
-        <DialogContent>
+        <DialogContent className="w-[95vw] max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldAlert className="w-4 h-4" /> Focus Lost</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="flex items-center gap-2 text-base sm:text-lg"><ShieldAlert className="w-4 h-4" /> Focus Lost</DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
               You switched tabs or minimized the window. The exam is paused. Resume in fullscreen to continue.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={handleSubmitConfirmed}>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={handleSubmitConfirmed} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">
               Submit & Exit
             </Button>
-            <Button onClick={enterFullscreen}>Resume Exam</Button>
+            <Button onClick={enterFullscreen} className="w-full sm:w-auto text-xs sm:text-sm" size="sm">Resume Exam</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

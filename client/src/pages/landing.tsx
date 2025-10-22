@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   GraduationCap, 
   Users, 
@@ -23,9 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
+import { ExamSuccessModal } from "@/components/exam-success-modal";
 
 export default function Landing() {
   const [, navigate] = useLocation();
+  const [showExamTips, setShowExamTips] = useState(false);
 
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
@@ -47,6 +49,8 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 text-foreground flex flex-col">
+      <ExamSuccessModal open={showExamTips} onOpenChange={setShowExamTips} />
+      
       {/* Enhanced Header */}
       <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -287,6 +291,55 @@ export default function Landing() {
               </div>
             </motion.div>
           </div>
+        </div>
+      </section>
+
+      {/* Exam Success Tips CTA - NEW */}
+      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 via-background to-primary/5">
+        <div className="max-w-4xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="relative bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/20 rounded-2xl p-8 sm:p-12 text-center overflow-hidden"
+          >
+            {/* Background decoration */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -z-10" />
+            
+            <Badge variant="secondary" className="mb-4 bg-primary/20 border-primary/30">
+              <Award className="w-3 h-3 mr-1" />
+              Free Study Guide
+            </Badge>
+            
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                12 Proven Strategies for
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Exam Success
+              </span>
+            </h2>
+            
+            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+              Discover the essential tips that help students excel in JAMB, WAEC, and other major examinations. 
+              Learn from proven strategies used by top performers.
+            </p>
+            
+            <Button
+              size="lg"
+              onClick={() => setShowExamTips(true)}
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 text-primary-foreground shadow-xl shadow-primary/25 text-base h-14 px-10"
+            >
+              <BookOpen className="mr-2 h-5 w-5" />
+              Read Success Tips Now
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            
+            <p className="text-sm text-muted-foreground mt-4">
+              💡 Takes only 5 minutes to read • Used by 1000+ students
+            </p>
+          </motion.div>
         </div>
       </section>
 

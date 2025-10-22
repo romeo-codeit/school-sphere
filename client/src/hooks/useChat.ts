@@ -26,6 +26,9 @@ export function useForum() {
       );
       return response.documents;
     },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Real-time subscription for forum
@@ -65,6 +68,9 @@ export function useForum() {
         return response.documents;
       },
       enabled: !!threadId,
+      staleTime: 5 * 60 * 1000,
+      gcTime: 60 * 60 * 1000,
+      refetchOnWindowFocus: false,
     });
   };
 
@@ -128,6 +134,9 @@ export function useConversations() {
       }
         },
         enabled: !!user?.$id,
+        staleTime: 2 * 60 * 1000,
+        gcTime: 60 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 
     // Real-time subscription for conversations
@@ -135,10 +144,20 @@ export function useConversations() {
         if (!user?.$id) return;
         const channel = `databases.${DATABASE_ID}.collections.${CONVERSATIONS_COLLECTION_ID}.documents`;
         const unsubscribe = client.subscribe(channel, (response: RealtimeResponseEvent<any>) => {
-            // If the current user is a member of the conversation, update the list
-            if (response.payload.members.includes(user.$id)) {
-                 queryClient.invalidateQueries({ queryKey: ['conversations', user.$id] });
-            }
+            // If the current user is a member of the conversation, update the cached list in-place to avoid extra reads
+            const doc = response.payload as any;
+            if (!Array.isArray(doc?.members) || !doc.members.includes(user.$id)) return;
+            queryClient.setQueryData<any[]>(['conversations', user.$id], (old) => {
+              const prev = Array.isArray(old) ? old : [];
+              const idx = prev.findIndex((c: any) => c.$id === doc.$id);
+              if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = { ...prev[idx], ...doc };
+                return updated;
+              }
+              // New conversation: prepend
+              return [doc, ...prev];
+            });
         });
         return () => unsubscribe();
     }, [user?.$id, queryClient]);
@@ -161,6 +180,9 @@ export function useChat(conversationId: string) {
       return response.documents;
     },
     enabled: !!conversationId,
+    staleTime: 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   // Real-time subscription for chat messages
@@ -229,7 +251,7 @@ export function useChat(conversationId: string) {
 }
 
 export function useUsers() {
-    const { data: users, isLoading } = useQuery({
+  const { data: users, isLoading } = useQuery({
         queryKey: ['users'],
         queryFn: async () => {
             // This is a placeholder. In a real Appwrite app, you'd fetch users
@@ -242,7 +264,10 @@ export function useUsers() {
             } catch (e) {
                 return [];
             }
-        },
+    },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
     });
     return { users, isLoading };
 }

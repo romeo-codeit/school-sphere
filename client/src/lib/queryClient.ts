@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { account } from "./appwrite";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -12,6 +13,19 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // Helper: ensure we have a fresh HttpOnly JWT cookie by minting a new Appwrite JWT
+  const refreshJwtCookie = async () => {
+    try {
+      const { jwt } = await account.createJWT();
+      try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+      await fetch('/api/auth/jwt-cookie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt }),
+        credentials: 'include',
+      });
+    } catch {}
+  };
   const csrf = (typeof document !== 'undefined')
     ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
     : '';
@@ -25,27 +39,19 @@ export async function apiRequest(
     credentials: "include",
   });
 
-  // Attempt one automatic refresh of cookie using local JWT if 401
+  // Attempt automatic refresh of cookie if 401: first try minting a fresh JWT via Appwrite session
   if (res.status === 401) {
     try {
-      const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-      if (token) {
-        await fetch('/api/auth/jwt-cookie', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token }),
-          credentials: 'include',
-        });
-        res = await fetch(url, {
-          method,
-          headers: {
-            ...(data ? { "Content-Type": "application/json" } : {}),
-            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-          },
-          body: data ? JSON.stringify(data) : undefined,
-          credentials: 'include',
-        });
-      }
+      await refreshJwtCookie();
+      res = await fetch(url, {
+        method,
+        headers: {
+          ...(data ? { "Content-Type": "application/json" } : {}),
+          ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        },
+        body: data ? JSON.stringify(data) : undefined,
+        credentials: 'include',
+      });
     } catch {}
   }
 
@@ -73,19 +79,19 @@ export const getQueryFn: <T>(options: {
 
     if (res.status === 401) {
       try {
-        const token = (typeof localStorage !== 'undefined') ? localStorage.getItem('appwrite_jwt') : null;
-        if (token) {
-          await fetch('/api/auth/jwt-cookie', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jwt: token }),
-            credentials: 'include',
-          });
-          res = await fetch(queryKey.join("/") as string, {
-            credentials: 'include',
-            headers: csrf ? { 'X-CSRF-Token': csrf } : {},
-          });
-        }
+        // Mint a fresh JWT from the active Appwrite session and set HttpOnly cookie
+        const { jwt } = await account.createJWT();
+        try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+        await fetch('/api/auth/jwt-cookie', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt }),
+          credentials: 'include',
+        });
+        res = await fetch(queryKey.join("/") as string, {
+          credentials: 'include',
+          headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+        });
       } catch {}
     }
 

@@ -237,7 +237,7 @@ export function Sidebar({ className, isCollapsed, setIsCollapsed }: SidebarProps
             </button>
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto pb-24">
+        <div className="flex-1 overflow-y-auto pb-24 modern-scrollbar">
           <nav className="px-2 py-4">
             <div className="space-y-2">
               {navigationItems.map((item) => (

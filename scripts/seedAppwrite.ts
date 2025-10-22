@@ -1,4 +1,5 @@
 import { Client, Databases, Users, ID, Permission, Role, Query } from 'node-appwrite';
+import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 
@@ -59,9 +60,6 @@ const usersProxy: any = ALLOW_WRITE
         };
       }
     });
-const users = new Users(client);
-
-// Small helper delays to be kind to Appwrite limits
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 function isRateLimitOrTransient(e: any) {
@@ -160,6 +158,17 @@ async function ensureCollection(id: string, name: string, perms: any[] = [Permis
 }
 
 async function ensureAllCollections() {
+  // Delete and recreate examAttempts collection to split attributes (optional)
+  if (process.env.RECREATE_EXAM_ATTEMPTS === 'true') {
+    console.log('Recreating examAttempts collection with split attributes...');
+    try {
+      await databases.deleteCollection(APPWRITE_DATABASE_ID!, 'examAttempts');
+      console.log('Deleted old examAttempts collection');
+      await delay(1000); // Wait for deletion to complete
+    } catch (e: any) {
+      console.log('examAttempts collection did not exist or could not be deleted:', e?.message || e);
+    }
+  }
   // Exams - SKIPPED: Never alter or touch exams collection
   // await ensureCollection('exams', 'Exams');
   // await safeCreateStringAttribute('exams', 'title', 255, true);
@@ -197,28 +206,32 @@ async function ensureAllCollections() {
   // await delay(500);
   // await safeCreateIndex('questions', 'idx_exam_qnum', ['examId','questionNumber']);
 
-  // Exam Attempts (align to current backend/frontend expectations and your description)
+  // Exam Attempts - CORE (required fields only, under 10-attribute limit)
   await ensureCollection('examAttempts', 'Exam Attempts');
   await safeCreateStringAttribute('examAttempts', 'examId', 255, true);
   await safeCreateStringAttribute('examAttempts', 'studentId', 255, true);
-  // answers required string (JSON encoded)
   await safeCreateStringAttribute('examAttempts', 'answers', 8192, true);
   await safeCreateIntegerAttribute('examAttempts', 'score', true);
   await safeCreateIntegerAttribute('examAttempts', 'totalQuestions', true);
   await safeCreateIntegerAttribute('examAttempts', 'correctAnswers', true);
   await safeCreateIntegerAttribute('examAttempts', 'timeSpent', true);
-  await safeCreateStringAttribute('examAttempts', 'completedAt', 255, false);
-  await safeCreateStringAttribute('examAttempts', 'subjects', 255, false, true);
-  await safeCreateIntegerAttribute('examAttempts', 'timePerQuestion', false);
-  // Optional convenience fields used by UI if present
-  await safeCreateStringAttribute('examAttempts', 'status', 50, false);
-  await safeCreateDatetimeAttribute('examAttempts', 'startedAt', false);
-  await safeCreateDatetimeAttribute('examAttempts', 'submittedAt', false);
-  await safeCreateDatetimeAttribute('examAttempts', 'lastSavedAt', false);
-  await safeCreateIntegerAttribute('examAttempts', 'percentage', false);
-  await safeCreateBooleanAttribute('examAttempts', 'passed', false);
+  await safeCreateStringAttribute('examAttempts', 'status', 50, false); // in_progress, completed
   await delay(500);
   await safeCreateIndex('examAttempts', 'idx_student_exam', ['studentId','examId']);
+
+  // Exam Attempt Details - EXTENDED (optional analytics, under 10-attribute limit)
+  await ensureCollection('examAttemptDetails', 'Exam Attempt Details');
+  await safeCreateStringAttribute('examAttemptDetails', 'attemptId', 255, true); // FK to examAttempts.$id
+  await safeCreateStringAttribute('examAttemptDetails', 'completedAt', 255, false);
+  await safeCreateStringAttribute('examAttemptDetails', 'subjects', 255, false, true);
+  await safeCreateIntegerAttribute('examAttemptDetails', 'timePerQuestion', false);
+  await safeCreateDatetimeAttribute('examAttemptDetails', 'startedAt', false);
+  await safeCreateDatetimeAttribute('examAttemptDetails', 'submittedAt', false);
+  await safeCreateDatetimeAttribute('examAttemptDetails', 'lastSavedAt', false);
+  await safeCreateIntegerAttribute('examAttemptDetails', 'percentage', false);
+  await safeCreateBooleanAttribute('examAttemptDetails', 'passed', false);
+  await delay(500);
+  await safeCreateIndex('examAttemptDetails', 'idx_attempt', ['attemptId']);
 
   // Other app collections referenced by the app (expanded to full set)
   await ensureCollection('userProfiles', 'User Profiles');
@@ -530,7 +543,7 @@ async function seedPastQuestions() {
       }
     } catch {}
     if (!examId) {
-      const examDoc = await withRetry(() => db.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
+      const examDoc: any = await withRetry(() => db.createDocument(APPWRITE_DATABASE_ID, 'exams', ID.unique(), {
         title,
         type,
         subject,
@@ -548,7 +561,7 @@ async function seedPastQuestions() {
     const questionsArray: any[] = Array.isArray(raw) ? raw : (raw?.questions ?? []);
     // Skip if this exam already has questions (idempotent fast-path)
     try {
-      const existingQs = await db.listDocuments(APPWRITE_DATABASE_ID, 'questions', [Query.equal('examId', examId), Query.limit(1)]);
+  const existingQs = await db.listDocuments(APPWRITE_DATABASE_ID, 'questions', [Query.equal('examId', examId!), Query.limit(1)]);
       if (existingQs.total > 0) {
         console.log(`${idx + 1}/${files.length} Skip (already seeded): ${title}`);
         continue;
@@ -692,12 +705,24 @@ async function seedAdminUser() {
         });
         console.log('Created userProfile for existing admin user');
       }
+
+      // Ensure user preferences have the correct role
+      try {
+        await usersProxy.updatePrefs(userId, { role: 'admin' });
+        console.log('Updated user preferences with admin role');
+      } catch (error: any) {
+        console.warn('Could not update user preferences:', error.message);
+      }
       return;
     }
 
     // Create new admin user
     const user = await usersProxy.create(ID.unique(), adminEmail, undefined, adminPassword, adminName);
     console.log('Created admin user:', user.email);
+
+    // Update user preferences with role
+    await usersProxy.updatePrefs(user.$id, { role: 'admin' });
+    console.log('Updated user preferences with admin role');
 
     // Create userProfile
     await db.createDocument(APPWRITE_DATABASE_ID, 'userProfiles', ID.unique(), {

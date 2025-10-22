@@ -100,21 +100,29 @@ export const registerAuthRoutes = (app: any) => {
   app.post('/api/auth/jwt-cookie', async (req: Request, res: Response) => {
     try {
       const token = String((req.body || {}).jwt || '');
-      if (!token) return res.status(400).json({ message: 'Missing jwt' });
+      const session = String((req.body || {}).session || '');
+      if (!token && !session) return res.status(400).json({ message: 'Missing jwt or session' });
       // Very light validation; full validation occurs in auth middleware
       const csrfToken = Math.random().toString(36).slice(2);
       const isProd = app.get('env') === 'production';
-      res.cookie('aw_jwt', token, {
+      if (token) res.cookie('aw_jwt', token, {
         httpOnly: true,
         secure: isProd,
-        sameSite: 'strict',
+        sameSite: isProd ? 'strict' : 'lax',
         path: '/',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      });
+      if (session) res.cookie('appwrite_session', session, {
+        httpOnly: true,
+        secure: isProd,
+        sameSite: isProd ? 'strict' : 'lax',
+        path: '/',
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
       res.cookie('csrf_token', csrfToken, {
         httpOnly: false,
         secure: isProd,
-        sameSite: 'strict',
+        sameSite: isProd ? 'strict' : 'lax',
         path: '/',
         maxAge: 24 * 60 * 60 * 1000,
       });
@@ -125,11 +133,31 @@ export const registerAuthRoutes = (app: any) => {
     }
   });
 
+  // Refresh endpoint: create a new JWT from existing Appwrite session cookie and set aw_jwt
+  app.post('/api/auth/refresh', async (req: Request, res: Response) => {
+    try {
+      const cookies = (req.headers.cookie || '').split(';').reduce((acc: any, c) => {
+        const [k, v] = c.split('='); acc[k?.trim()] = decodeURIComponent((v || '').trim()); return acc;
+      }, {} as any);
+      const sessionId = String(cookies['appwrite_session'] || '');
+      if (!sessionId) return res.status(401).json({ message: 'No session' });
+      const client = new Client().setEndpoint(APPWRITE_ENDPOINT!).setProject(APPWRITE_PROJECT_ID!).setSession(sessionId);
+      const acc = new (require('node-appwrite').Account)(client);
+      const { jwt } = await acc.createJWT();
+      const isProd = app.get('env') === 'production';
+      res.cookie('aw_jwt', jwt, { httpOnly: true, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 24*60*60*1000 });
+      return res.json({ ok: true });
+    } catch (error) {
+      logError('Refresh auth error', error);
+      return res.status(401).json({ message: 'Unable to refresh auth' });
+    }
+  });
+
   // Logout endpoint
   app.post('/api/auth/logout', (_req: Request, res: Response) => {
     const isProd = app.get('env') === 'production';
-    res.cookie('aw_jwt', '', { httpOnly: true, secure: isProd, sameSite: 'strict', path: '/', maxAge: 0 });
-    res.cookie('csrf_token', '', { httpOnly: false, secure: isProd, sameSite: 'strict', path: '/', maxAge: 0 });
+  res.cookie('aw_jwt', '', { httpOnly: true, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 0 });
+  res.cookie('csrf_token', '', { httpOnly: false, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 0 });
     return res.json({ ok: true });
   });
 

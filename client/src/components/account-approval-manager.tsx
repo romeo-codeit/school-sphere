@@ -161,7 +161,7 @@ export function AccountApprovalManager() {
           </div>
 
           {/* Pending Accounts List */}
-          <div className="space-y-3 max-h-96 overflow-y-auto">
+          <div className="space-y-3 max-h-96 overflow-y-auto modern-scrollbar">
             {pendingAccounts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />

@@ -1,0 +1,242 @@
+/**
+ * Custom styles for embedded Jitsi Meet
+ * Theme-aware and modern design matching SchoolSphere
+ */
+
+/* ===== HIDE JITSI BRANDING ===== */
+.watermark,
+.leftwatermark,
+.rightwatermark,
+[class*="watermark"],
+[class*="brand"],
+.subject-info-container .watermark,
+.poweredby,
+[class*="poweredby"],
+.notice,
+.app-promo,
+.mobile-app-promo,
+[class*="mobile-download"],
+[class*="app-download"],
+[class*="app-promo"],
+.deep-linking-dialog,
+[class*="deep-link"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* ===== HIDE JITSI UI CHROME ===== */
+.new-toolbox,
+.toolbox,
+.filmstrip,
+.subject,
+.conference-timer,
+.toolbar-button-wrapper,
+[class*="Toolbox"],
+[class*="toolbox"],
+[class*="ChromeButton"],
+[class*="ToolbarButton"],
+.filmstrip__videos,
+#filmstripLocalVideo,
+#filmstripRemoteVideos,
+.stage-filmstrip,
+.top-panel,
+.bottom-panel,
+[class*="InfoDialog"],
+[class*="WelcomePage"],
+[class*="Prejoin"],
+[class*="prejoin"],
+[class*="lobby"],
+.feedback-button,
+.invite-more-dialog,
+.add-people-dialog,
+[class*="calendar"],
+[class*="livestream"],
+[class*="recording-label"],
+.settings-button,
+[class*="Settings"],
+.recording-button,
+.invite-button,
+.security-dialog,
+[class*="Security"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* ===== SHOW ONLY VIDEO TILES ===== */
+.videocontainer,
+.videocontainer__background,
+.videocontainer__tileviewbackground,
+.remote-video-container,
+.tile-view,
+[class*="TileView"],
+[class*="LargeVideo"],
+.large-video-background,
+#largeVideoContainer,
+#dominantSpeaker,
+.dominant-speaker {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* ===== MODERN VIDEO TILE STYLING ===== */
+.videocontainer {
+  width: 100% !important;
+  height: 100% !important;
+  background-color: transparent !important;
+  border-radius: 12px !important;
+  overflow: hidden !important;
+}
+
+/* Dark mode (default) */
+.dark .videocontainer__background,
+.videocontainer__background {
+  background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
+/* Light mode */
+.light .videocontainer__background {
+  background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%) !important;
+  border: 1px solid rgba(0, 0, 0, 0.08) !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Video element styling */
+video {
+  border-radius: 12px !important;
+  object-fit: cover !important;
+}
+
+/* Participant name labels - modern styling */
+.displayname,
+[class*="DisplayName"] {
+  background: rgba(0, 0, 0, 0.7) !important;
+  backdrop-filter: blur(8px) !important;
+  border-radius: 8px !important;
+  padding: 6px 12px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: white !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.light .displayname,
+.light [class*="DisplayName"] {
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #1a1a1a !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Tile view layout optimization */
+.tile-view {
+  width: 100% !important;
+  height: 100% !important;
+  padding: 12px !important;
+  gap: 12px !important;
+}
+
+/* ===== BACKGROUND STYLING ===== */
+.videoconference_page,
+#react {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.dark .videoconference_page,
+.dark #react {
+  background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%) !important;
+}
+
+.light .videoconference_page,
+.light #react {
+  background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%) !important;
+}
+
+/* ===== HIDE NOTIFICATIONS & POPUPS ===== */
+.notification,
+[class*="Notification"],
+.inline-dialog,
+[class*="InlineDialog"],
+.popover,
+[class*="Popover"],
+.tooltip,
+[class*="Tooltip"] {
+  display: none !important;
+}
+
+/* ===== HIDE QUALITY INDICATORS ===== */
+[class*="ConnectionIndicator"],
+[class*="VideoQuality"],
+.connection-indicator,
+.quality-indicator {
+  display: none !important;
+}
+
+/* ===== CLEAN BORDERS ===== */
+.videocontainer__border {
+  border: none !important;
+}
+
+/* ===== HIDE HEADERS/FOOTERS (ONLY WHEN IN JITSI) ===== */
+body.jitsi-active header:not(.custom-header),
+body.jitsi-active .header:not(.custom-header),
+body.jitsi-active [class*="Header"]:not(.custom-header),
+body.jitsi-active footer,
+body.jitsi-active .footer,
+body.jitsi-active [class*="Footer"] {
+  display: none !important;
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+  .videocontainer,
+  .tile-view,
+  #largeVideoContainer {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 8px !important;
+  }
+  
+  .tile-view {
+    padding: 8px !important;
+    gap: 8px !important;
+  }
+  
+  .displayname,
+  [class*="DisplayName"] {
+    font-size: 12px !important;
+    padding: 4px 8px !important;
+  }
+}
+
+/* ===== FOCUS STATES & ANIMATIONS ===== */
+.videocontainer:hover {
+  transition: all 0.3s ease !important;
+}
+
+.dark .videocontainer:hover {
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6) !important;
+}
+
+.light .videocontainer:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* Smooth transitions */
+.videocontainer,
+.videocontainer__background,
+video {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+/* Active speaker highlight */
+.videocontainer.active-speaker {
+  border-color: var(--primary) !important;
+  box-shadow: 0 0 0 3px var(--primary) !important;
+}
+
+

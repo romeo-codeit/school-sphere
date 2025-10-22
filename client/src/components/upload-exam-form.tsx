@@ -85,7 +85,7 @@ export function UploadExamForm({ onFinished }: { onFinished: () => void }) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-h-[70vh] overflow-y-auto pr-4 modern-scrollbar">
         <FormField control={form.control} name="title" render={({ field }) => (
           <FormItem><FormLabel>Title</FormLabel><FormControl><Input {...field} className="w-full" /></FormControl><FormMessage /></FormItem>
         )}/>

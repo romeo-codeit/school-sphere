@@ -48,6 +48,9 @@ export function useResources(filters: ResourceFilters = {}) {
 
       return uniqueDocs.sort((a, b) => new Date(b.$createdAt).getTime() - new Date(a.$createdAt).getTime());
     },
+    staleTime: 10 * 60 * 1000,
+    gcTime: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
   });
 
   const uploadFileMutation = useMutation({
@@ -67,16 +70,22 @@ export function useResources(filters: ResourceFilters = {}) {
         });
         return { offline: true, local: true, resourceData };
       }
-      return databases.createDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, ID.unique(), resourceData);
+      const created = await databases.createDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, ID.unique(), resourceData);
+      return { offline: false, local: false, created };
     },
     onSuccess: (result: any) => {
-      if (result && result.local && result.resourceData) {
+      const key = ['resources', { classId }];
+      const prev = queryClient.getQueryData<any[]>(key) || [];
+      if (result?.local && result.resourceData) {
+        // Insert a local placeholder without triggering a refetch
         const placeholder = { $id: `offline-${Date.now()}`, ...result.resourceData, offline: true, $createdAt: new Date().toISOString() };
-        const key = ['resources', { classId }];
-        const prev = queryClient.getQueryData<any[]>(key) || [];
         queryClient.setQueryData(key, [placeholder, ...prev]);
+        return;
       }
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      if (result?.created) {
+        // Optimistically add the newly created resource to cache
+        queryClient.setQueryData(key, [result.created, ...prev]);
+      }
     },
   });
 
@@ -92,16 +101,22 @@ export function useResources(filters: ResourceFilters = {}) {
         });
         return { offline: true, local: true, id, data };
       }
-      return databases.updateDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, id, data);
+      const updated = await databases.updateDocument(DATABASE_ID, RESOURCES_COLLECTION_ID, id, data);
+      return { offline: false, local: false, updated };
     },
     onSuccess: (result: any) => {
-      if (result && result.local && result.id) {
-        const key = ['resources', { classId }];
-        const prev = queryClient.getQueryData<any[]>(key) || [];
-        const updated = prev.map(p => p.$id === result.id ? { ...p, ...result.data, offline: true } : p);
-        queryClient.setQueryData(key, updated);
+      const key = ['resources', { classId }];
+      const prev = queryClient.getQueryData<any[]>(key) || [];
+      if (result?.local && result.id) {
+        // Update local placeholder version
+        const updatedList = prev.map(p => p.$id === result.id ? { ...p, ...result.data, offline: true } : p);
+        queryClient.setQueryData(key, updatedList);
+        return;
       }
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
+      if (result?.updated) {
+        const updatedList = prev.map(p => p.$id === result.updated.$id ? { ...p, ...result.updated } : p);
+        queryClient.setQueryData(key, updatedList);
+      }
     },
   });
 
@@ -119,15 +134,15 @@ export function useResources(filters: ResourceFilters = {}) {
       if (fileId) {
         await storage.deleteFile(BUCKET_ID, fileId);
       }
+      return { offline: false, local: false, resourceId };
     },
     onSuccess: (result: any) => {
-      if (result && result.local && result.resourceId) {
-        const key = ['resources', { classId }];
-        const prev = queryClient.getQueryData<any[]>(key) || [];
+      const key = ['resources', { classId }];
+      const prev = queryClient.getQueryData<any[]>(key) || [];
+      if (result?.resourceId) {
         const updated = prev.filter(p => p.$id !== result.resourceId);
         queryClient.setQueryData(key, updated);
       }
-      queryClient.invalidateQueries({ queryKey: ['resources'] });
     },
   });
 

@@ -354,7 +354,7 @@ export default function Payments() {
                       </DialogDescription>
                     </DialogHeader>
                     
-                    <div className="overflow-y-auto px-6 flex-1">
+                    <div className="overflow-y-auto modern-scrollbar px-6 flex-1">
                       <Form {...bulkForm}>
                         <form onSubmit={bulkForm.handleSubmit(onBulkSubmit)} className="space-y-6 pb-6">
                         <FormField
@@ -507,7 +507,7 @@ export default function Payments() {
                     </DialogDescription>
                   </DialogHeader>
                   
-                  <div className="overflow-y-auto px-6 flex-1">
+                  <div className="overflow-y-auto modern-scrollbar px-6 flex-1">
                     <Form {...singleForm}>
                       <form onSubmit={singleForm.handleSubmit(onSubmit)} className="space-y-6 pb-6">
                       <FormField
