@@ -94,3 +94,33 @@ export const yearQuerySchema = z.object({
 export const attemptQuerySchema = z.object({
   studentId: z.string().optional()
 });
+
+// Payments schemas
+export const paymentCreateSchema = z.object({
+  studentId: z.string().min(1, 'Student ID is required'),
+  amount: z.number().positive('Amount must be positive'),
+  purpose: z.string().min(1, 'Purpose is required'),
+  dueDate: z.string().optional(),
+  term: z.string().optional(),
+  academicYear: z.string().optional(),
+  status: z.string().optional(), // defaults to 'pending'
+  paymentMethod: z.string().optional(),
+  transactionId: z.string().optional(),
+});
+
+export const paymentUpdateSchema = z.object({
+  amount: z.number().positive('Amount must be positive').optional(),
+  purpose: z.string().optional(),
+  dueDate: z.string().optional(),
+  paidDate: z.string().optional(),
+  status: z.string().optional(),
+  term: z.string().optional(),
+  academicYear: z.string().optional(),
+  paymentMethod: z.string().optional(),
+  transactionId: z.string().optional(),
+});
+
+export const paymentQuerySchema = z.object({
+  studentId: z.string().optional(),
+  status: z.string().optional(),
+});

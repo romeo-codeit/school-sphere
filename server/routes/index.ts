@@ -4,6 +4,7 @@ import { registerAdminRoutes } from './admin';
 import { registerCBTRoutes } from './cbt';
 import { registerDebugRoutes } from './debug';
 import { registerAttendanceRoutes } from './attendance';
+import { registerPaymentRoutes } from './payments';
 
 export const registerRoutes = async (app: Express) => {
   // Register all domain-specific routes
@@ -12,6 +13,7 @@ export const registerRoutes = async (app: Express) => {
   registerCBTRoutes(app);
   registerDebugRoutes(app);
   registerAttendanceRoutes(app);
+  registerPaymentRoutes(app);
 
   // Masked redirect for external answer URLs
   app.get('/api/answers/r', (req, res) => {
