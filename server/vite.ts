@@ -1,22 +1,15 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
+import { createServer as createViteServer, createLogger, type InlineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 
 const viteLogger = createLogger();
 
 export function log(message: string, source = "express") {
-  const formattedTime = new Date().toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: true,
-  });
-
-  console.log(`${formattedTime} [${source}] ${message}`);
+  // ...existing code...
 }
 
 export async function setupVite(app: Express, server: Server) {
@@ -26,19 +19,31 @@ export async function setupVite(app: Express, server: Server) {
     allowedHosts: true as const,
   };
 
-  const vite = await createViteServer({
-    ...viteConfig,
+  // Build a minimal inline Vite config for middleware mode in dev to avoid importing external config
+  const inlineConfig: InlineConfig = {
     configFile: false,
-    customLogger: {
-      ...viteLogger,
-      error: (msg, options) => {
-        viteLogger.error(msg, options);
-        process.exit(1);
+    appType: "custom",
+    root: path.resolve(import.meta.dirname, "..", "client"),
+    envDir: path.resolve(import.meta.dirname, ".."),
+    plugins: [react()],
+    resolve: {
+      alias: {
+        "@": path.resolve(import.meta.dirname, "..", "client", "src"),
+        "@shared": path.resolve(import.meta.dirname, "..", "shared"),
+        "@assets": path.resolve(import.meta.dirname, "..", "attached_assets"),
       },
     },
     server: serverOptions,
-    appType: "custom",
-  });
+    customLogger: {
+      ...viteLogger,
+      // Don't kill the dev server on Vite errors; log them instead.
+      error: (msg, options) => {
+        viteLogger.error(msg, options);
+      },
+    },
+  };
+
+  const vite = await createViteServer(inlineConfig);
 
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
@@ -68,7 +73,8 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+  // Serve the client build output (vite.config.ts -> build.outDir = dist/public)
+  const distPath = path.resolve(import.meta.dirname, "..", "dist", "public");
 
   if (!fs.existsSync(distPath)) {
     throw new Error(

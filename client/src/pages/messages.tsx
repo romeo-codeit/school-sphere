@@ -1,14 +1,15 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -31,7 +32,6 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { insertMessageSchema } from "@shared/schema";
 import { 
   MessageSquare, 
   Search, 
@@ -44,12 +44,16 @@ import {
   Eye,
   Reply
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import type { Message, User } from "@shared/schema";
+import { useMessages } from "@/hooks/useMessages";
 
-const messageFormSchema = insertMessageSchema.omit({ senderId: true });
+const messageFormSchema = z.object({
+  recipientId: z.string(),
+  subject: z.string(),
+  content: z.string(),
+  messageType: z.string(),
+});
 
 type MessageFormData = z.infer<typeof messageFormSchema>;
 
@@ -59,15 +63,7 @@ export default function Messages() {
   const [isComposeOpen, setIsComposeOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
-  const queryClient = useQueryClient();
-
-  const { data: messages, isLoading } = useQuery({
-    queryKey: ["/api/messages"],
-  });
-
-  const { data: users } = useQuery({
-    queryKey: ["/api/auth/user"],
-  });
+  const { messages, isLoading, createMessage } = useMessages();
 
   const form = useForm<MessageFormData>({
     resolver: zodResolver(messageFormSchema),
@@ -78,29 +74,7 @@ export default function Messages() {
     },
   });
 
-  const sendMutation = useMutation({
-    mutationFn: async (data: MessageFormData) => {
-      return await apiRequest("POST", "/api/messages", data);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/messages"] });
-      toast({
-        title: "Success",
-        description: "Message sent successfully",
-      });
-      setIsComposeOpen(false);
-      form.reset();
-    },
-    onError: (error) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send message",
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredMessages = messages?.filter((message: Message) => {
+  const filteredMessages = messages?.filter((message: any) => {
     const matchesSearch = message.subject?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          message.content.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesType = selectedType === "all" || message.messageType === selectedType;
@@ -109,18 +83,32 @@ export default function Messages() {
 
   const messageStats = {
     total: messages?.length || 0,
-    unread: messages?.filter((m: Message) => !m.isRead).length || 0,
-    sent: messages?.filter((m: Message) => m.senderId === user?.id).length || 0,
-    received: messages?.filter((m: Message) => m.recipientId === user?.id).length || 0,
+    unread: messages?.filter((m: any) => !m.isRead).length || 0,
+    sent: messages?.filter((m: any) => m.senderId === user?.$id).length || 0,
+    received: messages?.filter((m: any) => m.recipientId === user?.$id).length || 0,
   };
 
-  const onSubmit = (data: MessageFormData) => {
-    sendMutation.mutate(data);
+  const onSubmit = async (data: MessageFormData) => {
+    try {
+      await createMessage({ ...data, senderId: user?.$id, isRead: false });
+      toast({
+        title: "Success",
+        description: "Message sent successfully",
+      });
+      setIsComposeOpen(false);
+      form.reset();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
-      <TopNav title="Messages" subtitle="Communication hub for teachers, students, and parents" />
+      <TopNav title="Messages" subtitle="Communication hub for teachers, students, and parents" showGoBackButton={true} />
       
       <div className="p-6">
         {/* Stats Cards */}
@@ -254,14 +242,18 @@ export default function Messages() {
                       Compose Message
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-2xl">
-                    <DialogHeader>
-                      <DialogTitle>Compose New Message</DialogTitle>
+                  <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+                    <DialogHeader className="px-6 pt-6 pb-4">
+                      <DialogTitle className="text-xl sm:text-2xl">Compose New Message</DialogTitle>
+                      <DialogDescription className="text-sm text-muted-foreground mt-2">
+                        Send a message to students, teachers, or parents
+                      </DialogDescription>
                     </DialogHeader>
                     
-                    <Form {...form}>
-                      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                    <div className="overflow-y-auto modern-scrollbar px-6 flex-1">
+                      <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pb-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <FormField
                             control={form.control}
                             name="recipientId"
@@ -342,17 +334,18 @@ export default function Messages() {
                           )}
                         />
 
-                        <div className="flex justify-end space-x-2">
-                          <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)}>
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 pt-4 border-t">
+                          <Button type="button" variant="outline" onClick={() => setIsComposeOpen(false)} className="w-full sm:w-auto">
                             Cancel
                           </Button>
-                          <Button type="submit" disabled={sendMutation.isPending} data-testid="button-send-message">
+                          <Button type="submit" data-testid="button-send-message" className="w-full sm:w-auto">
                             <Send className="w-4 h-4 mr-2" />
-                            {sendMutation.isPending ? "Sending..." : "Send Message"}
+                            Send Message
                           </Button>
                         </div>
                       </form>
                     </Form>
+                    </div>
                   </DialogContent>
                 </Dialog>
               </div>
@@ -374,14 +367,20 @@ export default function Messages() {
               {isLoading ? (
                 <div className="text-center py-8">Loading messages...</div>
               ) : filteredMessages.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  {searchQuery ? "No messages found matching your search." : "No messages found."}
-                </div>
+                <EmptyState
+                  icon={MessageSquare}
+                  title={searchQuery ? "No Messages Found" : "No Messages Yet"}
+                  description={searchQuery ? "Try adjusting your search criteria." : "Your inbox is empty. Start a conversation by sending a message."}
+                  action={!searchQuery ? {
+                    label: "Compose Message",
+                    onClick: () => setIsComposeOpen(true)
+                  } : undefined}
+                />
               ) : (
                 <div className="space-y-4">
-                  {filteredMessages.map((message: Message) => (
+                  {filteredMessages.map((message: any) => (
                     <div
-                      key={message.id}
+                      key={message.$id}
                       className={`p-4 border border-border rounded-lg hover:shadow-sm transition-shadow ${
                         !message.isRead ? "bg-accent/5" : ""
                       }`}
@@ -403,30 +402,30 @@ export default function Messages() {
                               {message.messageType}
                             </Badge>
                             <span className="text-sm text-muted-foreground">
-                              {new Date(message.createdAt).toLocaleDateString()}
+                              {new Date(message.$createdAt).toLocaleDateString()}
                             </span>
                           </div>
                           
-                          <h4 className="font-medium text-foreground mb-1" data-testid={`text-message-subject-${message.id}`}>
+                          <h4 className="font-medium text-foreground mb-1" data-testid={`text-message-subject-${message.$id}`}>
                             {message.subject || "No Subject"}
                           </h4>
                           
-                          <p className="text-sm text-muted-foreground mb-2" data-testid={`text-message-preview-${message.id}`}>
+                          <p className="text-sm text-muted-foreground mb-2" data-testid={`text-message-preview-${message.$id}`}>
                             {message.content.substring(0, 120)}
                             {message.content.length > 120 && "..."}
                           </p>
                           
                           <div className="text-xs text-muted-foreground">
-                            From: {message.senderId === user?.id ? "You" : "System"}
+                            From: {message.senderId === user?.$id ? "You" : "System"}
                           </div>
                         </div>
                         
                         <div className="flex items-center space-x-2 ml-4">
-                          <Button variant="outline" size="sm" data-testid={`button-read-message-${message.id}`}>
+                          <Button variant="outline" size="sm" data-testid={`button-read-message-${message.$id}`}>
                             <Eye className="w-4 h-4" />
                           </Button>
                           {message.messageType === "personal" && (
-                            <Button variant="outline" size="sm" data-testid={`button-reply-message-${message.id}`}>
+                            <Button variant="outline" size="sm" data-testid={`button-reply-message-${message.$id}`}>
                               <Reply className="w-4 h-4" />
                             </Button>
                           )}

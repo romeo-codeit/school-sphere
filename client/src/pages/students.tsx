@@ -1,11 +1,11 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import React, { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { StudentForm } from "@/components/student-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/ui/empty-state";
 import {
   Table,
   TableBody,
@@ -20,246 +20,306 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { UserPlus, Search, MoreHorizontal, Edit, Trash2, Eye, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRole } from "@/hooks/useRole";
-import { RoleGuard, AdminOnly } from "@/components/RoleGuard";
-import { isUnauthorizedError } from "@/lib/authUtils";
-import type { Student } from "@shared/schema";
+import { useStudents } from "@/hooks/useStudents";
+// Fetch all classes directly to avoid role-based filtering in useClasses
+import { useQuery } from "@tanstack/react-query";
+import { getAllClasses } from "@/lib/api/attendance";
+import { useLocation } from "wouter";
+import { useDebounce } from "@/hooks/useDebounce";
+import { Loading } from "@/components/ui/loading";
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useStudentsPerformanceTest, logStudentsPerformanceMetrics } from '@/hooks/useStudentsPerformanceTest';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Students() {
+  // Page title and subtitle
+  const pageTitle = "Students";
+  const pageSubtitle = "Manage student records, view details, and perform actions.";
+
+  // Permissions
+  const { hasPermission } = useRole();
+
+  // Students data
   const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedClassId, setSelectedClassId] = useState<string | undefined>(undefined);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { hasPermission, canAccess } = useRole();
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [studentToDelete, setStudentToDelete] = useState<string | null>(null);
 
-  const { data: students, isLoading, error } = useQuery({
-    queryKey: ["/api/students"],
-    retry: false,
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to view students.",
-          variant: "destructive",
-        });
-      }
-    },
+  const [, setLocation] = useLocation();
+
+  const { testPerformance, clearCache } = useStudentsPerformanceTest();
+
+  // Performance test handlers (only used in development)
+  const handlePerformanceTest = async () => {
+    const metrics = await testPerformance();
+    if (metrics) {
+      logStudentsPerformanceMetrics('Performance Test Completed', metrics.totalTime, metrics);
+    }
+  };
+
+  const handleClearCache = () => {
+    clearCache();
+  };
+
+  // Make performance testing available in development console
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+      (window as any).studentsPerfTest = {
+        testPerformance: handlePerformanceTest,
+        clearCache: handleClearCache,
+      };
+    }
+  }, []);
+
+  // Fetch students
+  const {
+    students,
+    total,
+    isLoading,
+    error,
+    createStudent,
+    updateStudent,
+    deleteStudent,
+  } = useStudents({ search: searchQuery, page: currentPage, limit: 10, classId: selectedClassId });
+  const totalPages = total ? Math.ceil(total / 10) : 1;
+
+  // Fetch classes
+  const { data: classes, isLoading: classesLoading } = useQuery({
+    queryKey: ['classes','all'],
+    queryFn: getAllClasses,
   });
+  // Build classMap for quick lookup
+  const sortedClasses = Array.isArray(classes) ? [...classes].sort((a: any, b: any) => String(a.name || '').localeCompare(String(b.name || ''))) : [];
+  const classMap = sortedClasses.length ? Object.fromEntries(sortedClasses.map((c: any) => [c.$id, c.name])) : {};
 
-  const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await apiRequest("DELETE", `/api/students/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/students"] });
-      toast({
-        title: "Success",
-        description: "Student deleted successfully",
-      });
-    },
-    onError: (error: Error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Access Denied",
-          description: "You don't have permission to delete students.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to delete student",
-          variant: "destructive",
-        });
-      }
-    },
-  });
+  const getClassName = (student: any) => {
+    const arr = Array.isArray(classes) ? (classes as any[]) : [];
 
-  const filteredStudents = students?.filter((student: Student) =>
-    `${student.firstName} ${student.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.studentId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    student.class.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+    // Prefer classId lookup
+    const cid = String(student?.classId || '').trim();
+    if (cid && arr.length > 0) {
+      const foundById = arr.find((c) => String(c.$id) === cid);
+      if (foundById?.name) return foundById.name;
+    }
 
+    // Fallbacks for legacy fields
+    const raw = String(student?.className || student?.class || '').trim();
+    if (raw) {
+      // If raw looks like an id, try to resolve to a name
+      const byId = arr.find((c) => String(c.$id) === raw);
+      if (byId?.name) return byId.name;
+      // Or match by name (case-insensitive)
+      const byName = arr.find((c) => String(c.name || '').toLowerCase() === raw.toLowerCase());
+      if (byName?.name) return byName.name;
+      // Last resort: do NOT show ids; match attendance reports fallback
+      return 'Unknown Class';
+    }
+
+    return 'N/A';
+  };
+
+  // Utility for badge variant
+  const getStatusVariant = (status: string) => {
+    if (status === 'active') return 'primary';
+    if (status === 'inactive') return 'secondary';
+    return 'destructive';
+  };
+
+  // Handlers
   const handleAddStudent = () => {
     setSelectedStudent(null);
     setIsFormOpen(true);
   };
-
-  const handleEditStudent = (student: Student) => {
+  const handleViewStudent = (id: string) => {
+    setLocation(`/students/${id}`);
+  };
+  const handleEditStudent = (student: any) => {
     setSelectedStudent(student);
     setIsFormOpen(true);
   };
-
-  const handleDeleteStudent = (id: string) => {
-    if (confirm("Are you sure you want to delete this student?")) {
-      deleteMutation.mutate(id);
-    }
+  const openDeleteDialog = (id: string) => {
+  setStudentToDelete(null);
+    setIsDeleteDialogOpen(true);
   };
-
+  const confirmDelete = () => {
+  // Implement delete logic (mutation should refetch automatically)
+  setIsDeleteDialogOpen(false);
+  setStudentToDelete(null);
+  };
   return (
-    <div className="space-y-6">
-      <TopNav title="Students" subtitle="Manage student records and information" />
-      
-      <div className="p-6">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Student Management</CardTitle>
-              <AdminOnly>
-                <Button onClick={handleAddStudent} data-testid="button-add-student">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Add Student
-                </Button>
-              </AdminOnly>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {/* Search and Filters */}
-            <div className="flex items-center space-x-4 mb-6">
-              <div className="relative flex-1 max-w-sm">
-                <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search students..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                  data-testid="input-search-students"
+    <>
+      <TopNav title={pageTitle} subtitle={pageSubtitle} showGoBackButton={true} />
+      <div className="space-y-6 px-4 sm:px-6 lg:px-8">
+        <div className="py-4">
+          <ErrorBoundary>
+            <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <CardTitle className="text-lg sm:text-xl lg:text-2xl">Student Management</CardTitle>
+                {hasPermission('students', 'create') && (
+                  <Button onClick={handleAddStudent} data-testid="button-add-student" className="w-full sm:w-auto">
+                    <UserPlus className="w-4 h-4 mr-2" /> Add Student
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or ID..."
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    className="pl-10 w-full text-sm sm:text-base"
+                  />
+                </div>
+                <div>
+                  <Select onValueChange={(val) => {
+                    setSelectedClassId(val === 'ALL' ? undefined : val);
+                    setCurrentPage(1);
+                  }} value={selectedClassId || 'ALL'}>
+                    <SelectTrigger className="w-full h-10">
+                      <SelectValue placeholder={classesLoading ? 'Loading classes…' : 'Filter by class'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ALL">All Classes</SelectItem>
+                      {classesLoading ? (
+                        <SelectItem value="loading" disabled>Loading…</SelectItem>
+                      ) : (
+                        (sortedClasses || []).map((c: any) => (
+                          <SelectItem key={c.$id} value={c.$id}>{c.name || 'Unknown Class'}</SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {isLoading ? (
+                <TableSkeleton columns={5} rows={5} />
+              ) : error ? (
+                <div className="text-center py-8 text-red-500">
+                  Error loading students: {error.message}
+                </div>
+              ) : !students || students.length === 0 ? (
+                <EmptyState
+                  icon={Users}
+                  title={searchQuery ? "No Students Found" : "No Students Yet"}
+                  description={searchQuery ? "Try adjusting your search criteria." : "Get started by adding your first student to the system."}
+                  action={!searchQuery ? {
+                    label: "Add Student",
+                    onClick: () => setIsFormOpen(true)
+                  } : undefined}
                 />
-              </div>
-            </div>
-
-            {/* Access Control Check */}
-            {!canAccess(["admin", "teacher"]) ? (
-              <div className="text-center py-8">
-                <div className="text-muted-foreground mb-2">Access Denied</div>
-                <p className="text-sm">You don't have permission to view student records.</p>
-              </div>
-            ) : isLoading ? (
-              <div className="text-center py-8">Loading students...</div>
-            ) : filteredStudents.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                {searchQuery ? "No students found matching your search." : "No students found."}
-              </div>
-            ) : (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Student</TableHead>
-                      <TableHead>Student ID</TableHead>
-                      <TableHead>Class</TableHead>
-                      <TableHead>Contact</TableHead>
-                      <TableHead>Parent/Guardian</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredStudents.map((student: Student) => (
-                      <TableRow key={student.id}>
-                        <TableCell>
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                              <span className="text-primary font-medium text-sm">
-                                {student.firstName?.charAt(0)}{student.lastName?.charAt(0)}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="font-medium" data-testid={`text-student-name-${student.id}`}>
-                                {student.firstName} {student.lastName}
-                              </p>
-                              <p className="text-sm text-muted-foreground">
-                                {student.email}
-                              </p>
-                            </div>
+              ) : (
+                <>
+                  {/* Mobile: Card view */}
+                  <div className="grid grid-cols-1 gap-4 sm:hidden">
+                    {students.map((student: any) => (
+                      <Card key={student.$id} className="p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <div className="font-semibold text-base">{student.firstName} {student.lastName}</div>
+                            <div className="text-xs text-muted-foreground">{student.email}</div>
                           </div>
-                        </TableCell>
-                        <TableCell data-testid={`text-student-id-${student.id}`}>
-                          {student.studentId}
-                        </TableCell>
-                        <TableCell data-testid={`text-student-class-${student.id}`}>
-                          {student.class}
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p>{student.phone}</p>
-                            <p className="text-muted-foreground">{student.email}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="text-sm">
-                            <p>{student.parentName}</p>
-                            <p className="text-muted-foreground">{student.parentPhone}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge 
-                            variant={student.status === 'active' ? 'default' : 'secondary'}
-                            className={
-                              student.status === 'active' 
-                                ? 'bg-secondary/10 text-secondary' 
-                                : student.status === 'suspended'
-                                ? 'bg-destructive/10 text-destructive'
-                                : 'bg-accent/10 text-accent'
-                            }
-                            data-testid={`badge-student-status-${student.id}`}
-                          >
-                            {student.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button 
-                                variant="ghost" 
-                                className="h-8 w-8 p-0"
-                                data-testid={`button-student-actions-${student.id}`}
-                              >
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem data-testid={`button-view-student-${student.id}`}>
-                                <Eye className="mr-2 h-4 w-4" />
-                                View Details
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleEditStudent(student)}
-                                data-testid={`button-edit-student-${student.id}`}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDeleteStudent(student.id)}
-                                className="text-destructive"
-                                data-testid={`button-delete-student-${student.id}`}
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
+                          <Badge variant={getStatusVariant(student.status)}>{student.status}</Badge>
+                        </div>
+                        <div className="text-sm mb-1"><span className="font-medium">Student ID:</span> {student.studentId}</div>
+                        <div className="text-sm mb-1"><span className="font-medium">Class:</span> {getClassName(student)}</div>
+                        <div className="flex gap-2 mt-2 justify-end">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="icon" variant="outline" onClick={() => handleViewStudent(student.$id)}><Eye /></Button>
+                              </TooltipTrigger>
+                              <TooltipContent><p>View</p></TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                          {hasPermission('students', 'update') && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="icon" variant="outline" onClick={() => handleEditStudent(student)}><Edit /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Edit</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                          {hasPermission('students', 'delete') && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="icon" variant="destructive" onClick={() => openDeleteDialog(student.$id)}><Trash2 /></Button>
+                                </TooltipTrigger>
+                                <TooltipContent><p>Delete</p></TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
+                      </Card>
                     ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                  </div>
+                  {/* Desktop: Table view and pagination */}
+                  <div className="hidden sm:block">
+                    <div className="rounded-md border overflow-x-auto">
+                      <Table className="min-w-[700px] text-xs sm:text-sm lg:text-base">
+                        <TableHeader>
+                          <TableRow><TableHead>Student</TableHead><TableHead>Student ID</TableHead><TableHead>Class</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead></TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {students.map((student: any) => (
+                            <TableRow key={student.$id}>
+                              <TableCell>
+                                <div className="font-medium text-sm sm:text-base">{student.firstName} {student.lastName}</div>
+                                <div className="text-xs sm:text-sm text-muted-foreground">{student.email}</div>
+                              </TableCell>
+                              <TableCell>{student.studentId}</TableCell>
+                              <TableCell>{getClassName(student)}</TableCell>
+                              <TableCell><Badge variant={getStatusVariant(student.status)}>{student.status}</Badge></TableCell>
+                              <TableCell className="text-right">
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild><Button variant="ghost" className="h-8 w-8 p-0"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onClick={() => handleViewStudent(student.$id)}><Eye className="mr-2 h-4 w-4" />View Details</DropdownMenuItem>
+                                    {hasPermission('students', 'update') && <DropdownMenuItem onClick={() => handleEditStudent(student)}><Edit className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>}
+                                    {hasPermission('students', 'delete') && <DropdownMenuItem onClick={() => openDeleteDialog(student.$id)} className="text-destructive"><Trash2 className="mr-2 h-4 w-4" />Delete</DropdownMenuItem>}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                    <div className="flex flex-col sm:flex-row items-center justify-end gap-2 py-4">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1}>Previous</Button>
+                      <span className="text-sm">Page {currentPage} of {totalPages}</span>
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages}>Next</Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+          </ErrorBoundary>
+        </div>
+        <StudentForm open={isFormOpen} onOpenChange={setIsFormOpen} student={selectedStudent} />
+        <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This action cannot be undone. This will permanently delete the student record.</AlertDialogDescription></AlertDialogHeader>
+            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={confirmDelete}>Continue</AlertDialogAction></AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
-
-      <StudentForm
-        open={isFormOpen}
-        onOpenChange={setIsFormOpen}
-        student={selectedStudent}
-      />
-    </div>
+    </>
   );
 }

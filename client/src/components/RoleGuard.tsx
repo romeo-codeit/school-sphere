@@ -16,11 +16,11 @@ export function RoleGuard({
   children, 
   fallback = null 
 }: RoleGuardProps) {
-  const { canAccess, hasPermission } = useRole();
+  const { canAccess, hasPermission, role } = useRole();
 
-  // Check role-based access
+  // Check role-based access strictly
   if (allowedRoles && !canAccess(allowedRoles)) {
-    return <>{fallback}</>;
+    return <div style={{color: 'red', padding: 24, fontWeight: 'bold'}}>Access denied. Your role: {role ?? 'unknown'}. Allowed: {allowedRoles?.join(', ')}.</div>;
   }
 
   // Check permission-based access

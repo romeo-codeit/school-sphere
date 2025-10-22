@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,20 +25,44 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { 
-  Settings as SettingsIcon, 
-  User, 
-  Bell, 
-  Palette, 
-  School, 
+import {
+  Settings as SettingsIcon,
+  User,
+  Bell,
+  Palette,
+  School,
   Shield,
   Save,
   Upload,
   Download,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff,
+  QrCode,
+  CheckCircle,
+  AlertCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
+import { useSchoolData } from "@/hooks/useSchoolData";
+import { useUserProfile, useUserSettings } from "@/hooks/useUserSettings";
+import { account } from '@/lib/appwrite';
+import { AuthenticationFactor } from 'appwrite';
+import ErrorBoundary from "@/components/ui/error-boundary";
+import { TableSkeleton } from "@/components/skeletons/table-skeleton";
+import { useSettingsPerformanceTest } from "@/hooks/useSettingsPerformanceTest";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 
 const profileFormSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
@@ -68,80 +92,311 @@ const notificationFormSchema = z.object({
   announcementNotifications: z.boolean(),
 });
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/[a-z]/, "Must contain lowercase letter")
+    .regex(/[A-Z]/, "Must contain uppercase letter")
+    .regex(/[0-9]/, "Must contain number")
+    .regex(/[^a-zA-Z0-9]/, "Must contain special character"),
+  confirmPassword: z.string().min(1, "Please confirm your password"),
+}).refine((data) => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
 type ProfileFormData = z.infer<typeof profileFormSchema>;
 type SchoolFormData = z.infer<typeof schoolFormSchema>;
 type NotificationFormData = z.infer<typeof notificationFormSchema>;
+type ChangePasswordFormData = z.infer<typeof changePasswordSchema>;
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("profile");
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, getJWT } = useAuth();
+  const { theme, setTheme, primaryColor, setPrimaryColor } = useTheme();
+  const userId = user?.$id || "";
+  const { profile, isLoading: isLoadingProfile, upsertUserProfile } = useUserProfile(userId);
+  const { settings, isLoading: isLoadingSettings, upsertUserSettings } = useUserSettings(userId);
+
+  // Modal states
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [is2FADialogOpen, setIs2FADialogOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // 2FA states
+  const [mfaChallenge, setMfaChallenge] = useState<any>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [is2FAEnabled, setIs2FAEnabled] = useState(false);
+
+  const colorOptions = [
+    { name: "Blue", value: "hsl(221, 91%, 60%)", hex: "#3b82f6", className: "bg-blue-500" },
+    { name: "Green", value: "hsl(142, 71%, 45%)", hex: "#22c55e", className: "bg-green-500" },
+    { name: "Purple", value: "hsl(270, 70%, 50%)", hex: "#a855f7", className: "bg-purple-500" },
+    { name: "Orange", value: "hsl(30, 90%, 50%)", hex: "#f97316", className: "bg-orange-500" },
+    { name: "Red", value: "hsl(0, 84%, 60%)", hex: "#ef4444", className: "bg-red-500" },
+    { name: "Yellow", value: "hsl(48, 96%, 50%)", hex: "#eab308", className: "bg-yellow-500" },
+    { name: "Cyan", value: "hsl(185, 75%, 45%)", hex: "#06b6d4", className: "bg-cyan-500" },
+    { name: "Pink", value: "hsl(330, 80%, 60%)", hex: "#ec4899", className: "bg-pink-500" },
+  ];
+
+  const { schoolData, isLoading: isLoadingSchoolData } = useSchoolData();
+
+  // Performance testing hook
+  useSettingsPerformanceTest();
 
   const profileForm = useForm<ProfileFormData>({
     resolver: zodResolver(profileFormSchema),
     defaultValues: {
-      firstName: user?.firstName || "",
-      lastName: user?.lastName || "",
-      email: user?.email || "",
-      phone: "",
-      address: "",
+      firstName: profile?.firstName || user?.prefs?.firstName || "",
+      lastName: profile?.lastName || user?.prefs?.lastName || "",
+      email: user?.email || profile?.email || "",
+      phone: profile?.phone || "",
+      address: profile?.address || "",
     },
   });
 
   const schoolForm = useForm<SchoolFormData>({
     resolver: zodResolver(schoolFormSchema),
     defaultValues: {
-      schoolName: "EduManage High School",
-      address: "123 Education Street, Academic City",
-      phone: "+234 800 123 4567",
-      email: "info@edumanage.edu.ng",
-      website: "https://www.edumanage.edu.ng",
-      motto: "Excellence in Education",
-      currentTerm: "First Term",
-      academicYear: "2024/2025",
+      schoolName: "",
+      address: "",
+      phone: "",
+      email: "",
+      website: "",
+      motto: "",
+      currentTerm: "",
+      academicYear: "",
     },
   });
+
+  useEffect(() => {
+    if (profile) {
+      profileForm.reset({
+        firstName: profile.firstName || "",
+        lastName: profile.lastName || "",
+        email: user?.email || profile.email || "",
+        phone: profile.phone || "",
+        address: profile.address || "",
+      });
+    }
+  }, [profile]);
+
+  useEffect(() => {
+    if (schoolData) {
+      schoolForm.reset({
+        schoolName: schoolData.name || "",
+        address: schoolData.address || "",
+        phone: schoolData.phone || "",
+        email: schoolData.email || "",
+        website: schoolData.website || "",
+        motto: schoolData.motto || "",
+        currentTerm: schoolData.currentTerm || "",
+        academicYear: schoolData.academicYear || "",
+      });
+    }
+  }, [schoolData]);
 
   const notificationForm = useForm<NotificationFormData>({
     resolver: zodResolver(notificationFormSchema),
     defaultValues: {
-      emailNotifications: true,
-      smsNotifications: false,
-      pushNotifications: true,
-      paymentReminders: true,
-      examNotifications: true,
-      announcementNotifications: true,
+      emailNotifications: settings?.notificationPreferences?.emailNotifications ?? true,
+      smsNotifications: settings?.notificationPreferences?.smsNotifications ?? false,
+      pushNotifications: settings?.notificationPreferences?.pushNotifications ?? true,
+      paymentReminders: settings?.notificationPreferences?.paymentReminders ?? true,
+      examNotifications: settings?.notificationPreferences?.examNotifications ?? true,
+      announcementNotifications: settings?.notificationPreferences?.announcementNotifications ?? true,
     },
   });
 
-  const onProfileSubmit = (data: ProfileFormData) => {
-    toast({
-      title: "Success",
-      description: "Profile updated successfully",
-    });
-    console.log("Profile data:", data);
+  const changePasswordForm = useForm<ChangePasswordFormData>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+  });
+
+  useEffect(() => {
+    if (settings?.notificationPreferences) {
+      notificationForm.reset({
+        emailNotifications: settings.notificationPreferences.emailNotifications ?? true,
+        smsNotifications: settings.notificationPreferences.smsNotifications ?? false,
+        pushNotifications: settings.notificationPreferences.pushNotifications ?? true,
+        paymentReminders: settings.notificationPreferences.paymentReminders ?? true,
+        examNotifications: settings.notificationPreferences.examNotifications ?? true,
+        announcementNotifications: settings.notificationPreferences.announcementNotifications ?? true,
+      });
+    }
+  }, [settings]);
+
+  const onProfileSubmit = async (data: ProfileFormData) => {
+    try {
+      await upsertUserProfile(data);
+      toast({ title: "Success", description: "Profile updated successfully" });
+      // Removed refetchUser (no longer available)
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update profile", variant: "destructive" });
+    }
   };
 
-  const onSchoolSubmit = (data: SchoolFormData) => {
-    toast({
-      title: "Success",
-      description: "School settings updated successfully",
-    });
-    console.log("School data:", data);
+  const onSchoolSubmit = async (data: SchoolFormData) => {
+    try {
+      const jwt = await getJWT();
+      // Implement school update logic here (call backend API)
+      await fetch('/api/school', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
+        body: JSON.stringify(data),
+      });
+      toast({ title: "Success", description: "School settings updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update school settings", variant: "destructive" });
+    }
   };
 
-  const onNotificationSubmit = (data: NotificationFormData) => {
-    toast({
-      title: "Success",
-      description: "Notification preferences updated successfully",
-    });
-    console.log("Notification data:", data);
+  const onNotificationSubmit = async (data: NotificationFormData) => {
+    try {
+      await upsertUserSettings({ notificationPreferences: data });
+      toast({ title: "Success", description: "Notification preferences updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update notification preferences", variant: "destructive" });
+    }
+  };
+
+  // Appearance
+  useEffect(() => {
+    if (settings?.theme) setTheme(settings.theme);
+    if (settings?.primaryColor) setPrimaryColor(settings.primaryColor);
+  }, [settings]);
+
+  const onAppearanceSave = async () => {
+    try {
+      await upsertUserSettings({ theme, primaryColor });
+      toast({ title: "Success", description: "Appearance updated" });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to update appearance", variant: "destructive" });
+    }
+  };
+
+  // Security actions
+  const [securityLoading, setSecurityLoading] = useState(false);
+  const handleEnable2FA = async () => {
+    try {
+      const challenge = await account.createMfaChallenge({ factor: AuthenticationFactor.Totp });
+      setMfaChallenge(challenge);
+      setIs2FADialogOpen(true);
+      toast({
+        title: "2FA Setup Started",
+        description: "Scan the QR code with your authenticator app."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start 2FA setup",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!mfaCode || !mfaChallenge) return;
+
+    try {
+      await account.updateMfaChallenge(mfaChallenge.$id, mfaCode);
+      setIs2FAEnabled(true);
+      setIs2FADialogOpen(false);
+      setMfaChallenge(null);
+      setMfaCode("");
+      toast({
+        title: "2FA Enabled",
+        description: "Two-factor authentication has been successfully enabled."
+      });
+    } catch (error: any) {
+      toast({
+        title: "Verification Failed",
+        description: error.message || "Invalid verification code. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+  const handleManageSessions = async () => {
+    setSecurityLoading(true);
+    try {
+      // Optionally, navigate to a sessions management page or show a modal
+      const sessions = await account.listSessions();
+      toast({ title: "Active Sessions", description: `${sessions.sessions.length} active sessions.` });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to fetch sessions", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+  const handleChangePassword = async () => {
+    setIsPasswordDialogOpen(true);
+  };
+
+  const onChangePasswordSubmit = async (data: ChangePasswordFormData) => {
+    try {
+      await account.updatePassword(data.newPassword, data.currentPassword);
+      toast({
+        title: "Password Changed",
+        description: "Your password has been updated successfully."
+      });
+      changePasswordForm.reset();
+      setIsPasswordDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to change password. Please check your current password.",
+        variant: "destructive"
+      });
+    }
+  };
+  const handleExportData = async () => {
+    setSecurityLoading(true);
+    try {
+      // Download user data (profile, settings, etc.)
+      const blob = new Blob([
+        JSON.stringify({ profile, settings }, null, 2)
+      ], { type: 'application/json' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'user_data.json';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Exported", description: "Your data has been downloaded." });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to export data", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
+  const handleDeleteAccount = async () => {
+    setSecurityLoading(true);
+    try {
+      // Delete server-side account and then end session
+      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
+      await fetch('/api/users/self', { method: 'DELETE', headers: csrf ? { 'X-CSRF-Token': csrf } : {}, credentials: 'include' });
+      await account.deleteSession("current");
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      toast({ title: "Account Deleted", description: "Your account and data have been deleted." });
+    } catch (e) {
+      toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });
+    } finally {
+      setSecurityLoading(false);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      <TopNav title="Settings" subtitle="Customize your school management system" />
-      
+    <ErrorBoundary>
+      <div className="space-y-6">
+      <TopNav title="Settings" subtitle="Customize your school management system" isLoading={isLoadingSchoolData} showGoBackButton={true} />
       <div className="p-6">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-5">
@@ -182,7 +437,7 @@ export default function Settings() {
                     <div className="flex items-center space-x-6 mb-6">
                       <div className="w-24 h-24 bg-primary/10 rounded-full flex items-center justify-center">
                         <span className="text-3xl font-bold text-primary">
-                          {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+                          {user?.prefs?.firstName?.charAt(0)}{user?.prefs?.lastName?.charAt(0)}
                         </span>
                       </div>
                       <div>
@@ -288,139 +543,143 @@ export default function Settings() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <Form {...schoolForm}>
-                  <form onSubmit={schoolForm.handleSubmit(onSchoolSubmit)} className="space-y-6">
-                    <FormField
-                      control={schoolForm.control}
-                      name="schoolName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Name</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-name" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={schoolForm.control}
-                      name="address"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Address</FormLabel>
-                          <FormControl>
-                            <Textarea {...field} rows={3} data-testid="textarea-school-address" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {isLoadingSchoolData ? (
+                  <TableSkeleton rows={6} columns={2} />
+                ) : (
+                  <Form {...schoolForm}>
+                    <form onSubmit={schoolForm.handleSubmit(onSchoolSubmit)} className="space-y-6">
                       <FormField
                         control={schoolForm.control}
-                        name="phone"
+                        name="schoolName"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone Number</FormLabel>
+                            <FormLabel>School Name</FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-school-phone" />
+                              <Input {...field} data-testid="input-school-name" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                      
+
                       <FormField
                         control={schoolForm.control}
-                        name="email"
+                        name="address"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Email Address</FormLabel>
+                            <FormLabel>School Address</FormLabel>
                             <FormControl>
-                              <Input type="email" {...field} data-testid="input-school-email" />
+                              <Textarea {...field} rows={3} data-testid="textarea-school-address" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <FormField
-                      control={schoolForm.control}
-                      name="website"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Website</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-website" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={schoolForm.control}
-                      name="motto"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>School Motto</FormLabel>
-                          <FormControl>
-                            <Input {...field} data-testid="input-school-motto" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <FormField
-                        control={schoolForm.control}
-                        name="currentTerm"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Current Term</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={schoolForm.control}
+                          name="phone"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Phone Number</FormLabel>
                               <FormControl>
-                                <SelectTrigger data-testid="select-current-term">
-                                  <SelectValue />
-                                </SelectTrigger>
+                                <Input {...field} data-testid="input-school-phone" />
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="First Term">First Term</SelectItem>
-                                <SelectItem value="Second Term">Second Term</SelectItem>
-                                <SelectItem value="Third Term">Third Term</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={schoolForm.control}
+                          name="email"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Email Address</FormLabel>
+                              <FormControl>
+                                <Input type="email" {...field} data-testid="input-school-email" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
                       <FormField
                         control={schoolForm.control}
-                        name="academicYear"
+                        name="website"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Academic Year</FormLabel>
+                            <FormLabel>Website</FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-academic-year" />
+                              <Input {...field} data-testid="input-school-website" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
-                    </div>
 
-                    <Button type="submit" data-testid="button-save-school">
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
-                    </Button>
-                  </form>
-                </Form>
+                      <FormField
+                        control={schoolForm.control}
+                        name="motto"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>School Motto</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-school-motto" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <FormField
+                          control={schoolForm.control}
+                          name="currentTerm"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Current Term</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger data-testid="select-current-term">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="First Term">First Term</SelectItem>
+                                  <SelectItem value="Second Term">Second Term</SelectItem>
+                                  <SelectItem value="Third Term">Third Term</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={schoolForm.control}
+                          name="academicYear"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Academic Year</FormLabel>
+                              <FormControl>
+                                <Input {...field} data-testid="input-academic-year" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+
+                      <Button type="submit" data-testid="button-save-school">
+                        <Save className="w-4 h-4 mr-2" />
+                        Save Changes
+                      </Button>
+                    </form>
+                  </Form>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -594,26 +853,42 @@ export default function Settings() {
                 <div>
                   <h4 className="text-lg font-medium mb-4">Theme</h4>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow border-2 border-primary">
+                    {/* Light Mode Card */}
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "light" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("light")}
+                    >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-background border rounded mb-3"></div>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 bg-white border rounded shadow"></div>
+                        </div>
                         <p className="font-medium">Light</p>
                         <p className="text-sm text-muted-foreground">Default light theme</p>
                       </CardContent>
                     </Card>
-                    
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    {/* Dark Mode Card */}
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "dark" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("dark")}
+                    >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-slate-900 border rounded mb-3"></div>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 bg-slate-900 border rounded shadow"></div>
+                        </div>
                         <p className="font-medium">Dark</p>
                         <p className="text-sm text-muted-foreground">Dark theme</p>
                       </CardContent>
                     </Card>
-                    
-                    <Card className="cursor-pointer hover:shadow-md transition-shadow">
+                    {/* System Card: Diagonal split */}
+                    <Card 
+                      className={`cursor-pointer hover:shadow-md transition-shadow ${theme === "system" ? "border-2 border-primary" : ""}`}
+                      onClick={() => setTheme("system")}
+                    >
                       <CardContent className="p-4 text-center">
-                        <div className="w-full h-20 bg-gradient-to-r from-background to-slate-100 border rounded mb-3"></div>
-                        <p className="font-medium">Auto</p>
+                        <div className="w-full h-20 flex items-center justify-center mb-3">
+                          <div className="w-5/6 h-12 border rounded shadow bg-gradient-to-tr from-white to-slate-900"></div>
+                        </div>
+                        <p className="font-medium">System</p>
                         <p className="text-sm text-muted-foreground">System preference</p>
                       </CardContent>
                     </Card>
@@ -622,26 +897,22 @@ export default function Settings() {
 
                 <div>
                   <h4 className="text-lg font-medium mb-4">Color Scheme</h4>
-                  <div className="grid grid-cols-4 gap-3">
-                    {[
-                      { name: "Blue", color: "bg-blue-500" },
-                      { name: "Green", color: "bg-green-500" },
-                      { name: "Purple", color: "bg-purple-500" },
-                      { name: "Orange", color: "bg-orange-500" },
-                    ].map((color) => (
-                      <div
-                        key={color.name}
-                        className="cursor-pointer p-3 border rounded-lg hover:shadow-sm transition-shadow"
-                        data-testid={`color-${color.name.toLowerCase()}`}
-                      >
-                        <div className={`w-full h-8 ${color.color} rounded mb-2`}></div>
-                        <p className="text-sm font-medium text-center">{color.name}</p>
-                      </div>
-                    ))}
-                  </div>
+                  <Select value={primaryColor} onValueChange={setPrimaryColor}>
+                    <SelectTrigger className="w-full max-w-xs">
+                      <SelectValue placeholder="Select color scheme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {colorOptions.map((color) => (
+                        <SelectItem key={color.value} value={color.value} className="flex items-center gap-2">
+                          <span className={`inline-block w-4 h-4 rounded ${color.className} mr-2 border`} />
+                          {color.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <Button data-testid="button-save-appearance">
+                <Button data-testid="button-save-appearance" onClick={onAppearanceSave} type="button">
                   <Save className="w-4 h-4 mr-2" />
                   Apply Changes
                 </Button>
@@ -667,7 +938,7 @@ export default function Settings() {
                         Add an extra layer of security to your account
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-enable-2fa">
+                    <Button variant="outline" data-testid="button-enable-2fa" onClick={handleEnable2FA} disabled={securityLoading}>
                       Enable
                     </Button>
                   </div>
@@ -679,7 +950,7 @@ export default function Settings() {
                         Manage your active login sessions
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-manage-sessions">
+                    <Button variant="outline" data-testid="button-manage-sessions" onClick={handleManageSessions} disabled={securityLoading}>
                       Manage
                     </Button>
                   </div>
@@ -691,7 +962,7 @@ export default function Settings() {
                         Change your account password
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-change-password">
+                    <Button variant="outline" data-testid="button-change-password" onClick={handleChangePassword} disabled={securityLoading}>
                       Change
                     </Button>
                   </div>
@@ -703,7 +974,7 @@ export default function Settings() {
                         Download a copy of your data
                       </p>
                     </div>
-                    <Button variant="outline" data-testid="button-export-data">
+                    <Button variant="outline" data-testid="button-export-data" onClick={handleExportData} disabled={securityLoading}>
                       <Download className="w-4 h-4 mr-2" />
                       Export
                     </Button>
@@ -716,7 +987,7 @@ export default function Settings() {
                         Permanently delete your account and all data
                       </p>
                     </div>
-                    <Button variant="destructive" data-testid="button-delete-account">
+                    <Button variant="destructive" data-testid="button-delete-account" onClick={handleDeleteAccount} disabled={securityLoading}>
                       Delete
                     </Button>
                   </div>
@@ -726,6 +997,187 @@ export default function Settings() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Change Password Modal */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Change Password</DialogTitle>
+            <DialogDescription>
+              Enter your current password and choose a new secure password.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...changePasswordForm}>
+            <form onSubmit={changePasswordForm.handleSubmit(onChangePasswordSubmit)} className="space-y-4">
+              <FormField
+                control={changePasswordForm.control}
+                name="currentPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showCurrentPassword ? "text" : "password"}
+                          placeholder="Enter current password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={changePasswordForm.control}
+                name="newPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>New Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Enter new password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowNewPassword(!showNewPassword)}
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={changePasswordForm.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm New Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? "text" : "password"}
+                          placeholder="Confirm new password"
+                          {...field}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsPasswordDialogOpen(false);
+                    changePasswordForm.reset();
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={changePasswordForm.formState.isSubmitting}>
+                  {changePasswordForm.formState.isSubmitting ? "Changing..." : "Change Password"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+
+      {/* 2FA Setup Modal */}
+      <Dialog open={is2FADialogOpen} onOpenChange={setIs2FADialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Enable Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              Scan the QR code below with your authenticator app, then enter the verification code.
+            </DialogDescription>
+          </DialogHeader>
+          {mfaChallenge && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="p-4 border rounded-lg bg-muted">
+                  <QrCode className="h-32 w-32" />
+                  <p className="text-xs text-center mt-2 text-muted-foreground">
+                    QR Code would be displayed here
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="mfa-code">Verification Code</Label>
+                <Input
+                  id="mfa-code"
+                  placeholder="Enter 6-digit code"
+                  value={mfaCode}
+                  onChange={(e) => setMfaCode(e.target.value)}
+                  maxLength={6}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIs2FADialogOpen(false);
+                setMfaChallenge(null);
+                setMfaCode("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleVerify2FA}
+              disabled={!mfaCode || mfaCode.length !== 6}
+            >
+              Verify & Enable
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
+    </ErrorBoundary>
   );
 }

@@ -1,62 +1,139 @@
+import "dotenv/config";
 import express, { type Request, Response, NextFunction } from "express";
-import { registerRoutes } from "./routes";
+import helmet from "helmet";
+import compression from "compression";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import { registerRoutes } from "./routes/index";
 import { setupVite, serveStatic, log } from "./vite";
-import { seedDemoUsers } from "./seed";
+import { logger, logError, logInfo, Sentry } from "./logger";
+import { validateEnv } from "./utils/envCheck";
 
 const app = express();
+
+// Sentry Request Handler - must be first middleware
+if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
+  app.use(Sentry.setupExpressErrorHandler(app) as any);
+}
+
+// Validate environment early
+validateEnv();
+
+// Security Headers - Helmet
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      imgSrc: ["'self'", "data:", "https:", "blob:"],
+      scriptSrc: ["'self'", "https://meet.jit.si"],
+      connectSrc: [
+        "'self'",
+        process.env.VITE_APPWRITE_ENDPOINT || "",
+        "https://cloud.appwrite.io",
+        "https://meet.jit.si",
+        "wss://meet.jit.si",
+      ],
+      frameSrc: ["'self'", "https://meet.jit.si"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true,
+  },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+}));
+
+// Enable gzip/deflate compression to reduce bandwidth and speed up responses
+app.use(compression({
+  // Compress all responses larger than 1KB
+  threshold: 1024,
+}));
+
+// CORS Configuration
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? [
+      process.env.PRODUCTION_URL || '',
+      process.env.VITE_APP_URL || '',
+    ].filter(Boolean)
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000'];
+
+app.use(cors({
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // Allow requests with no origin (mobile apps, Postman, etc.)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
+
+// Rate Limiting
+const generalLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => req.path === '/health', // Don't rate limit health checks
+});
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5, // limit to 5 login attempts per 15 minutes
+  message: 'Too many authentication attempts, please try again later.',
+  skipSuccessfulRequests: true,
+});
+
+// Apply rate limiting
+app.use('/api/', generalLimiter);
+
+// Apply auth rate limiting to auth routes
+app.use('/api/auth/', authLimiter);
+app.use('/api/users/register', authLimiter);
+// Exam-specific rate limits
+const examLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 200, standardHeaders: true, legacyHeaders: false });
+const examSubmitLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+app.use('/api/cbt/attempts', examLimiter);
+app.use('/api/cbt/attempts/:id/submit', examSubmitLimiter);
+
+// Payments rate limiter (modest)
+const paymentsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/payments', paymentsLimiter);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
-  const start = Date.now();
-  const path = req.path;
-  let capturedJsonResponse: Record<string, any> | undefined = undefined;
-
-  const originalResJson = res.json;
-  res.json = function (bodyJson, ...args) {
-    capturedJsonResponse = bodyJson;
-    return originalResJson.apply(res, [bodyJson, ...args]);
-  };
-
-  res.on("finish", () => {
-    const duration = Date.now() - start;
-    if (path.startsWith("/api")) {
-      let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
-      }
-
-      if (logLine.length > 80) {
-        logLine = logLine.slice(0, 79) + "…";
-      }
-
-      log(logLine);
-    }
-  });
-
-  next();
-});
-
 (async () => {
-  const server = await registerRoutes(app);
+  await registerRoutes(app);
   
-  // Seed demo users in development
-  if (app.get("env") === "development") {
-    await seedDemoUsers();
-  }
-
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    logError(err, { status }); // Log with Winston and Sentry
   });
 
   // importantly only setup vite in development and after
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    const { createServer } = await import('http');
+    const server = createServer(app);
     await setupVite(app, server);
   } else {
     serveStatic(app);
@@ -67,11 +144,13 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || '5000', 10);
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`serving on port ${port}`);
+  const { createServer } = await import('http');
+  const server = createServer(app);
+  
+  server.listen(port, "127.0.0.1", () => {
+    logInfo(`OhmanFoundations server started on port ${port}`, { 
+      environment: process.env.NODE_ENV || 'development',
+      port 
+    });
   });
 })();

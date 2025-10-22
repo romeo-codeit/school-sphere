@@ -1,7 +1,6 @@
 import { useAuth } from "./useAuth";
-import type { User } from "@shared/schema";
 
-export type UserRole = "admin" | "teacher" | "student" | "parent";
+export type UserRole = "admin" | "teacher" | "student" | "parent" | "guest";
 
 export interface RolePermissions {
   students: string[];
@@ -13,6 +12,9 @@ export interface RolePermissions {
   settings: string[];
   attendance: string[];
   grades: string[];
+  videoConferencing: string[];
+  forum: string[];
+  chat: string[];
 }
 
 const permissions: Record<UserRole, RolePermissions> = {
@@ -25,7 +27,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["create", "read", "update", "delete"],
     settings: ["create", "read", "update", "delete"],
     attendance: ["create", "read", "update", "delete"],
-    grades: ["create", "read", "update", "delete"]
+    grades: ["create", "read", "update", "delete"],
+    videoConferencing: ["create", "read", "update", "delete"],
+    forum: ["create", "read", "update", "delete"],
+    chat: ["create", "read", "update", "delete"],
   },
   teacher: {
     students: ["read", "update"],
@@ -36,7 +41,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["create", "read", "update"],
     settings: ["read"],
     attendance: ["create", "read", "update"],
-    grades: ["create", "read", "update"]
+    grades: ["create", "read", "update"],
+    videoConferencing: ["create", "read"],
+    forum: ["create", "read", "update"],
+    chat: ["create", "read", "update"],
   },
   student: {
     students: ["read"],
@@ -47,7 +55,10 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["read"],
     settings: ["read"],
     attendance: ["read"],
-    grades: ["read"]
+    grades: ["read"],
+    videoConferencing: ["read"],
+    forum: ["create", "read"], // Can reply (create) and read
+    chat: ["create", "read"],
   },
   parent: {
     students: ["read"],
@@ -58,39 +69,57 @@ const permissions: Record<UserRole, RolePermissions> = {
     resources: ["read"],
     settings: ["read"],
     attendance: ["read"],
-    grades: ["read"]
+    grades: ["read"],
+    videoConferencing: ["read"],
+    forum: ["read"], // Can only read
+    chat: ["create", "read"],
+  },
+  guest: {
+    students: [],
+    teachers: [],
+    exams: ["read"],
+    payments: [],
+    messages: [],
+    resources: [],
+    settings: [],
+    attendance: [],
+    grades: [],
+    videoConferencing: [],
+    forum: ["read"],
+    chat: [],
   }
 };
 
 export function useRole() {
-  const { user } = useAuth() as { user: User | undefined; isLoading: boolean; isAuthenticated: boolean };
+  const { role } = useAuth();
+
 
   const hasPermission = (resource: keyof RolePermissions, action: string): boolean => {
-    if (!user?.role) return false;
-    
-    const userRole = user.role as UserRole;
+    if (!role) return false;
+    if (role === 'admin') return true; // Admin has all permissions
+    const userRole = role as UserRole;
     const rolePermissions = permissions[userRole];
-    
     if (!rolePermissions || !rolePermissions[resource]) {
       return false;
     }
-    
     return rolePermissions[resource].includes(action);
   };
 
   const canAccess = (allowedRoles: UserRole[]): boolean => {
-    if (!user?.role) return false;
-    return allowedRoles.includes(user.role as UserRole);
+    if (!role) return false;
+    if (role === 'admin') return true; // Admin can access everything
+    return allowedRoles.includes(role as UserRole);
   };
 
   const getUserRole = (): UserRole | null => {
-    return (user?.role as UserRole) || null;
+    return (role as UserRole) || null;
   };
 
-  const isAdmin = (): boolean => user?.role === "admin";
-  const isTeacher = (): boolean => user?.role === "teacher";
-  const isStudent = (): boolean => user?.role === "student";
-  const isParent = (): boolean => user?.role === "parent";
+  const isAdmin = (): boolean => role === "admin";
+  const isTeacher = (): boolean => role === "teacher";
+  const isStudent = (): boolean => role === "student";
+  const isParent = (): boolean => role === "parent";
+  const isGuest = (): boolean => role === "guest";
 
   return {
     role: getUserRole(),
@@ -100,6 +129,7 @@ export function useRole() {
     isTeacher,
     isStudent,
     isParent,
-    permissions: user?.role ? permissions[user.role as UserRole] : null
+    isGuest,
+    permissions: role ? permissions[role as UserRole] : null
   };
 }
