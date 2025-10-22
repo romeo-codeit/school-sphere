@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 const API = '/api/cbt/exams';
 
+// Assigned exams feature removed on server; keep a defensive stub that throws with a clear message
 export function useExamAssignments(examId?: string) {
   const { getJWT } = useAuth();
   const queryClient = useQueryClient();
@@ -19,41 +20,15 @@ export function useExamAssignments(examId?: string) {
   });
 
   const assign = useMutation({
-    mutationFn: async (payload: { classIds?: string[]; studentIds?: string[] }) => {
-      const jwt = await getJWT();
-      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(`${API}/${examId}/assign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || 'Failed to assign exam');
-      return data;
+    mutationFn: async () => {
+      throw new Error('Exam assignment feature is disabled.');
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['exam', examId] });
-      queryClient.invalidateQueries({ queryKey: ['cbt-exams-assigned'] });
-    }
   });
 
   const unassign = useMutation({
-    mutationFn: async (payload: { ids: string[] }) => {
-      const jwt = await getJWT();
-      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(`${API}/${examId}/unassign`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}), ...(csrf ? { 'X-CSRF-Token': csrf } : {}) },
-        body: JSON.stringify(payload),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.message || 'Failed to unassign exam');
-      return data;
+    mutationFn: async () => {
+      throw new Error('Exam assignment feature is disabled.');
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['exam', examId] });
-      queryClient.invalidateQueries({ queryKey: ['cbt-exams-assigned'] });
-    }
   });
 
   return { useExamDoc, assign: assign.mutateAsync, unassign: unassign.mutateAsync };

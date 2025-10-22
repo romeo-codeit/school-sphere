@@ -36,12 +36,18 @@ export const TeacherAttendanceView: React.FC = () => {
         if (!selectedClass || !date) return;
         setIsLoading(true);
         try {
-            // You need to implement fetching students for a class, e.g. via getAllClasses or another API
-            // Example placeholder:
-            const allClasses = await getAllClasses();
-            const classObj = allClasses.find((c: any) => c.$id === selectedClass);
-            const studentDocs = classObj?.students || [];
-            setStudents(studentDocs);
+            // Fetch students for the selected class via students collection
+            const studentResponse = await (await import('@/hooks/useStudents')).useStudents;
+            // Fallback: query directly via Appwrite SDK to avoid hook misuse
+            const { databases } = await import('@/lib/appwrite');
+            const { Query } = await import('appwrite');
+            const list = await databases.listDocuments(
+              import.meta.env.VITE_APPWRITE_DATABASE_ID as string,
+              'students',
+              [Query.equal('classId', selectedClass), Query.limit(1000)] as any
+            );
+            const studentDocs = (list as any).documents || [];
+            setStudents(studentDocs as any[]);
 
             const attendanceDocs = await getAttendanceRecordsForDate(selectedClass, date.toISOString().split('T')[0]);
             if (attendanceDocs && attendanceDocs.length > 0) {
@@ -101,9 +107,8 @@ export const TeacherAttendanceView: React.FC = () => {
     };
 
     const handleCancel = () => {
-        if (originalAttendance) {
-            const parsedAttendance = JSON.parse(originalAttendance.studentAttendances);
-            const attendanceMap = parsedAttendance.reduce((acc: any, item: any) => {
+        if (originalAttendance && Array.isArray(originalAttendance)) {
+            const attendanceMap = (originalAttendance as any[]).reduce((acc: any, item: any) => {
                 acc[item.studentId] = item.status;
                 return acc;
             }, {});

@@ -66,10 +66,10 @@ export const subjectValidationSchema = z.object({
   year: z.string().optional()
 });
 
-// Subscription activation schema
-export const subscriptionActivationSchema = z.object({
-  code: z.string().min(1, 'Activation code is required')
-});
+// Subscription activation schema - accept either { code } or { activationCode }
+export const subscriptionActivationSchema = z
+  .object({ code: z.string().min(1, 'Activation code is required') })
+  .or(z.object({ activationCode: z.string().min(1, 'Activation code is required') }));
 
 // Query parameter schemas
 export const examQuerySchema = z.object({

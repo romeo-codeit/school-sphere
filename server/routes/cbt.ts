@@ -1327,9 +1327,14 @@ export const registerCBTRoutes = (app: any) => {
         questions = questionsResult.documents;
       }
 
+      // Parse answers if stored as JSON string
+      const answersObj: any = typeof (attempt as any).answers === 'string'
+        ? ((): any => { try { return JSON.parse((attempt as any).answers || '{}'); } catch { return {}; } })()
+        : ((attempt as any).answers || {});
+
       // Build detailed results
       const detailedResults = questions.map((question: any, index: number) => {
-        const userAnswer = attempt.answers[question.id] || attempt.answers[question.$id];
+        const userAnswer = answersObj[question.id] || answersObj[question.$id];
         const isCorrect = userAnswer === question.correctAnswer;
         
         return {

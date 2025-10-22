@@ -137,11 +137,14 @@ export const registerAdminRoutes = (app: any) => {
       const codes: any[] = [];
 
       for (let i = 0; i < count; i++) {
-        const code = prefix + Math.random().toString(36).substring(2, 2 + length).toUpperCase();
+        const rand = Math.random().toString(36).substring(2, 2 + Math.max(5, Math.min(20, length))).toUpperCase();
+        const code = `${prefix}-${rand}`.slice(0, Math.max(5, Math.min(20, length)));
+        const durationDays = String(codeType).toLowerCase() === 'annual_1y' ? 365 : 30;
         const doc = await databases.createDocument(APPWRITE_DATABASE_ID!, 'activationCodes', ID.unique(), {
           code,
           codeType,
-          used: false,
+          status: 'unused',
+          durationDays,
           createdAt: new Date().toISOString(),
         });
         codes.push(doc);

@@ -100,15 +100,7 @@ app.use('/api/', generalLimiter);
 app.use('/api/auth/', authLimiter);
 app.use('/api/users/register', authLimiter);
 
-// Apply stricter rate limiting to payment routes
-const paymentsLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // fewer requests for payment operations
-  message: 'Too many payment-related requests, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api/payments', paymentsLimiter);
+// Payments API currently not implemented — remove special limiter to avoid dangling middleware
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
