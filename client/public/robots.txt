@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://ohmanfoundations.vercel.app/sitemap.xml
