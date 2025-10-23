@@ -25,10 +25,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useLocation } from "wouter";
 import { ExamSuccessModal } from "@/components/exam-success-modal";
+import { AdmissionTipsModal } from "@/components/admission-tips-modal";
 
 export default function Landing() {
   const [, navigate] = useLocation();
   const [showExamTips, setShowExamTips] = useState(false);
+  const [showAdmissionTips, setShowAdmissionTips] = useState(false);
 
   const scrollToFeatures = () => {
     document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' });
@@ -51,6 +53,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 text-foreground flex flex-col">
       <ExamSuccessModal open={showExamTips} onOpenChange={setShowExamTips} />
+      <AdmissionTipsModal open={showAdmissionTips} onOpenChange={setShowAdmissionTips} />
       
       {/* Enhanced Header */}
       <header className="fixed top-0 w-full z-50 bg-background/95 backdrop-blur-xl border-b border-border/50 shadow-sm">
@@ -201,6 +204,33 @@ export default function Landing() {
                   data-testid="button-register-guest"
                 >
                   Register as Guest
+                </Button>
+              </motion.div>
+
+              {/* Educational Tips Buttons */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.7, duration: 0.7 }}
+                className="flex flex-col sm:flex-row items-center gap-3 pt-4 justify-center lg:justify-start"
+              >
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm hover:bg-primary/10"
+                  onClick={() => setShowExamTips(true)}
+                >
+                  <Award className="mr-2 h-4 w-4" />
+                  Exam Success Tips
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm hover:bg-primary/10"
+                  onClick={() => setShowAdmissionTips(true)}
+                >
+                  <GraduationCap className="mr-2 h-4 w-4" />
+                  University Admission Guide
                 </Button>
               </motion.div>
 
