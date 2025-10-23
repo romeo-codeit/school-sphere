@@ -1,6 +1,17 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { account } from "./appwrite";
 
+// Allow configuring an external API host in production (e.g., when the static
+// site is on Vercel and the API is hosted elsewhere). Defaults to same-origin.
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || "";
+
+function withBase(url: string): string {
+  // If url is absolute (http/https) or already includes the base, return as-is
+  if (/^https?:\/\//i.test(url)) return url;
+  if (API_BASE && url.startsWith("/")) return `${API_BASE}${url}`;
+  return url;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -29,7 +40,7 @@ export async function apiRequest(
   const csrf = (typeof document !== 'undefined')
     ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
     : '';
-  let res = await fetch(url, {
+  let res = await fetch(withBase(url), {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
@@ -43,7 +54,7 @@ export async function apiRequest(
   if (res.status === 401) {
     try {
       await refreshJwtCookie();
-      res = await fetch(url, {
+      res = await fetch(withBase(url), {
         method,
         headers: {
           ...(data ? { "Content-Type": "application/json" } : {}),
@@ -68,7 +79,8 @@ export const getQueryFn: <T>(options: {
     const csrf = (typeof document !== 'undefined')
       ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
       : '';
-    let res = await fetch(queryKey.join("/") as string, {
+    const url = String(queryKey.join("/"));
+    let res = await fetch(withBase(url), {
       credentials: "include",
       headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
@@ -88,7 +100,7 @@ export const getQueryFn: <T>(options: {
           body: JSON.stringify({ jwt }),
           credentials: 'include',
         });
-        res = await fetch(queryKey.join("/") as string, {
+        res = await fetch(withBase(url), {
           credentials: 'include',
           headers: csrf ? { 'X-CSRF-Token': csrf } : {},
         });

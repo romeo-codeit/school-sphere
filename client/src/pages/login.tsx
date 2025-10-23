@@ -21,6 +21,8 @@ const loginSchema = z.object({
 
 export default function LoginPage() {
   const { login, getJWT } = useAuth();
+  const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+  const withBase = (url: string) => (/^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`);
   const [, setLocation] = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -108,7 +110,7 @@ export default function LoginPage() {
       let userRole: string | null = null;
       try {
         const jwt = await getJWT();
-        const res = await fetch('/api/users/me', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+        const res = await fetch(withBase('/api/users/me'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           userRole = data?.role || null;

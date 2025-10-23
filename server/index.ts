@@ -147,10 +147,13 @@ app.use(express.urlencoded({ extended: false }));
   const { createServer } = await import('http');
   const server = createServer(app);
   
-  server.listen(port, "127.0.0.1", () => {
+  // Bind to 0.0.0.0 to allow external access in container/cloud environments
+  const host = process.env.HOST || '0.0.0.0';
+  server.listen(port, host as any, () => {
     logInfo(`OhmanFoundations server started on port ${port}`, { 
       environment: process.env.NODE_ENV || 'development',
-      port 
+      port,
+      host,
     });
   });
 })();

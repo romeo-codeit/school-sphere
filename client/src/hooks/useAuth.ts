@@ -4,6 +4,9 @@ import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
 import { isOnline, queueAppwriteOperation } from '@/lib/offline';
 
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+const withBase = (url: string) => (/^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`);
+
 export function useAuth() {
   // JWT state (in-memory, not persisted)
   const [jwt, setJwt] = useState<string | null>(() => {
@@ -40,7 +43,7 @@ export function useAuth() {
         if (typeof window === 'undefined') return;
         const token = localStorage.getItem('appwrite_jwt');
         if (!token) return;
-        await fetch('/api/auth/jwt-cookie', {
+        await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jwt: token }),
@@ -56,7 +59,7 @@ export function useAuth() {
       // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
       try {
         const { jwt: token } = await account.createJWT();
-        await fetch('/api/auth/jwt-cookie', {
+        await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
@@ -73,7 +76,7 @@ export function useAuth() {
   const logoutMutation = useMutation({
     mutationFn: async () => {
       await account.deleteSession('current');
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+      await fetch(withBase('/api/auth/logout'), { method: 'POST', credentials: 'include' });
     },
     onSuccess: () => {
       try { localStorage.removeItem('appwrite_jwt'); } catch {}
@@ -95,7 +98,7 @@ export function useAuth() {
       await account.updatePrefs({ role });
       try {
         const { jwt: token } = await account.createJWT();
-        await fetch('/api/auth/jwt-cookie', {
+        await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jwt: token }),
