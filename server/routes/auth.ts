@@ -105,24 +105,25 @@ export const registerAuthRoutes = (app: any) => {
       // Very light validation; full validation occurs in auth middleware
       const csrfToken = Math.random().toString(36).slice(2);
       const isProd = app.get('env') === 'production';
+      const sameSite: any = isProd ? 'none' : 'lax';
       if (token) res.cookie('aw_jwt', token, {
         httpOnly: true,
         secure: isProd,
-        sameSite: isProd ? 'strict' : 'lax',
+        sameSite,
         path: '/',
         maxAge: 24 * 60 * 60 * 1000, // 24 hours
       });
       if (session) res.cookie('appwrite_session', session, {
         httpOnly: true,
         secure: isProd,
-        sameSite: isProd ? 'strict' : 'lax',
+        sameSite,
         path: '/',
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
       });
       res.cookie('csrf_token', csrfToken, {
         httpOnly: false,
         secure: isProd,
-        sameSite: isProd ? 'strict' : 'lax',
+        sameSite,
         path: '/',
         maxAge: 24 * 60 * 60 * 1000,
       });
@@ -156,8 +157,9 @@ export const registerAuthRoutes = (app: any) => {
   // Logout endpoint
   app.post('/api/auth/logout', (_req: Request, res: Response) => {
     const isProd = app.get('env') === 'production';
-  res.cookie('aw_jwt', '', { httpOnly: true, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 0 });
-  res.cookie('csrf_token', '', { httpOnly: false, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 0 });
+    const sameSite: any = isProd ? 'none' : 'lax';
+    res.cookie('aw_jwt', '', { httpOnly: true, secure: isProd, sameSite, path: '/', maxAge: 0 });
+    res.cookie('csrf_token', '', { httpOnly: false, secure: isProd, sameSite, path: '/', maxAge: 0 });
     return res.json({ ok: true });
   });
 
