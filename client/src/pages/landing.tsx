@@ -371,6 +371,52 @@ export default function Landing() {
               💡 Takes only 5 minutes to read • Used by 1000+ students
             </p>
           </motion.div>
+
+          {/* University Admission Guide Card */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ delay: 0.2 }}
+            className="relative bg-gradient-to-br from-green-500/10 to-emerald-500/5 border-2 border-green-500/20 rounded-2xl p-8 sm:p-12 text-center overflow-hidden mt-6"
+          >
+            {/* Background decoration */}
+            <div className="absolute top-0 left-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -z-10" />
+            
+            <Badge variant="secondary" className="mb-4 bg-green-500/20 border-green-500/30">
+              <GraduationCap className="w-3 h-3 mr-1" />
+              Comprehensive Guide
+            </Badge>
+            
+            <h2 className="text-3xl sm:text-4xl font-bold mb-4">
+              <span className="bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                Guarantee University
+              </span>
+              <br />
+              <span className="bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                Admission Success
+              </span>
+            </h2>
+            
+            <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
+              Complete guide covering Pre-UTME, JAMB, Post-UTME, IJMB, JUPEB, and alternative admission pathways. 
+              Learn the insider secrets to securing your university admission by NWAMARIFE PATRICK (OHMAN).
+            </p>
+            
+            <Button
+              size="lg"
+              onClick={() => setShowAdmissionTips(true)}
+              className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-xl shadow-green-500/25 text-base h-14 px-10"
+            >
+              <GraduationCap className="mr-2 h-5 w-5" />
+              Read Admission Guide Now
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+            
+            <p className="text-sm text-muted-foreground mt-4">
+              📚 Comprehensive 5-section guide • Trusted by aspiring students
+            </p>
+          </motion.div>
         </div>
       </section>
 
