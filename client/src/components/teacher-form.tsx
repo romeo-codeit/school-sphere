@@ -84,7 +84,7 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
   const onSubmit = async (data: TeacherFormData) => {
     try {
       if (teacher) {
-        await updateTeacher({ teacherId: teacher.id, teacherData: data });
+        await updateTeacher({ teacherId: teacher.$id, teacherData: data });
         toast({ title: "Teacher updated successfully" });
       } else {
         await createTeacher(data);
@@ -98,21 +98,24 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-lg md:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{teacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="employeeId" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="block mb-1 sm:mb-0">Employee ID</FormLabel>
-                <FormControl><Input {...field} className="w-full" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField control={form.control} name="firstName" render={({ field }) => (
+      <DialogContent className="w-full max-w-lg md:max-w-xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+        <div className="flex-none px-6 pt-6 pb-4 border-b">
+          <DialogHeader>
+            <DialogTitle>{teacher ? "Edit Teacher" : "Add New Teacher"}</DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 modern-scrollbar">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <FormField control={form.control} name="employeeId" render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="block mb-1 sm:mb-0">Employee ID</FormLabel>
+                  <FormControl><Input {...field} className="w-full" /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )} />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="firstName" render={({ field }) => (
                 <FormItem>
                   <FormLabel className="block mb-1 sm:mb-0">First Name</FormLabel>
                   <FormControl><Input {...field} className="w-full" /></FormControl>
@@ -197,16 +200,17 @@ export function TeacherForm({ open, onOpenChange, teacher }: TeacherFormProps) {
                 <FormMessage />
               </FormItem>
             )} />
-            <div className="flex flex-col sm:flex-row justify-end gap-2">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" className="w-full sm:w-auto">
-                {teacher ? "Update Teacher" : "Create Teacher"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="w-full sm:w-auto">
+                  {teacher ? "Update Teacher" : "Create Teacher"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

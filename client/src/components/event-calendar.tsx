@@ -76,7 +76,7 @@ export function EventCalendar() {
             <ul className="space-y-2">
               {notices.slice(0, 3).map((notice: any) => (
                 <li key={notice.$id} className="flex items-center justify-between text-sm">
-                  <span>{notice.title}</span>
+                  <span>{notice.activity}</span>
                   <Badge variant="secondary">{new Date(notice.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Badge>
                 </li>
               ))}

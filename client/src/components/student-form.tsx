@@ -118,29 +118,34 @@ export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-lg md:max-w-xl">
-        <DialogHeader><DialogTitle>{student ? "Edit Student" : "Add New Student"}</DialogTitle></DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <FormField control={form.control} name="studentId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="block mb-1 sm:mb-0">Student ID</FormLabel>
-                  <FormControl><Input {...field} className="w-full" /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="classId" render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="block mb-1 sm:mb-0">Class</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl><SelectTrigger disabled={isLoadingClasses}><SelectValue placeholder="Select a class" /></SelectTrigger></FormControl>
-                    <SelectContent>{classes?.map(c => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}/>
-            </div>
+      <DialogContent className="w-full max-w-lg md:max-w-xl max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+        <div className="flex-none px-6 pt-6 pb-4 border-b">
+          <DialogHeader>
+            <DialogTitle>{student ? "Edit Student" : "Add New Student"}</DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 modern-scrollbar">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField control={form.control} name="studentId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block mb-1 sm:mb-0">Student ID</FormLabel>
+                    <FormControl><Input {...field} className="w-full" /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+                <FormField control={form.control} name="classId" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="block mb-1 sm:mb-0">Class</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl><SelectTrigger disabled={isLoadingClasses}><SelectValue placeholder="Select a class" /></SelectTrigger></FormControl>
+                      <SelectContent>{classes?.map(c => (<SelectItem key={c.$id} value={c.$id}>{c.name}</SelectItem>))}</SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
+              </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField control={form.control} name="firstName" render={({ field }) => (
                 <FormItem>
@@ -235,15 +240,16 @@ export function StudentForm({ open, onOpenChange, student }: StudentFormProps) {
                   <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                   <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="inactive">Inactive</SelectItem><SelectItem value="suspended">Suspended</SelectItem></SelectContent>
                 </Select>
-                <FormMessage />
-              </FormItem>
-            )}/>
-            <div className="flex flex-col sm:flex-row justify-end gap-2">
-              <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
-              <Button type="submit" className="w-full sm:w-auto">{student ? "Update Student" : "Create Student"}</Button>
-            </div>
-          </form>
-        </Form>
+              <FormMessage />
+                </FormItem>
+              )}/>
+              <div className="flex flex-col sm:flex-row justify-end gap-2 pt-4">
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
+                <Button type="submit" className="w-full sm:w-auto">{student ? "Update Student" : "Create Student"}</Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );

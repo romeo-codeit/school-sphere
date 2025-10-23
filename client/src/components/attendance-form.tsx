@@ -86,15 +86,17 @@ export function AttendanceForm({ open, onOpenChange, attendanceRecord }: Attenda
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>
-            {attendanceRecord ? "Edit Attendance Record" : "Add New Attendance Record"}
-          </DialogTitle>
-        </DialogHeader>
-        
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <DialogContent className="max-w-md max-h-[90vh] p-0 gap-0 flex flex-col overflow-hidden">
+        <div className="flex-none px-6 pt-6 pb-4 border-b">
+          <DialogHeader>
+            <DialogTitle>
+              {attendanceRecord ? "Edit Attendance Record" : "Add New Attendance Record"}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-4 modern-scrollbar">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="studentId"
@@ -172,16 +174,17 @@ export function AttendanceForm({ open, onOpenChange, attendanceRecord }: Attenda
               )}
             />
 
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button type="submit">
-                {attendanceRecord ? "Update Record" : "Add Record"}
-              </Button>
-            </div>
-          </form>
-        </Form>
+              <div className="flex justify-end space-x-2 pt-4">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  {attendanceRecord ? "Update Record" : "Add Record"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </div>
       </DialogContent>
     </Dialog>
   );
