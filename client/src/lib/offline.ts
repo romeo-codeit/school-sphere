@@ -274,7 +274,8 @@ export async function processExamQueueOnce() {
     for (const item of q) {
       try {
         if (item.type === 'autosave') {
-          await fetch('/api/cbt/attempts/autosave', {
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          await fetch(base + '/api/cbt/attempts/autosave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(item.payload),
@@ -282,7 +283,8 @@ export async function processExamQueueOnce() {
           });
         } else if (item.type === 'submit') {
           const { attemptId, answers } = item.payload || {};
-          await fetch(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`, {
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          await fetch(base + `/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers }),
