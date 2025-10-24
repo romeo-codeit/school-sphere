@@ -1,16 +1,6 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { account } from "./appwrite";
-
-// Allow configuring an external API host in production (e.g., when the static
-// site is on Vercel and the API is hosted elsewhere). Defaults to same-origin.
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || "";
-
-function withBase(url: string): string {
-  // If url is absolute (http/https) or already includes the base, return as-is
-  if (/^https?:\/\//i.test(url)) return url;
-  if (API_BASE && url.startsWith("/")) return `${API_BASE}${url}`;
-  return url;
-}
+import { withBase } from "@/lib/http";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -24,6 +14,10 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  // Read JWT once per request; prefer localStorage value to avoid Appwrite calls in native
+  const getJwt = (): string | null => {
+    try { return localStorage.getItem('appwrite_jwt'); } catch { return null; }
+  };
   // Helper: ensure we have a fresh HttpOnly JWT cookie by minting a new Appwrite JWT
   const refreshJwtCookie = async () => {
     try {
@@ -40,11 +34,13 @@ export async function apiRequest(
   const csrf = (typeof document !== 'undefined')
     ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
     : '';
+  const jwt = getJwt();
   let res = await fetch(withBase(url), {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
       ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
@@ -59,6 +55,7 @@ export async function apiRequest(
         headers: {
           ...(data ? { "Content-Type": "application/json" } : {}),
           ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+          ...(getJwt() ? { Authorization: `Bearer ${getJwt()}` } : {}),
         },
         body: data ? JSON.stringify(data) : undefined,
         credentials: 'include',
@@ -79,10 +76,14 @@ export const getQueryFn: <T>(options: {
     const csrf = (typeof document !== 'undefined')
       ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
       : '';
+    const jwt = (() => { try { return localStorage.getItem('appwrite_jwt'); } catch { return null; } })();
     const url = String(queryKey.join("/"));
     let res = await fetch(withBase(url), {
       credentials: "include",
-      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+      headers: {
+        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+      },
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -102,7 +103,10 @@ export const getQueryFn: <T>(options: {
         });
         res = await fetch(withBase(url), {
           credentials: 'include',
-          headers: csrf ? { 'X-CSRF-Token': csrf } : {},
+          headers: {
+            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+          },
         });
       } catch {}
     }
