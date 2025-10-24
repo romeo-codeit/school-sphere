@@ -36,13 +36,23 @@ export function useAuth() {
     retry: false,
   });
 
-  // Bootstrap HttpOnly auth cookie on load if we have a JWT in localStorage
+  // Bootstrap HttpOnly auth cookie on load. Prefer localStorage JWT; if missing but
+  // an Appwrite session exists, mint a fresh JWT and set cookie so API requests authorize.
   useEffect(() => {
     (async () => {
       try {
         if (typeof window === 'undefined') return;
-        const token = localStorage.getItem('appwrite_jwt');
-        if (!token) return;
+        let token = localStorage.getItem('appwrite_jwt');
+        if (!token) {
+          try {
+            const { jwt } = await account.createJWT();
+            token = jwt;
+            try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+          } catch {
+            // No active Appwrite session; nothing to bootstrap
+            return;
+          }
+        }
         await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
