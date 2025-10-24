@@ -46,6 +46,7 @@
     "@radix-ui/react-tooltip": "^1.2.0",
     "@sentry/node": "^10.19.0",
     "@tanstack/react-query": "^5.60.5",
+    "@vitejs/plugin-react": "^4.3.2",
     "appwrite": "^20.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -55,6 +56,7 @@
     "date-fns": "^3.6.0",
     "dotenv": "^17.2.2",
     "embla-carousel-react": "^8.6.0",
+    "esbuild": "^0.25.0",
     "express": "^4.21.2",
     "express-rate-limit": "^8.1.0",
     "framer-motion": "^11.13.1",
@@ -76,6 +78,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
+    "vite": "^5.4.19",
     "winston": "^3.18.3",
     "wouter": "^3.3.5",
     "zod": "^3.24.2",
@@ -99,18 +102,15 @@
     "@types/node": "20.16.11",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "cross-env": "^10.0.0",
-    "esbuild": "^0.25.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.18",
     "ts-node": "^10.9.2",
     "tsx": "^4.19.1",
-    "typescript": "5.6.3",
-    "vite": "^5.4.19"
+    "typescript": "5.6.3"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
