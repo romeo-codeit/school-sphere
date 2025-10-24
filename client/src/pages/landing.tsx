@@ -660,115 +660,76 @@ export default function Landing() {
           >
             <Badge className="mb-6 bg-primary-foreground/20 text-primary-foreground border-primary-foreground/30">
               <Zap className="w-3 h-3 mr-1" />
-              Join Our Community
+              New
             </Badge>
-            
+
             <h2 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-extrabold mb-6 leading-tight">
-              Ready to Get Started?
+              Download the Android App
             </h2>
-            
+
             <p className="text-lg sm:text-xl opacity-95 mb-10 leading-relaxed max-w-3xl mx-auto">
-              Access your student portal, manage your classes, track performance, and stay connected with the OhmanFoundations community.
+              Get the best experience with offline support and instant access to classes, exams, and notifications. iOS coming soon.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
-              <Button 
-                size="lg" 
-                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-xl text-base h-12 px-8 w-full sm:w-auto"
-                onClick={() => navigate('/signup')}
-              >
-                Create Account
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="bg-transparent border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base h-12 px-8 w-full sm:w-auto"
-                onClick={() => navigate('/login')}
-              >
-                Sign In
-              </Button>
-            </div>
+            {
+              // Prefer an explicit APK URL via env; otherwise fall back to a static public download path.
+            }
+            {(() => {
+              const APK_URL = (import.meta as any)?.env?.VITE_ANDROID_APK_URL || '/downloads/ohmanfoundations.apk';
+              return (
+                <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-10">
+                  <a href={APK_URL} download className="w-full sm:w-auto">
+                    <Button size="lg" className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-xl text-base h-12 px-8 w-full sm:w-auto">
+                      Download APK
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  </a>
+                  <Button 
+                    size="lg" 
+                    variant="outline" 
+                    className="bg-transparent border-2 border-primary-foreground text-primary-foreground hover:bg-primary-foreground/10 text-base h-12 px-8 w-full sm:w-auto"
+                    onClick={() => navigate('/login')}
+                  >
+                    Open Web Portal
+                  </Button>
+                </div>
+              );
+            })()}
 
             <div className="flex flex-wrap items-center justify-center gap-6 text-sm opacity-90">
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5" />
-                <span>Secure Access</span>
+                <span>Fast and lightweight</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5" />
-                <span>24/7 Availability</span>
+                <span>Works offline</span>
               </div>
               <div className="flex items-center gap-2">
                 <CheckCircle className="w-5 h-5" />
-                <span>Mobile Friendly</span>
+                <span>Secure by Appwrite</span>
               </div>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Footer - Enhanced */}
-      <footer className="py-12 px-4 sm:px-6 bg-card border-t border-border">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
-            {/* Brand */}
-            <div className="md:col-span-1">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 flex items-center justify-center">
-                  <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
-                </div>
-                <span className="text-lg font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                  OhmanFoundations
-                </span>
-              </div>
-              <p className="text-sm text-muted-foreground mb-4">
-                Empowering education through innovative technology solutions.
-              </p>
-              <div className="flex gap-3">
-                {/* Social Icons Placeholder */}
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center hover:bg-primary/20 transition-colors cursor-pointer">
-                  <Globe className="w-4 h-4 text-primary" />
-                </div>
-              </div>
+      {/* Footer - Simplified */}
+      <footer className="py-8 px-4 sm:px-6 bg-card border-t border-border">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 flex items-center justify-center">
+              <img src={logo} alt="OhmanFoundations Logo" className="w-full h-full object-contain" />
             </div>
-
-            {/* Links */}
-            <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#features" className="hover:text-primary transition-colors">Features</a></li>
-                <li><a href="#benefits" className="hover:text-primary transition-colors">Benefits</a></li>
-                <li><a href="#testimonials" className="hover:text-primary transition-colors">Testimonials</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Pricing</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Careers</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-4">Legal</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">Cookie Policy</a></li>
-                <li><a href="#" className="hover:text-primary transition-colors">GDPR</a></li>
-              </ul>
-            </div>
+            <span className="text-base font-semibold">OhmanFoundations</span>
           </div>
-
-          <div className="border-t border-border pt-8 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-muted-foreground">
-            <p>&copy; {new Date().getFullYear()} OhmanFoundations. All rights reserved.</p>
-            <p>Made with ❤️ for educators worldwide</p>
+          <div className="flex items-center gap-6 text-sm text-muted-foreground">
+            <a href="#features" className="hover:text-primary">Features</a>
+            <a href="/login" className="hover:text-primary">Login</a>
+            <a href="/signup" className="hover:text-primary">Sign Up</a>
+            <a href={(import.meta as any)?.env?.VITE_ANDROID_APK_URL || '/downloads/ohmanfoundations.apk'} className="hover:text-primary">Download App</a>
           </div>
+          <p className="text-xs text-muted-foreground">&copy; {new Date().getFullYear()} OhmanFoundations</p>
         </div>
       </footer>
     </div>
