@@ -1,4 +1,5 @@
 // Offline file upload queue using IndexedDB
+import { withBase } from '@/lib/http';
 const FILE_QUEUE_KEY = 'offline:fileQueue:v1';
 
 export type QueuedFileUpload = {
@@ -274,7 +275,7 @@ export async function processExamQueueOnce() {
     for (const item of q) {
       try {
         if (item.type === 'autosave') {
-          await fetch('/api/cbt/attempts/autosave', {
+          await fetch(withBase('/api/cbt/attempts/autosave'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(item.payload),
@@ -282,7 +283,7 @@ export async function processExamQueueOnce() {
           });
         } else if (item.type === 'submit') {
           const { attemptId, answers } = item.payload || {};
-          await fetch(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`, {
+          await fetch(withBase(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers }),

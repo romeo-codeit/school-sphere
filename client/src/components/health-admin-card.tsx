@@ -1,10 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
+import { withBase } from "@/lib/http";
 
 async function fetchHealth(getJWT: () => Promise<string | null>) {
   const jwt = await getJWT();
-  const res = await fetch('/api/admin/health', {
+  const res = await fetch(withBase('/api/admin/health'), {
     headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}
   });
   if (!res.ok) throw new Error('Failed to fetch health');

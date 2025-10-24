@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
 import { isOnline, queueAppwriteOperation } from '@/lib/offline';
+import { withBase } from '@/lib/http';
 
-const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
-const withBase = (url: string) => (/^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`);
+// Use shared withBase helper from lib/http
 
 export function useAuth() {
   // JWT state (in-memory, not persisted)
@@ -125,7 +125,7 @@ export function useAuth() {
 
   const createUserByAdminMutation = useMutation({
     mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
-      const response = await fetch('/api/users', {
+      const response = await fetch(withBase('/api/users'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -12,6 +12,7 @@ import { Query } from "appwrite";
 import { useToast } from "@/hooks/use-toast";
 import { UserCheck, UserX, Users, AlertCircle } from "lucide-react";
 import { useAuth } from '@/hooks/useAuth';
+import { withBase } from '@/lib/http';
 
 interface PendingAccount {
   $id: string;
@@ -49,7 +50,7 @@ export function AccountApprovalManager() {
     setIsApproving(true);
     try {
       const jwt = await getJWT();
-      await fetch(`/api/admin/approve-account/${account.userId}`, {
+      await fetch(withBase(`/api/admin/approve-account/${account.userId}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -93,7 +94,7 @@ export function AccountApprovalManager() {
     setIsApproving(true);
     try {
       const jwt = await getJWT();
-      await fetch(`/api/admin/reject-account/${account.userId}`, {
+      await fetch(withBase(`/api/admin/reject-account/${account.userId}`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

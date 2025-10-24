@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
+import { withBase } from '@/lib/http';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
@@ -26,7 +27,7 @@ export default function ActivatePage() {
     try {
       const jwt = await getJWT();
       const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch('/api/users/activate-subscription', {
+      const res = await fetch(withBase('/api/users/activate-subscription'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

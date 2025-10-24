@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { withBase } from "@/lib/http";
 import { useTheme } from "@/hooks/useTheme";
 import { useSchoolData } from "@/hooks/useSchoolData";
 import { useUserProfile, useUserSettings } from "@/hooks/useUserSettings";
@@ -248,7 +249,7 @@ export default function Settings() {
     try {
       const jwt = await getJWT();
       // Implement school update logic here (call backend API)
-      await fetch('/api/school', {
+      await fetch(withBase('/api/school'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}) },
         body: JSON.stringify(data),
@@ -381,10 +382,10 @@ export default function Settings() {
     setSecurityLoading(true);
     try {
       // Delete server-side account and then end session
-      const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      await fetch('/api/users/self', { method: 'DELETE', headers: csrf ? { 'X-CSRF-Token': csrf } : {}, credentials: 'include' });
+  const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
+  await fetch(withBase('/api/users/self'), { method: 'DELETE', headers: csrf ? { 'X-CSRF-Token': csrf } : {}, credentials: 'include' });
       await account.deleteSession("current");
-      await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+  await fetch(withBase('/api/auth/logout'), { method: 'POST', credentials: 'include' });
       toast({ title: "Account Deleted", description: "Your account and data have been deleted." });
     } catch (e) {
       toast({ title: "Error", description: "Failed to delete account", variant: "destructive" });

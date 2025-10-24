@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { useState } from "react";
+import { withBase } from "@/lib/http";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2, User, Mail, Lock, Info } from "lucide-react";
 import { z } from "zod";
 import ErrorBoundary from "@/components/ui/error-boundary";
@@ -115,7 +116,7 @@ export default function SignupPage() {
 
     try {
       // Use the new registration endpoint that creates user profiles with pending status
-      const response = await fetch('/api/users/register', {
+      const response = await fetch(withBase('/api/users/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

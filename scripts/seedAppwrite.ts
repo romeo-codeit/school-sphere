@@ -291,25 +291,11 @@ async function ensureAllCollections() {
   await delay(500);
   await safeCreateIndex('students', 'idx_user', ['userId']);
   await safeCreateIndex('students', 'idx_studentId', ['studentId']);
-  // Speed up parent lookup flows (parent role -> student via parentEmail)
-  await safeCreateIndex('students', 'idx_parentEmail', ['parentEmail']);
 
   await ensureCollection('teachers', 'Teachers');
   await safeCreateStringAttribute('teachers', 'userId', 255, false);
   await safeCreateStringAttribute('teachers', 'employeeId', 255, true);
-  await safeCreateStringAttribute('teachers', 'firstName', 255, false);
-  await safeCreateStringAttribute('teachers', 'lastName', 255, false);
-  await safeCreateStringAttribute('teachers', 'email', 255, false);
-  await safeCreateStringAttribute('teachers', 'phone', 255, false);
-  await safeCreateStringAttribute('teachers', 'gender', 50, false);
-  await safeCreateStringAttribute('teachers', 'subjects', 255, false, true);
-  await safeCreateStringAttribute('teachers', 'qualification', 255, false);
-  await safeCreateIntegerAttribute('teachers', 'experience', false);
-  await safeCreateStringAttribute('teachers', 'status', 50, false);
-  await safeCreateStringAttribute('teachers', 'search', 2048, false);
   await delay(500);
-  await safeCreateIndex('teachers', 'idx_user', ['userId']);
-  await safeCreateIndex('teachers', 'idx_employeeId', ['employeeId']);
 
   await ensureCollection('messages', 'Messages');
   await safeCreateStringAttribute('messages', 'senderId', 255, false);
@@ -363,8 +349,6 @@ async function ensureAllCollections() {
   await safeCreateStringAttribute('attendanceRecords', 'status', 50, true);
   await delay(500);
   await safeCreateIndex('attendanceRecords', 'idx_class_date', ['classId','date']);
-  // Speed up student history pages (attendance by student)
-  await safeCreateIndex('attendanceRecords', 'idx_student_date', ['studentId','date']);
 
   await ensureCollection('activities', 'Activities');
   await safeCreateStringAttribute('activities', 'activity', 255, true);

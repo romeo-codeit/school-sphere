@@ -3,6 +3,7 @@ import { databases, ID } from '@/lib/appwrite';
 import { Query } from 'appwrite';
 import { isOnline, queueRequest } from '@/lib/offline';
 import { getDB } from '@/lib/idbCache';
+import { withBase } from '@/lib/http';
 
 const DATABASE_ID = import.meta.env.VITE_APPWRITE_DATABASE_ID;
 const ATTENDANCE_COLLECTION_ID = 'attendanceRecords';
@@ -57,7 +58,7 @@ export function useAttendance(studentId?: string, limit?: number, offset?: numbe
           return arr;
         });
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/attendance`,
+          url: withBase('/api/attendance'),
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(attendanceData),
@@ -80,7 +81,7 @@ export function useAttendance(studentId?: string, limit?: number, offset?: numbe
           return arr as any[];
         });
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/attendance/${encodeURIComponent(id)}`,
+          url: withBase(`/api/attendance/${encodeURIComponent(id)}`),
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(attendanceData),
@@ -103,7 +104,7 @@ export function useAttendance(studentId?: string, limit?: number, offset?: numbe
           return arr as any[];
         });
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/attendance/${encodeURIComponent(id)}`,
+          url: withBase(`/api/attendance/${encodeURIComponent(id)}`),
           method: 'DELETE',
         });
         return { ok: true } as any;

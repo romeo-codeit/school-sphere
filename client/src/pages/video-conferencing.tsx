@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { useVideoConferencing } from '@/hooks/useVideoConferencing';
 import { useAuth } from '@/hooks/useAuth';
+import { withBase } from '@/lib/http';
 import { useRole } from '@/hooks/useRole';
 import { 
   Video, 
@@ -261,7 +262,7 @@ export default function VideoConferencing() {
       (async () => {
         try {
           // Try to fetch a JWT from our server; if unavailable (204), continue anonymously
-          const resp = await fetch('/api/jitsi/token', {
+          const resp = await fetch(withBase('/api/jitsi/token'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ roomId: activeRoom.roomId }),
