@@ -27,6 +27,7 @@ import { Clock, Flag, ArrowLeft, ArrowRight, Send, ShieldAlert, Save, CheckCircl
 import { cn } from "@/lib/utils";
 import { ExamTakingSkeleton } from "@/components/skeletons/exam-taking-skeleton";
 import { Loader2, BookOpen } from "lucide-react";
+import { withBase } from '@/lib/http';
 
 interface Question {
   question: string;
@@ -323,7 +324,7 @@ export default function ExamTaking() {
     setLoadingReference(true);
     setShowReference(true);
     try {
-      const res = await fetch(`/api/answers/fetch?u=${encodeURIComponent(url)}`, { credentials: 'include' });
+  const res = await fetch(withBase(`/api/answers/fetch?u=${encodeURIComponent(url)}`), { credentials: 'include' });
       const data = await res.json();
       if (res.ok && data?.html) {
         setReferenceHtml(data.html);
