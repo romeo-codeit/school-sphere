@@ -34,8 +34,9 @@ export function useAuth() {
     retry: false,
   });
 
-  // Bootstrap HttpOnly auth cookie on load. Prefer localStorage JWT; if missing but
-  // an Appwrite session exists, mint a fresh JWT and set cookie so API requests authorize.
+  // Bootstrap HttpOnly auth cookie on load for web & native.
+  // Prefer localStorage JWT; if missing but an Appwrite session exists, mint a fresh JWT,
+  // then set server cookie. Also persist session id for header fallback on native.
   useEffect(() => {
     (async () => {
       try {
@@ -51,10 +52,12 @@ export function useAuth() {
             return;
           }
         }
+        const sess = await account.getSession('current').catch(() => null as any);
+        if (sess?.$id) { try { localStorage.setItem('appwrite_session', sess.$id); } catch {} }
         await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token }),
+          body: JSON.stringify({ jwt: token, session: sess?.$id || '' }),
           credentials: 'include',
         });
       } catch {}
@@ -64,17 +67,19 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       const sess = await account.createEmailPasswordSession(email, password);
-      // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
+      // Switch to HttpOnly cookie auth: set cookies even if JWT mint fails (mobile safe)
+      let token: string | null = null;
       try {
-        const { jwt: token } = await account.createJWT();
-        await fetch(withBase('/api/auth/jwt-cookie'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
-          credentials: 'include',
-        });
-        try { localStorage.setItem('appwrite_jwt', token); } catch {}
+        const created = await account.createJWT();
+        token = created?.jwt || null;
+        if (token) { try { localStorage.setItem('appwrite_jwt', token); } catch {} }
       } catch {}
+      await fetch(withBase('/api/auth/jwt-cookie'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt: token || undefined, session: (sess as any)?.$id || '' }),
+        credentials: 'include',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
