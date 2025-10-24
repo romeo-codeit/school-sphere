@@ -57,8 +57,9 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       process.env.PRODUCTION_URL || '',
       process.env.VITE_APP_URL || '',
+      'capacitor://localhost',
     ].filter(Boolean)
-  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000'];
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000', 'capacitor://localhost'];
 
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
