@@ -58,8 +58,10 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
       process.env.PRODUCTION_URL || '',
       process.env.VITE_APP_URL || '',
       'capacitor://localhost',
+      'http://localhost',
+      'https://localhost',
     ].filter(Boolean)
-  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000', 'capacitor://localhost'];
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000', 'capacitor://localhost', 'http://localhost', 'https://localhost'];
 
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
@@ -74,7 +76,7 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 
 // Rate Limiting
