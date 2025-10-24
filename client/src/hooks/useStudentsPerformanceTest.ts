@@ -1,7 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
 import { useStudents } from './useStudents';
-import { withBase } from '@/lib/http';
 
 export function useStudentsPerformanceTest() {
   const queryClient = useQueryClient();
@@ -17,7 +16,7 @@ export function useStudentsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['students', { page: 1, limit: 10 }],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/students?page=1&limit=10'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+          const res = await fetch('/api/students?page=1&limit=10', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -30,7 +29,7 @@ export function useStudentsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['students', { page: 1, limit: 10, search: 'test' }],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/students?page=1&limit=10&search=test'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+          const res = await fetch('/api/students?page=1&limit=10&search=test', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

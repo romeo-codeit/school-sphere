@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { withBase } from '@/lib/http';
 
 export function useVideoConferencingPerformanceTest() {
   const queryClient = useQueryClient();
@@ -16,7 +15,7 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['meetings'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/meetings'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+          const res = await fetch('/api/meetings', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -29,7 +28,7 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['classes'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/classes'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
+          const res = await fetch('/api/classes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { account } from '../lib/appwrite';
 import { ID } from 'appwrite';
 import { isOnline, queueAppwriteOperation } from '@/lib/offline';
-import { withBase } from '@/lib/http';
 
-// Use shared withBase helper from lib/http
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+const withBase = (url: string) => (/^https?:\/\//i.test(url) ? url : `${API_BASE}${url}`);
 
 export function useAuth() {
   // JWT state (in-memory, not persisted)
@@ -66,22 +66,17 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       const sess = await account.createEmailPasswordSession(email, password);
-      // Always ask our backend to set cookies using the session ID.
-      // Include JWT if we can mint it, but don't rely on third-party cookie flows.
-      let token: string | null = null;
+      // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
       try {
-        const r = await account.createJWT();
-        token = r.jwt;
+        const { jwt: token } = await account.createJWT();
+        await fetch(withBase('/api/auth/jwt-cookie'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
+          credentials: 'include',
+        });
         try { localStorage.setItem('appwrite_jwt', token); } catch {}
-      } catch {
-        // If JWT minting fails (third-party cookies blocked), proceed with session-only
-      }
-      await fetch(withBase('/api/auth/jwt-cookie'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ session: (sess as any)?.$id || '', ...(token ? { jwt: token } : {}) }),
-        credentials: 'include',
-      });
+      } catch {}
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -130,12 +125,11 @@ export function useAuth() {
 
   const createUserByAdminMutation = useMutation({
     mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
-      const response = await fetch(withBase('/api/users'), {
+      const response = await fetch('/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify({ email, password, name, role }),
       });
 

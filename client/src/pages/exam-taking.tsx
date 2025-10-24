@@ -18,7 +18,6 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useExams } from "@/hooks/useExams";
 import { useDebouncedCallback } from '@/hooks/useDebouncedCallback';
-import { withBase } from '@/lib/http';
 import { LocalCache } from '@/lib/localCache';
 import { getAnswers, setAnswers as setAnswersCache, getMeta, setMeta } from '@/lib/idbCache';
 import { useExamAttempts } from "@/hooks/useExamAttempts";
@@ -324,7 +323,7 @@ export default function ExamTaking() {
     setLoadingReference(true);
     setShowReference(true);
     try {
-  const res = await fetch(withBase(`/api/answers/fetch?u=${encodeURIComponent(url)}`), { credentials: 'include' });
+      const res = await fetch(`/api/answers/fetch?u=${encodeURIComponent(url)}`, { credentials: 'include' });
       const data = await res.json();
       if (res.ok && data?.html) {
         setReferenceHtml(data.html);

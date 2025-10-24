@@ -1,5 +1,4 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { withBase } from '@/lib/http';
 
 // Performance test hook for student profile
 export function useStudentProfilePerformanceTest(studentId?: string) {
@@ -20,7 +19,7 @@ export function useStudentProfilePerformanceTest(studentId?: string) {
     await queryClient.prefetchQuery({
       queryKey: ['grades', studentId],
       queryFn: async () => {
-  const response = await fetch(withBase(`/api/grades?studentId=${studentId}`), { credentials: 'include' });
+        const response = await fetch(`/api/grades?studentId=${studentId}`);
         if (!response.ok) throw new Error('Failed to fetch grades');
         return response.json();
       },

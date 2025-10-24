@@ -24,11 +24,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Helper: refresh server-side cookies via our backend, avoiding client-side JWT minting
+  // Helper: ensure we have a fresh HttpOnly JWT cookie by minting a new Appwrite JWT
   const refreshJwtCookie = async () => {
     try {
-      await fetch(withBase('/api/auth/refresh'), {
+      const { jwt } = await account.createJWT();
+      try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+      await fetch(withBase('/api/auth/jwt-cookie'), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt }),
         credentials: 'include',
       });
     } catch {}
@@ -87,7 +91,15 @@ export const getQueryFn: <T>(options: {
 
     if (res.status === 401) {
       try {
-        await fetch(withBase('/api/auth/refresh'), { method: 'POST', credentials: 'include' });
+        // Mint a fresh JWT from the active Appwrite session and set HttpOnly cookie
+        const { jwt } = await account.createJWT();
+        try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+        await fetch(withBase('/api/auth/jwt-cookie'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jwt }),
+          credentials: 'include',
+        });
         res = await fetch(withBase(url), {
           credentials: 'include',
           headers: csrf ? { 'X-CSRF-Token': csrf } : {},
