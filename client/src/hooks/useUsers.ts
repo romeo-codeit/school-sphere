@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './useAuth';
+import { withBase } from '@/lib/http';
 
 export function useUsers() {
   const queryClient = useQueryClient();
@@ -11,8 +12,8 @@ export function useUsers() {
       const jwt = await getJWT();
       const headers: Record<string, string> = jwt ? { Authorization: `Bearer ${jwt}` } : {};
       const [studentsResponse, teachersResponse] = await Promise.all([
-        fetch('/api/students', { headers }),
-        fetch('/api/teachers', { headers }),
+        fetch(withBase('/api/students'), { headers }),
+        fetch(withBase('/api/teachers'), { headers }),
       ]);
 
       if (!studentsResponse.ok || !teachersResponse.ok) {

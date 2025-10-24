@@ -12,6 +12,7 @@ import {
   FileText,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { withBase } from "@/lib/http";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useStudents } from "@/hooks/useStudents";
 import { usePayments } from "@/hooks/usePayments";
@@ -60,7 +61,7 @@ export function AdminDashboard() {
         setProfileError(null);
         const jwt = await getJWT();
         const jwtResp = jwt
-          ? await fetch('/api/users/me', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).catch(() => null)
+          ? await fetch(withBase('/api/users/me'), { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).catch(() => null)
           : null;
         if (!jwtResp || !jwtResp.ok) {
           if (!cancelled) setDisplayName(user?.name || null);
