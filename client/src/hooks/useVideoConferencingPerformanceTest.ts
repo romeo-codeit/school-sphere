@@ -16,7 +16,7 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['meetings'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/meetings'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(withBase('/api/meetings'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -29,7 +29,7 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['classes'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/classes'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(withBase('/api/classes'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}, credentials: 'include' });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

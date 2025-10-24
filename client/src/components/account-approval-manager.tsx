@@ -56,6 +56,7 @@ export function AccountApprovalManager() {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({ role: selectedRole }),
       });
 
@@ -100,6 +101,7 @@ export function AccountApprovalManager() {
           'Content-Type': 'application/json',
           ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({ reason: rejectionReason }),
       });
 

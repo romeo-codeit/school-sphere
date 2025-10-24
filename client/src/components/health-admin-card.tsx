@@ -6,7 +6,8 @@ import { withBase } from "@/lib/http";
 async function fetchHealth(getJWT: () => Promise<string | null>) {
   const jwt = await getJWT();
   const res = await fetch(withBase('/api/admin/health'), {
-    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}
+    headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
+    credentials: 'include',
   });
   if (!res.ok) throw new Error('Failed to fetch health');
   return res.json();

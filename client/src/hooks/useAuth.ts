@@ -66,17 +66,22 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       const sess = await account.createEmailPasswordSession(email, password);
-      // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
+      // Always ask our backend to set cookies using the session ID.
+      // Include JWT if we can mint it, but don't rely on third-party cookie flows.
+      let token: string | null = null;
       try {
-        const { jwt: token } = await account.createJWT();
-        await fetch(withBase('/api/auth/jwt-cookie'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
-          credentials: 'include',
-        });
+        const r = await account.createJWT();
+        token = r.jwt;
         try { localStorage.setItem('appwrite_jwt', token); } catch {}
-      } catch {}
+      } catch {
+        // If JWT minting fails (third-party cookies blocked), proceed with session-only
+      }
+      await fetch(withBase('/api/auth/jwt-cookie'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session: (sess as any)?.$id || '', ...(token ? { jwt: token } : {}) }),
+        credentials: 'include',
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -130,6 +135,7 @@ export function useAuth() {
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include',
         body: JSON.stringify({ email, password, name, role }),
       });
 

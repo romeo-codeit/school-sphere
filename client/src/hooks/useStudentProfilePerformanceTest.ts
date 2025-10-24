@@ -20,7 +20,7 @@ export function useStudentProfilePerformanceTest(studentId?: string) {
     await queryClient.prefetchQuery({
       queryKey: ['grades', studentId],
       queryFn: async () => {
-        const response = await fetch(withBase(`/api/grades?studentId=${studentId}`));
+  const response = await fetch(withBase(`/api/grades?studentId=${studentId}`), { credentials: 'include' });
         if (!response.ok) throw new Error('Failed to fetch grades');
         return response.json();
       },
