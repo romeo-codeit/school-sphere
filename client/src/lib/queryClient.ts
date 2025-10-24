@@ -29,7 +29,7 @@ export async function apiRequest(
     try {
       const { jwt } = await account.createJWT();
       try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
-      await fetch('/api/auth/jwt-cookie', {
+      await fetch(withBase('/api/auth/jwt-cookie'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jwt }),
@@ -94,7 +94,7 @@ export const getQueryFn: <T>(options: {
         // Mint a fresh JWT from the active Appwrite session and set HttpOnly cookie
         const { jwt } = await account.createJWT();
         try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
-        await fetch('/api/auth/jwt-cookie', {
+        await fetch(withBase('/api/auth/jwt-cookie'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ jwt }),
