@@ -115,7 +115,8 @@ export default function SignupPage() {
 
     try {
       // Use the new registration endpoint that creates user profiles with pending status
-      const response = await fetch('/api/users/register', {
+      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+      const response = await fetch(base + '/api/users/register', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

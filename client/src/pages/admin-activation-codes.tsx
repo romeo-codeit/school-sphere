@@ -20,7 +20,8 @@ export default function AdminActivationCodesPage() {
   const fetchCodes = async () => {
     try {
       const jwt = await getJWT();
-      const res = await fetch('/api/admin/activation-codes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+      const res = await fetch(base + '/api/admin/activation-codes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to load codes');
       setCodes(Array.isArray(data.codes) ? data.codes : []);
@@ -36,7 +37,8 @@ export default function AdminActivationCodesPage() {
     try {
       const jwt = await getJWT();
       const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch('/api/admin/activation-codes', {
+      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+      const res = await fetch(base + '/api/admin/activation-codes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

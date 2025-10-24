@@ -15,7 +15,8 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['forum_threads'],
         queryFn: async () => {
-          const res = await fetch('/api/forum/threads', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const res = await fetch(base + '/api/forum/threads', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -28,7 +29,7 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['conversations', 'user-id'],
         queryFn: async () => {
-          const res = await fetch('/api/conversations', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(base + '/api/conversations', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -41,7 +42,7 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['users'],
         queryFn: async () => {
-          const res = await fetch('/api/users', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(base + '/api/users', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

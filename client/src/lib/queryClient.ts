@@ -24,15 +24,11 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Helper: ensure we have a fresh HttpOnly JWT cookie by minting a new Appwrite JWT
-  const refreshJwtCookie = async () => {
+  // Helper: prefer server-side refresh endpoint to re-issue cookies (works on web and mobile)
+  const refreshSessionCookies = async () => {
     try {
-      const { jwt } = await account.createJWT();
-      try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
-      await fetch(withBase('/api/auth/jwt-cookie'), {
+      await fetch(withBase('/api/auth/refresh'), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jwt }),
         credentials: 'include',
       });
     } catch {}
@@ -40,25 +36,30 @@ export async function apiRequest(
   const csrf = (typeof document !== 'undefined')
     ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
     : '';
+  // Attach Authorization header if we have a JWT in localStorage (helps mobile/capacitor where cookies are unreliable)
+  let bearer: string | null = null;
+  try { bearer = localStorage.getItem('appwrite_jwt'); } catch {}
   let res = await fetch(withBase(url), {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
       ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+      ...(bearer ? { 'Authorization': `Bearer ${bearer}` } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
-  // Attempt automatic refresh of cookie if 401: first try minting a fresh JWT via Appwrite session
+  // Attempt automatic refresh of cookie if 401: call server-side refresh endpoint
   if (res.status === 401) {
     try {
-      await refreshJwtCookie();
+      await refreshSessionCookies();
       res = await fetch(withBase(url), {
         method,
         headers: {
           ...(data ? { "Content-Type": "application/json" } : {}),
           ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
+          ...(bearer ? { 'Authorization': `Bearer ${bearer}` } : {}),
         },
         body: data ? JSON.stringify(data) : undefined,
         credentials: 'include',

@@ -15,7 +15,8 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['meetings'],
         queryFn: async () => {
-          const res = await fetch('/api/meetings', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const res = await fetch(base + '/api/meetings', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -28,7 +29,7 @@ export function useVideoConferencingPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['classes'],
         queryFn: async () => {
-          const res = await fetch('/api/classes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(base + '/api/classes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

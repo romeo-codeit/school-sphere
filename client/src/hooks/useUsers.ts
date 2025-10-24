@@ -11,8 +11,8 @@ export function useUsers() {
       const jwt = await getJWT();
       const headers: Record<string, string> = jwt ? { Authorization: `Bearer ${jwt}` } : {};
       const [studentsResponse, teachersResponse] = await Promise.all([
-        fetch('/api/students', { headers }),
-        fetch('/api/teachers', { headers }),
+        fetch(((import.meta as any)?.env?.VITE_API_BASE_URL || '') + '/api/students', { headers }),
+        fetch(((import.meta as any)?.env?.VITE_API_BASE_URL || '') + '/api/teachers', { headers }),
       ]);
 
       if (!studentsResponse.ok || !teachersResponse.ok) {

@@ -15,7 +15,8 @@ export function useExamsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['cbt-exams', 'all', 'all', 'none', 'wq0'],
         queryFn: async () => {
-          const res = await fetch('/api/cbt/exams?limit=all&withQuestions=false', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const res = await fetch(base + '/api/cbt/exams?limit=all&withQuestions=false', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -28,7 +29,7 @@ export function useExamsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['cbt-subjects-available', 'mock'],
         queryFn: async () => {
-          const res = await fetch('/api/cbt/subjects/available?type=mock', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(base + '/api/cbt/subjects/available?type=mock', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

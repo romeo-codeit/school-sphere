@@ -16,7 +16,8 @@ export function useTeachersPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['teachers', { page: 1, limit: 10 }],
         queryFn: async () => {
-          const res = await fetch('/api/teachers?page=1&limit=10', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const res = await fetch(base + '/api/teachers?page=1&limit=10', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -29,7 +30,7 @@ export function useTeachersPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['teachers', { page: 1, limit: 10, search: 'test' }],
         queryFn: async () => {
-          const res = await fetch('/api/teachers?page=1&limit=10&search=test', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch(base + '/api/teachers?page=1&limit=10&search=test', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

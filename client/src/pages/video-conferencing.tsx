@@ -261,7 +261,8 @@ export default function VideoConferencing() {
       (async () => {
         try {
           // Try to fetch a JWT from our server; if unavailable (204), continue anonymously
-          const resp = await fetch('/api/jitsi/token', {
+          const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+          const resp = await fetch(base + '/api/jitsi/token', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ roomId: activeRoom.roomId }),

@@ -4,7 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 
 async function fetchHealth(getJWT: () => Promise<string | null>) {
   const jwt = await getJWT();
-  const res = await fetch('/api/admin/health', {
+  const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+  const res = await fetch(base + '/api/admin/health', {
     headers: jwt ? { Authorization: `Bearer ${jwt}` } : {}
   });
   if (!res.ok) throw new Error('Failed to fetch health');

@@ -26,7 +26,7 @@ export default function ActivatePage() {
     try {
       const jwt = await getJWT();
       const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch('/api/users/activate-subscription', {
+      const res = await fetch(((import.meta as any)?.env?.VITE_API_BASE_URL || '') + '/api/users/activate-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

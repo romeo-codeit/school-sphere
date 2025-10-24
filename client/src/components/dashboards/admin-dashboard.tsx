@@ -60,7 +60,7 @@ export function AdminDashboard() {
         setProfileError(null);
         const jwt = await getJWT();
         const jwtResp = jwt
-          ? await fetch('/api/users/me', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).catch(() => null)
+          ? await fetch(((import.meta as any)?.env?.VITE_API_BASE_URL || '') + '/api/users/me', { headers: { Authorization: `Bearer ${jwt}` }, credentials: 'include' }).catch(() => null)
           : null;
         if (!jwtResp || !jwtResp.ok) {
           if (!cancelled) setDisplayName(user?.name || null);

@@ -56,17 +56,19 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: async ({ email, password }: { email: string, password: string }) => {
       const sess = await account.createEmailPasswordSession(email, password);
-      // Switch to HttpOnly cookie auth: request a JWT and store via cookie endpoint
+      // Switch to HttpOnly cookie auth: set cookies even if JWT creation fails (mobile safe)
+      let token: string | null = null;
       try {
-        const { jwt: token } = await account.createJWT();
-        await fetch(withBase('/api/auth/jwt-cookie'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jwt: token, session: (sess as any)?.$id || '' }),
-          credentials: 'include',
-        });
-        try { localStorage.setItem('appwrite_jwt', token); } catch {}
+        const created = await account.createJWT();
+        token = created?.jwt || null;
       } catch {}
+      await fetch(withBase('/api/auth/jwt-cookie'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt: token || undefined, session: (sess as any)?.$id || '' }),
+        credentials: 'include',
+      });
+      if (token) { try { localStorage.setItem('appwrite_jwt', token); } catch {} }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user'] });
@@ -115,7 +117,8 @@ export function useAuth() {
 
   const createUserByAdminMutation = useMutation({
     mutationFn: async ({ email, password, name, role }: { email: string, password: string, name: string, role: string }) => {
-      const response = await fetch('/api/users', {
+      const base = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
+      const response = await fetch(base + '/api/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

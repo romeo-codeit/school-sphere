@@ -57,15 +57,23 @@ const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
       process.env.PRODUCTION_URL || '',
       process.env.VITE_APP_URL || '',
+      // Allow Capacitor/Ionic and local WebView origins for mobile apps
+      'capacitor://localhost',
+      'http://localhost',
+      'http://127.0.0.1',
     ].filter(Boolean)
-  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000'];
+  : ['http://localhost:5000', 'http://localhost:5173', 'http://127.0.0.1:5000', 'capacitor://localhost', 'http://localhost', 'http://127.0.0.1'];
+
+const isCapacitorLikeOrigin = (origin?: string) => !!origin && (
+  origin.startsWith('capacitor://') || origin === 'http://localhost' || origin === 'http://127.0.0.1'
+);
 
 app.use(cors({
   origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
     // Allow requests with no origin (mobile apps, Postman, etc.)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.includes(origin)) {
+
+    if (allowedOrigins.includes(origin) || isCapacitorLikeOrigin(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -73,7 +81,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  // Include CSRF header and common headers to avoid preflight failures
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
 }));
 
 // Rate Limiting
