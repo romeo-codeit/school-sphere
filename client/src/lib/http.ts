@@ -1,12 +1,9 @@
-// Small helper to ensure API requests use the configured external base URL
-// in production (web + mobile) instead of the current origin.
-// Fallback: if no env is injected at build time (e.g., a misbuilt APK),
-// use the known Render API base to avoid blank base URLs in native.
-const DEFAULT_PROD_API = 'https://ohmanfoundations.onrender.com';
+// Helper to build absolute API URLs when a base is explicitly provided via env.
+// For unified deployment on Render (frontend + backend under one URL),
+// leave API_BASE empty so requests stay same-origin (relative 
+// /api/... paths will hit the Express server directly).
 const ENV_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || '';
-const MODE = (import.meta as any)?.env?.MODE || (import.meta as any)?.env?.NODE_ENV || '';
-const isProdLike = String(MODE).toLowerCase() === 'production';
-const API_BASE = ENV_BASE || (isProdLike ? DEFAULT_PROD_API : '');
+const API_BASE = ENV_BASE; // no hardcoded fallback in production; unified deploy prefers same-origin
 
 export function withBase(url: string): string {
   if (/^https?:\/\//i.test(url)) return url;
