@@ -53,8 +53,12 @@ app.use(compression({
 }));
 
 // CORS Configuration
+// In unified Render deployment, requests are same-origin and typically won't require CORS.
+// We still keep a conservative allowlist including the service's external URL for safety
+// if the browser sends an Origin header on same-origin POSTs.
 const allowedOrigins = process.env.NODE_ENV === 'production'
   ? [
+      process.env.RENDER_EXTERNAL_URL || '',
       process.env.PRODUCTION_URL || '',
       process.env.VITE_APP_URL || '',
       'capacitor://localhost',
