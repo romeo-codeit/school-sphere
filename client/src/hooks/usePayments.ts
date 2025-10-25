@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { ID } from 'appwrite';
 import { isOnline, queueRequest } from '@/lib/offline';
 import { apiRequest } from '@/lib/queryClient';
+import { withBase } from '@/lib/http';
 
 const PAGE_SIZE = 50;
 
@@ -34,7 +35,7 @@ export function usePayments(studentId?: string) {
     mutationFn: async (paymentData: any) => {
       if (!isOnline()) {
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/payments`,
+          url: withBase('/api/payments'),
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(paymentData),
@@ -66,7 +67,7 @@ export function usePayments(studentId?: string) {
     mutationFn: async ({ paymentId, paymentData }: { paymentId: string, paymentData: any }) => {
       if (!isOnline()) {
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/payments/${encodeURIComponent(paymentId)}`,
+          url: withBase(`/api/payments/${encodeURIComponent(paymentId)}`),
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(paymentData),
@@ -91,7 +92,7 @@ export function usePayments(studentId?: string) {
     mutationFn: async (paymentId: string) => {
       if (!isOnline()) {
         await queueRequest({
-          url: `${import.meta.env.BASE_URL || ''}api/payments/${encodeURIComponent(paymentId)}`,
+          url: withBase(`/api/payments/${encodeURIComponent(paymentId)}`),
           method: 'DELETE',
         });
         return { offline: true, local: true, paymentId };

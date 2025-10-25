@@ -39,6 +39,7 @@ import { useStudents } from '@/hooks/useStudents';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from '@tanstack/react-query';
 import { getAllClasses } from '@/lib/api/attendance';
+import { withBase } from '@/lib/http';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import ErrorBoundary from "@/components/ui/error-boundary";
@@ -261,7 +262,7 @@ export default function VideoConferencing() {
       (async () => {
         try {
           // Try to fetch a JWT from our server; if unavailable (204), continue anonymously
-          const resp = await fetch('/api/jitsi/token', {
+          const resp = await fetch(withBase('/api/jitsi/token'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ roomId: activeRoom.roomId }),

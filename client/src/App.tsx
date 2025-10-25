@@ -12,6 +12,7 @@ import { useState, lazy, Suspense } from "react";
 import { ThemeInitializer } from "@/hooks/useTheme";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SplashScreen } from "@/components/ui/splash-screen";
+import DebugOverlay from "@/components/DebugOverlay";
 import { OfflineBanner } from "@/components/ui/offline-banner";
 import { useEffect } from "react";
 import { configureAuthHeaderProvider, onNetworkChange, processQueueOnce, processAppwriteQueueOnce, processFileQueueOnce, processExamQueueOnce } from "@/lib/offline";
@@ -249,6 +250,7 @@ function App() {
           <TooltipProvider>
             <Toaster />
             <Router />
+            {(import.meta as any)?.env?.VITE_DEBUG_OVERLAY === 'true' ? <DebugOverlay /> : null}
           </TooltipProvider>
         </QueryBootstrap>
       </QueryClientProvider>
