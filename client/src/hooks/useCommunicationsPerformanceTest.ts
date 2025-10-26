@@ -1,6 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
-import { withBase } from '@/lib/http';
 
 export function useCommunicationsPerformanceTest() {
   const queryClient = useQueryClient();
@@ -16,7 +15,7 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['forum_threads'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/forum/threads'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch('/api/forum/threads', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -29,7 +28,7 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['conversations', 'user-id'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/conversations'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch('/api/conversations', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },
@@ -42,7 +41,7 @@ export function useCommunicationsPerformanceTest() {
       await queryClient.prefetchQuery({
         queryKey: ['users'],
         queryFn: async () => {
-          const res = await fetch(withBase('/api/users'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+          const res = await fetch('/api/users', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
           if (!res.ok) throw new Error('Failed');
           return res.json();
         },

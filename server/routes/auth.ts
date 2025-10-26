@@ -146,7 +146,7 @@ export const registerAuthRoutes = (app: any) => {
       const acc = new (require('node-appwrite').Account)(client);
       const { jwt } = await acc.createJWT();
       const isProd = app.get('env') === 'production';
-      res.cookie('aw_jwt', jwt, { httpOnly: true, secure: isProd, sameSite: isProd ? 'none' : 'lax', path: '/', maxAge: 24*60*60*1000 });
+      res.cookie('aw_jwt', jwt, { httpOnly: true, secure: isProd, sameSite: isProd ? 'strict' : 'lax', path: '/', maxAge: 24*60*60*1000 });
       return res.json({ ok: true });
     } catch (error) {
       logError('Refresh auth error', error);

@@ -6,7 +6,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
-import { withBase } from '@/lib/http';
 
 export default function AdminActivationCodesPage() {
   const { getJWT } = useAuth();
@@ -21,7 +20,7 @@ export default function AdminActivationCodesPage() {
   const fetchCodes = async () => {
     try {
       const jwt = await getJWT();
-  const res = await fetch(withBase('/api/admin/activation-codes'), { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
+      const res = await fetch('/api/admin/activation-codes', { headers: jwt ? { Authorization: `Bearer ${jwt}` } : {} });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.message || 'Failed to load codes');
       setCodes(Array.isArray(data.codes) ? data.codes : []);
@@ -37,7 +36,7 @@ export default function AdminActivationCodesPage() {
     try {
       const jwt = await getJWT();
       const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(withBase('/api/admin/activation-codes'), {
+      const res = await fetch('/api/admin/activation-codes', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

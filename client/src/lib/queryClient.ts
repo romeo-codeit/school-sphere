@@ -1,6 +1,16 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 import { account } from "./appwrite";
-import { withBase } from "@/lib/http";
+
+// Allow configuring an external API host in production (e.g., when the static
+// site is on Vercel and the API is hosted elsewhere). Defaults to same-origin.
+const API_BASE = (import.meta as any)?.env?.VITE_API_BASE_URL || "";
+
+function withBase(url: string): string {
+  // If url is absolute (http/https) or already includes the base, return as-is
+  if (/^https?:\/\//i.test(url)) return url;
+  if (API_BASE && url.startsWith("/")) return `${API_BASE}${url}`;
+  return url;
+}
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -14,23 +24,15 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  // Read JWT once per request; prefer localStorage value to avoid Appwrite calls in native
-  const getAuthToken = (): string | null => {
+  // Helper: ensure we have a fresh HttpOnly JWT cookie by minting a new Appwrite JWT
+  const refreshJwtCookie = async () => {
     try {
-      return (
-        localStorage.getItem('appwrite_jwt') ||
-        localStorage.getItem('appwrite_session') ||
-        null
-      );
-    } catch {
-      return null;
-    }
-  };
-  // Helper: prefer server-side refresh endpoint (works with session cookie set via jwt-cookie)
-  const refreshAuthCookies = async () => {
-    try {
-      await fetch(withBase('/api/auth/refresh'), {
+      const { jwt } = await account.createJWT();
+      try { localStorage.setItem('appwrite_jwt', jwt); } catch {}
+      await fetch(withBase('/api/auth/jwt-cookie'), {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jwt }),
         credentials: 'include',
       });
     } catch {}
@@ -38,28 +40,25 @@ export async function apiRequest(
   const csrf = (typeof document !== 'undefined')
     ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
     : '';
-  const jwt = getAuthToken();
   let res = await fetch(withBase(url), {
     method,
     headers: {
       ...(data ? { "Content-Type": "application/json" } : {}),
       ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-      ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
 
-  // Attempt automatic refresh via backend refresh endpoint
+  // Attempt automatic refresh of cookie if 401: first try minting a fresh JWT via Appwrite session
   if (res.status === 401) {
     try {
-      await refreshAuthCookies();
+      await refreshJwtCookie();
       res = await fetch(withBase(url), {
         method,
         headers: {
           ...(data ? { "Content-Type": "application/json" } : {}),
           ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-          ...(getAuthToken() ? { Authorization: `Bearer ${getAuthToken()}` } : {}),
         },
         body: data ? JSON.stringify(data) : undefined,
         credentials: 'include',
@@ -80,14 +79,10 @@ export const getQueryFn: <T>(options: {
     const csrf = (typeof document !== 'undefined')
       ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '')
       : '';
-    const jwt = (() => { try { return localStorage.getItem('appwrite_jwt'); } catch { return null; } })();
     const url = String(queryKey.join("/"));
     let res = await fetch(withBase(url), {
       credentials: "include",
-      headers: {
-        ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-        ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-      },
+      headers: csrf ? { 'X-CSRF-Token': csrf } : {},
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
@@ -107,10 +102,7 @@ export const getQueryFn: <T>(options: {
         });
         res = await fetch(withBase(url), {
           credentials: 'include',
-          headers: {
-            ...(csrf ? { 'X-CSRF-Token': csrf } : {}),
-            ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
-          },
+          headers: csrf ? { 'X-CSRF-Token': csrf } : {},
         });
       } catch {}
     }

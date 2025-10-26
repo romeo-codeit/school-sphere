@@ -1,53 +1,50 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '@/hooks/useAuth';
-import { withBase } from '@/lib/http';
 
 // Performance test hook for student profile
 export function useStudentProfilePerformanceTest(studentId?: string) {
   const queryClient = useQueryClient();
-  const { getJWT } = useAuth();
 
   const testPerformance = async () => {
     if (!studentId) return null;
 
     const startTime = performance.now();
 
-    // We don't call the full hook chain here; just simulate timings
+    // Test student data loading
     const studentStart = performance.now();
+    // Note: We can't directly test the useStudent hook here, but we can test the overall load
     const studentEnd = performance.now();
 
-    // Test grades loading via API
+    // Test grades loading
     const gradesStart = performance.now();
-    const jwt = await getJWT();
     await queryClient.prefetchQuery({
       queryKey: ['grades', studentId],
       queryFn: async () => {
-        const res = await fetch(withBase(`/api/grades?studentId=${encodeURIComponent(studentId)}`), {
-          headers: jwt ? { Authorization: `Bearer ${jwt}` } : {},
-          credentials: 'include',
-        });
-        if (!res.ok) throw new Error('Failed to fetch grades');
-        return res.json();
+        const response = await fetch(`/api/grades?studentId=${studentId}`);
+        if (!response.ok) throw new Error('Failed to fetch grades');
+        return response.json();
       },
-      staleTime: 0,
     });
     const gradesEnd = performance.now();
 
-    // Test attendance loading (placeholder)
+    // Test attendance loading
     const attendanceStart = performance.now();
     await queryClient.prefetchQuery({
       queryKey: ['attendanceRecords', studentId],
-      queryFn: async () => [],
-      staleTime: 0,
+      queryFn: async () => {
+        // This would use the actual attendance hook logic
+        return [];
+      },
     });
     const attendanceEnd = performance.now();
 
-    // Test payments loading (placeholder)
+    // Test payments loading
     const paymentsStart = performance.now();
     await queryClient.prefetchQuery({
       queryKey: ['payments', studentId],
-      queryFn: async () => [],
-      staleTime: 0,
+      queryFn: async () => {
+        // This would use the actual payments hook logic
+        return [];
+      },
     });
     const paymentsEnd = performance.now();
 
@@ -66,9 +63,13 @@ export function useStudentProfilePerformanceTest(studentId?: string) {
 
   const clearCache = () => {
     queryClient.clear();
+    window.location.reload();
   };
 
-  return { testPerformance, clearCache };
+  return {
+    testPerformance,
+    clearCache,
+  };
 }
 
 // Performance monitoring utility for student profile

@@ -179,8 +179,7 @@ export async function processQueueOnce() {
     for (const item of queue) {
       try {
         const extraHeaders = authHeaderProvider ? await authHeaderProvider() : {};
-        const finalUrl = /^https?:\/\//i.test(item.url) ? item.url : withBase(item.url);
-        const res = await fetch(finalUrl, {
+        const res = await fetch(item.url, {
           method: item.method,
           headers: { ...(item.headers || {}), ...(extraHeaders || {}) },
           body: item.body,
@@ -268,7 +267,6 @@ export async function processAppwriteQueueOnce() {
 
 // Exam autosave/submit queue processor (uses idbCache queue)
 import { getQueue as getIDBQueue, removeFromQueue as removeFromIDBQueue } from '@/lib/idbCache';
-import { withBase } from '@/lib/http';
 export async function processExamQueueOnce() {
   if (typeof navigator !== 'undefined' && !navigator.onLine) return;
   try {
@@ -276,7 +274,7 @@ export async function processExamQueueOnce() {
     for (const item of q) {
       try {
         if (item.type === 'autosave') {
-          await fetch(withBase('/api/cbt/attempts/autosave'), {
+          await fetch('/api/cbt/attempts/autosave', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(item.payload),
@@ -284,7 +282,7 @@ export async function processExamQueueOnce() {
           });
         } else if (item.type === 'submit') {
           const { attemptId, answers } = item.payload || {};
-          await fetch(withBase(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`), {
+          await fetch(`/api/cbt/attempts/${encodeURIComponent(attemptId)}/submit`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ answers }),

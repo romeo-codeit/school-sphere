@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { TopNav } from '@/components/top-nav';
 import { useToast } from '@/hooks/use-toast';
-import { withBase } from '@/lib/http';
 
 export default function ActivatePage() {
   const { user, role, getJWT } = useAuth();
@@ -27,7 +26,7 @@ export default function ActivatePage() {
     try {
       const jwt = await getJWT();
       const csrf = (typeof document !== 'undefined') ? (document.cookie.split('; ').find(c => c.startsWith('csrf_token='))?.split('=')[1] || '') : '';
-      const res = await fetch(withBase('/api/users/activate-subscription'), {
+      const res = await fetch('/api/users/activate-subscription', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
