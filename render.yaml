@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: school-sphere
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      # Add your Appwrite and app env vars in Render dashboard or uncomment below and set values
+      # - key: VITE_APPWRITE_ENDPOINT
+      #   value: https://cloud.appwrite.io/v1
+      # - key: VITE_APPWRITE_PROJECT_ID
+      #   value: "your-project-id"
+      # - key: PRODUCTION_URL
+      #   value: https://your-app.onrender.com
+      # - key: VITE_APP_URL
+      #   value: https://your-app.onrender.com
