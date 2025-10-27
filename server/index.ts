@@ -10,6 +10,7 @@ import { logger, logError, logInfo, Sentry } from "./logger";
 import { validateEnv } from "./utils/envCheck";
 
 const app = express();
+app.set('trust proxy', 1); // Trust first proxy (Render, Heroku, etc.)
 
 // Sentry Request Handler - must be first middleware
 if (process.env.SENTRY_DSN && process.env.NODE_ENV === 'production') {
