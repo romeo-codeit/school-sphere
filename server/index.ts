@@ -32,6 +32,7 @@ app.use(helmet({
       connectSrc: [
         "'self'",
         process.env.VITE_APPWRITE_ENDPOINT || "",
+        "https://fra.cloud.appwrite.io/v1",
         "https://cloud.appwrite.io",
         "https://meet.jit.si",
         "wss://meet.jit.si",
