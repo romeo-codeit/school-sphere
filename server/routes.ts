@@ -2262,9 +2262,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid role for self-registration' });
       }
 
-      // Create user account
-      const newUser = await users.create(ID.unique(), email, password, name);
-      await users.updatePrefs(newUser.$id, { role });
+  // Create user account (fix: add missing phone argument)
+  const newUser = await users.create(ID.unique(), email, undefined, password, name);
+  await users.updatePrefs(newUser.$id, { role });
 
       // Create user profile; auto-approve guests, require approval for others
       const profileData = {
