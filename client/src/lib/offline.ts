@@ -311,3 +311,12 @@ export function onNetworkChange(cb: (online: boolean) => void) {
 export function isOnline() {
   return typeof navigator === 'undefined' ? true : navigator.onLine;
 }
+
+export async function checkOnline() {
+  try {
+    const response = await fetch('/health', { method: 'HEAD', cache: 'no-cache' });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
