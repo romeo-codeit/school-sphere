@@ -91,11 +91,32 @@ function StudentParentDashboard() {
   if (isError) {
     return (
         <div className="p-6">
-            <Alert variant="destructive">
-                <TriangleAlert className="h-4 w-4" />
-                <AlertTitle>Error</AlertTitle>
-                <AlertDescription>
-                    There was a problem loading your dashboard. Please try again later.
+            <Alert className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+                <BookOpen className="h-4 w-4 text-amber-600" />
+                <AlertTitle className="text-amber-800">Oops! Study Break Time? 📚</AlertTitle>
+                <AlertDescription className="text-amber-700">
+                    We're having a little technical timeout, but don't worry! Your learning journey is just getting started.
+                    <br />
+                    <span className="font-medium">Quick tip:</span> While we fix this, why not review some exam strategies or check out our study resources?
+                    <div className="mt-3 flex gap-2">
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-300 text-amber-700 hover:bg-amber-100"
+                            onClick={() => window.location.reload()}
+                        >
+                            <RefreshCw className="mr-2 h-3 w-3" />
+                            Try Again
+                        </Button>
+                        <Button
+                            size="sm"
+                            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+                            onClick={() => setLocation('/resources')}
+                        >
+                            <BookOpen className="mr-2 h-3 w-3" />
+                            Browse Resources
+                        </Button>
+                    </div>
                 </AlertDescription>
             </Alert>
         </div>

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { auth } from '../middleware';
 import { logError, logInfo } from '../logger';
-import { Client, Users, ID, Databases, Query } from 'node-appwrite';
+import { Client, Users, ID, Databases, Query, Account } from 'node-appwrite';
 import { validateBody } from '../middleware/validation';
 import { userRegistrationSchema, subscriptionActivationSchema } from '../validation/schemas';
 import NotificationService from '../services/notificationService';
@@ -25,6 +25,8 @@ export const registerAuthRoutes = (app: any) => {
     try {
       const { email, password, name, role = 'student' } = req.body;
 
+      console.log('Registration attempt:', { email, name, role });
+
       if (!email || !password || !name) {
         return res.status(400).json({ message: 'Email, password, and name are required' });
       }
@@ -35,9 +37,17 @@ export const registerAuthRoutes = (app: any) => {
         return res.status(400).json({ message: 'Invalid role for self-registration' });
       }
 
+      console.log('Creating user account...');
       // Create user account (fix: add missing phone argument)
       const newUser = await users.create(ID.unique(), email, undefined, password, name);
+      console.log('User created:', newUser.$id);
+
+      // Auto-verify the user (no email verification required)
+      await users.updateEmailVerification(newUser.$id, true);
+      console.log('User auto-verified');
+
       await users.updatePrefs(newUser.$id, { role });
+      console.log('User prefs updated');
 
       // Create user profile; auto-approve guests, require approval for others
       const profileData = {
@@ -50,13 +60,16 @@ export const registerAuthRoutes = (app: any) => {
         subscriptionStatus: 'inactive',
       };
 
+      console.log('Creating user profile...');
       await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
+      console.log('User profile created');
 
       if (role !== 'guest') {
         try {
           await notificationService.notifyAccountPendingReview(newUser.$id, role);
+          console.log('User notified about pending review');
         } catch (notifyError) {
-          logError('Failed to send pending review notification', notifyError);
+          console.error('Failed to send pending review notification:', notifyError);
         }
 
         try {
@@ -69,17 +82,20 @@ export const registerAuthRoutes = (app: any) => {
             .map((doc: any) => doc.userId)
             .filter((id: unknown): id is string => typeof id === 'string' && id.length > 0);
 
+          console.log('Found admins:', adminIds.length);
+
           if (adminIds.length > 0) {
             await Promise.all(
               adminIds.map((adminId) =>
                 notificationService.notifyAdminNewUser(adminId, name, email, role).catch((error) => {
-                  logError('Failed to notify admin of new user', error);
+                  console.error('Failed to notify admin:', error);
                 })
               )
             );
+            console.log('Admins notified');
           }
         } catch (error) {
-          logError('Failed to load admin profiles for notification', error);
+          console.error('Failed to load admin profiles for notification:', error);
         }
       }
 
@@ -115,25 +131,33 @@ export const registerAuthRoutes = (app: any) => {
     try {
       const token = String((req.body || {}).jwt || '');
       const session = String((req.body || {}).session || '');
+      console.log('JWT cookie request:', { hasToken: !!token, hasSession: !!session });
+      
       if (!token && !session) return res.status(400).json({ message: 'Missing jwt or session' });
       // Very light validation; full validation occurs in auth middleware
       const csrfToken = Math.random().toString(36).slice(2);
       const isProd = app.get('env') === 'production';
       const sameSite: any = isProd ? 'none' : 'lax';
-      if (token) res.cookie('aw_jwt', token, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite,
-        path: '/',
-        maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      });
-      if (session) res.cookie('appwrite_session', session, {
-        httpOnly: true,
-        secure: isProd,
-        sameSite,
-        path: '/',
-        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-      });
+      if (token) {
+        console.log('Setting aw_jwt cookie');
+        res.cookie('aw_jwt', token, {
+          httpOnly: true,
+          secure: isProd,
+          sameSite,
+          path: '/',
+          maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        });
+      }
+      if (session) {
+        console.log('Setting appwrite_session cookie');
+        res.cookie('appwrite_session', session, {
+          httpOnly: true,
+          secure: isProd,
+          sameSite,
+          path: '/',
+          maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        });
+      }
       res.cookie('csrf_token', csrfToken, {
         httpOnly: false,
         secure: isProd,
@@ -141,8 +165,10 @@ export const registerAuthRoutes = (app: any) => {
         path: '/',
         maxAge: 24 * 60 * 60 * 1000,
       });
+      console.log('JWT cookie endpoint completed successfully');
       res.json({ ok: true, csrfToken });
     } catch (error) {
+      console.error('JWT cookie error:', error);
       logError('JWT cookie error', error);
       res.status(500).json({ message: 'Failed to set auth cookie' });
     }
@@ -182,18 +208,29 @@ export const registerAuthRoutes = (app: any) => {
     try {
       const sessionUser: any = (req as any).user;
       const userId = sessionUser?.$id;
-      if (!userId) return res.status(401).json({ message: 'Unauthorized' });
+      console.log('Getting user profile for userId:', userId);
+      
+      if (!userId) {
+        console.log('No userId found in session');
+        return res.status(401).json({ message: 'Unauthorized' });
+      }
 
+      console.log('Querying userProfiles collection with userId:', userId);
       const profile = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
         Query.equal('userId', userId),
         Query.limit(1)
       ]);
 
+      console.log('Profile query result:', { total: profile.total, documents: profile.documents.length });
+
       if (profile.documents.length === 0) {
+        console.log('No user profile found for userId:', userId);
         return res.status(404).json({ message: 'User profile not found' });
       }
 
       const userProfile = profile.documents[0];
+      console.log('Found user profile:', { id: userProfile.$id, userId: userProfile.userId, role: userProfile.role });
+      
       return res.json({
         id: sessionUser.$id,
         email: sessionUser.email,
@@ -202,6 +239,7 @@ export const registerAuthRoutes = (app: any) => {
         profile: userProfile
       });
     } catch (error) {
+      console.error('Error in /api/users/me:', error);
       logError('Failed to get user profile', error);
       res.status(500).json({ message: 'Failed to get user profile' });
     }
