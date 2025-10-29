@@ -100,9 +100,9 @@ export default function ExamTaking() {
   const lastSavedSnapshotRef = useRef<string | null>(null);
   const heartbeatLastSentRef = useRef<number>(0);
   const HEARTBEAT_INTERVAL_MS = 120000; // 2 minutes
-  const [showReference, setShowReference] = useState(false);
-  const [referenceHtml, setReferenceHtml] = useState<string | null>(null);
-  const [loadingReference, setLoadingReference] = useState(false);
+
+
+
   const SCHEMA_VERSION = 1;
   const { debounced: debouncedSave, cancel: cancelDebounced } = useDebouncedCallback(async (payload: any) => {
     await setMeta('answers_version', SCHEMA_VERSION);
