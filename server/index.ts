@@ -31,7 +31,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "https://meet.jit.si"],
       connectSrc: [
         "'self'",
-        "https://fra.cloud.appwrite.io/v1/",
+        "https://fra.cloud.appwrite.io/",
         "https://cloud.appwrite.io",
         "https://meet.jit.si",
         "wss://meet.jit.si",
