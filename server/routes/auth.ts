@@ -99,13 +99,22 @@ export const registerAuthRoutes = (app: any) => {
         status: role === 'guest' ? 'guest_created' : 'pending_approval'
       });
     } catch (error: any) {
-      logError('Registration error details', {
+      console.error('Registration error details:', {
         message: error.message,
         code: error.code,
         type: error.constructor.name,
         stack: error.stack
       });
-      res.status(500).json({ message: error.message || 'Failed to create account' });
+
+      // Handle specific Appwrite errors
+      let errorMessage = 'Failed to create account';
+      if (error.message?.includes('already exists')) {
+        errorMessage = 'An account with this email already exists';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      res.status(500).json({ message: errorMessage });
     }
   });
 
