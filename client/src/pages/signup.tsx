@@ -60,7 +60,6 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showPendingMessage, setShowPendingMessage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const [registerAsGuest, setRegisterAsGuest] = useState(() => {
@@ -138,14 +137,15 @@ export default function SignupPage() {
       } else {
         toast({
           title: "Account Created Successfully!",
-          description: "Your account is pending admin approval. You'll be notified once approved.",
+          description: "Your account is pending admin approval. Please sign in to check your status.",
           variant: "default",
         });
       }
 
-      // Don't redirect to dashboard - show pending approval message instead
-  setIsLoading(false);
-  setShowPendingMessage(!registerAsGuest);
+      // Redirect to login page after successful registration
+      setTimeout(() => {
+        setLocation('/login');
+      }, 2000);
     } catch (err: any) {
       const errorMessage = err.message || "Failed to create account. Please try again.";
       setError(errorMessage);
@@ -324,35 +324,6 @@ export default function SignupPage() {
                   </p>
                 </div>
               </form>
-            )}
-
-            {/* Pending Approval Message */}
-            {showPendingMessage && (
-              <div className="text-center space-y-6">
-                <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto">
-                  <AlertCircle className="text-yellow-600 text-2xl" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-yellow-800 mb-2">Account Pending Approval</h2>
-                  <p className="text-muted-foreground">
-                    Your account has been created successfully and is pending admin approval.
-                  </p>
-                </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                  <p className="text-sm text-yellow-800">
-                    <strong>What happens next?</strong><br />
-                    • An administrator will review your account<br />
-                    • You'll receive access once approved<br />
-                    • Check your email for updates
-                  </p>
-                </div>
-                <Button
-                  onClick={() => setLocation('/login')}
-                  className="w-full"
-                >
-                  Go to Login
-                </Button>
-              </div>
             )}
           </CardContent>
         </Card>
