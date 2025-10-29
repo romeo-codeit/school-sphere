@@ -426,9 +426,9 @@ export const registerCBTRoutes = (app: any) => {
       if (examId.startsWith('practice-')) {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
-        const yearParam = req.query.year ? String(req.query.year) : undefined;
-  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined;
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) as 'objective' | 'theory' | 'obj' : undefined;
+        const yearParam = req.query.year ? String(req.query.year)  : (type === 'jamb' ? 'obj' : undefined);
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined);
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) as 'objective' | 'theory' | 'obj'  : (type === 'jamb' ? 'obj' : undefined);
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
 
         if (selectedSubjects.length === 0) {
@@ -687,7 +687,7 @@ export const registerCBTRoutes = (app: any) => {
       // Calculate score
       let score = 0;
       let totalQuestions = 0;
-      let examTitle = 'Exam';
+      let examTitle = 'Exam';let examType = '';
       
       try {
         const exam = await databases.getDocument(APPWRITE_DATABASE_ID!, 'exams', attempt.examId);
@@ -835,8 +835,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) : undefined;
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory' or 'objective'
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : (type === 'jamb' ? 'obj' : undefined);
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       // Check cache first
@@ -881,7 +881,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to questions collection if no subjects found from exams
       if (subjectMap.size === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
         const canonicalSubject = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '').replace(/^english(language)?|useofenglish.*/,'english');
         const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
@@ -938,8 +938,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-  const rawPaperType = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory' or 'objective'
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) : undefined;
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory' or 'objective'
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : (type === 'jamb' ? 'obj' : undefined);
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
@@ -1031,7 +1031,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to scanning questions if no years found
       if (items.length === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
         const matchesType = (q: any): boolean => {
           const qt = String(q?.type || q?.examType || '').toLowerCase();
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
@@ -1086,7 +1086,7 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      const paperTypeParam = req.query.paperType ? String(req.query.paperType) : undefined; // 'obj' or 'theory'
+      const paperTypeParam = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory'
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
@@ -1168,7 +1168,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to questions if empty
       if (availability.length === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase()) : undefined;
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
         const matchesType = (q: any): boolean => {
           const qt = String(q?.type || q?.examType || '').toLowerCase();
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
