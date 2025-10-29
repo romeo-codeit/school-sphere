@@ -2252,6 +2252,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { email, password, name, role = 'student' } = req.body;
 
+      console.log('Registration attempt:', { email, name, role }); // Debug log
+
       if (!email || !password || !name) {
         return res.status(400).json({ message: 'Email, password, and name are required' });
       }
@@ -2262,9 +2264,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid role for self-registration' });
       }
 
-  // Create user account (fix: add missing phone argument)
-  const newUser = await users.create(ID.unique(), email, undefined, password, name);
-  await users.updatePrefs(newUser.$id, { role });
+      console.log('Creating user account...'); // Debug log
+      // Create user account (fix: add missing phone argument)
+      const newUser = await users.create(ID.unique(), email, undefined, password, name);
+      console.log('User created:', newUser.$id); // Debug log
+
+      await users.updatePrefs(newUser.$id, { role });
+      console.log('User prefs updated'); // Debug log
 
       // Create user profile; auto-approve guests, require approval for others
       const profileData = {
@@ -2277,7 +2283,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subscriptionStatus: 'inactive',
       };
 
+      console.log('Creating user profile...'); // Debug log
       await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
+      console.log('User profile created'); // Debug log
 
       res.json({
         message: role === 'guest'
@@ -2287,12 +2295,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: role === 'guest' ? 'guest_created' : 'pending_approval'
       });
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error('Registration error details:', {
+        message: error.message,
+        code: error.code,
+        type: error.constructor.name,
+        stack: error.stack
+      });
       res.status(500).json({ message: error.message || 'Failed to create account' });
     }
-  });
-
-  // Get current user's subscription status
+  });  // Get current user's subscription status
   app.get('/api/users/subscription', auth, async (req, res) => {
     try {
       const sessionUser: any = (req as any).user;
