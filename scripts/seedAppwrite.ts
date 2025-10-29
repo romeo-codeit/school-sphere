@@ -236,7 +236,11 @@ async function ensureAllCollections() {
   // Other app collections referenced by the app (expanded to full set)
   await ensureCollection('userProfiles', 'User Profiles');
   await safeCreateStringAttribute('userProfiles', 'userId', 255, true);
+  await safeCreateStringAttribute('userProfiles', 'firstName', 100, false);
+  await safeCreateStringAttribute('userProfiles', 'lastName', 100, false);
+  await safeCreateStringAttribute('userProfiles', 'email', 255, false);
   await safeCreateStringAttribute('userProfiles', 'role', 50, false);
+  await safeCreateStringAttribute('userProfiles', 'accountStatus', 50, false);
   await safeCreateStringAttribute('userProfiles', 'subscriptionStatus', 50, false);
   await safeCreateDatetimeAttribute('userProfiles', 'subscriptionExpiry', false);
   await delay(500);
