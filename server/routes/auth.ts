@@ -25,6 +25,8 @@ export const registerAuthRoutes = (app: any) => {
     try {
       const { email, password, name, role = 'student' } = req.body;
 
+      console.log('Registration attempt (auth.ts):', { email, name, role }); // Debug log
+
       if (!email || !password || !name) {
         return res.status(400).json({ message: 'Email, password, and name are required' });
       }
@@ -35,9 +37,13 @@ export const registerAuthRoutes = (app: any) => {
         return res.status(400).json({ message: 'Invalid role for self-registration' });
       }
 
+      console.log('Creating user account (auth.ts)...'); // Debug log
       // Create user account (fix: add missing phone argument)
       const newUser = await users.create(ID.unique(), email, undefined, password, name);
+      console.log('User created (auth.ts):', newUser.$id); // Debug log
+
       await users.updatePrefs(newUser.$id, { role });
+      console.log('User prefs updated (auth.ts)'); // Debug log
 
       // Create user profile; auto-approve guests, require approval for others
       const profileData = {
@@ -50,7 +56,9 @@ export const registerAuthRoutes = (app: any) => {
         subscriptionStatus: 'inactive',
       };
 
+      console.log('Creating user profile (auth.ts)...'); // Debug log
       await databases.createDocument(APPWRITE_DATABASE_ID!, 'userProfiles', ID.unique(), profileData);
+      console.log('User profile created (auth.ts)'); // Debug log
 
       if (role !== 'guest') {
         try {
@@ -91,8 +99,13 @@ export const registerAuthRoutes = (app: any) => {
         status: role === 'guest' ? 'guest_created' : 'pending_approval'
       });
     } catch (error: any) {
-      logError('Registration error', error);
-      res.status(500).json({ message: 'Failed to create account' });
+      logError('Registration error details', {
+        message: error.message,
+        code: error.code,
+        type: error.constructor.name,
+        stack: error.stack
+      });
+      res.status(500).json({ message: error.message || 'Failed to create account' });
     }
   });
 
