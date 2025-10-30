@@ -82,25 +82,69 @@ export default function ExamResultsPage() {
             ) : (
               <div className="space-y-3">
                 {data?.perQuestion?.length ? (
-                  data.perQuestion.map((q: any, idx: number) => (
+                  data.perQuestion.map((q: any, idx: number) => {
+                    // Handle different scoring types
+                    const getScoreIcon = (isCorrect: any) => {
+                      if (typeof isCorrect === 'number') {
+                        // Theory question with partial scoring
+                        if (isCorrect >= 0.8) return <CheckCircle2 className="w-4 h-4 text-green-600" />;
+                        if (isCorrect >= 0.5) return <CheckCircle2 className="w-4 h-4 text-yellow-600" />;
+                        if (isCorrect > 0) return <XCircle className="w-4 h-4 text-orange-500" />;
+                        return <XCircle className="w-4 h-4 text-destructive" />;
+                      }
+                      // Objective question (boolean)
+                      return isCorrect ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <XCircle className="w-4 h-4 text-destructive" />
+                      );
+                    };
+                    
+                    const getScoreText = (isCorrect: any) => {
+                      if (typeof isCorrect === 'number') {
+                        return `${Math.round(isCorrect * 100)}%`;
+                      }
+                      return isCorrect ? 'Correct' : 'Incorrect';
+                    };
+                    
+                    const getBadgeVariant = (isCorrect: any) => {
+                      if (typeof isCorrect === 'number') {
+                        if (isCorrect >= 0.8) return 'secondary';
+                        if (isCorrect >= 0.5) return 'secondary';
+                        return 'destructive';
+                      }
+                      return isCorrect ? 'secondary' : 'destructive';
+                    };
+
+                    return (
                     <div key={idx} className="flex items-center justify-between p-3 border rounded">
                       <div className="flex items-center gap-3">
-                        {q.isCorrect ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                        ) : (
-                          <XCircle className="w-4 h-4 text-destructive" />
-                        )}
+                        {getScoreIcon(q.isCorrect)}
                         <div className="text-sm">
                           <div className="font-medium">Question {q.questionNumber ?? idx + 1}</div>
                           <div className="text-xs text-muted-foreground">
-                            Your answer: <Badge variant={q.isCorrect ? 'secondary' : 'destructive'}>{String(q.selected ?? '—')}</Badge>
+                            Your answer: <Badge variant={getBadgeVariant(q.isCorrect)}>{String(q.userAnswer ?? '—')}</Badge>
                             <span className="mx-2">•</span>
-                            Correct: <Badge variant="secondary">{String(q.correctAnswer)}</Badge>
+                            Score: <Badge variant={getBadgeVariant(q.isCorrect)}>{getScoreText(q.isCorrect)}</Badge>
+                            {q.questionType === 'theory' && (
+                              <>
+                                <span className="mx-2">•</span>
+                                <Badge variant="outline">Theory</Badge>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
+                      <div className="text-right">
+                        {q.fetchedCorrectAnswer && (
+                          <div className="text-xs text-muted-foreground">
+                            Reference: {q.fetchedCorrectAnswer}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="text-sm text-muted-foreground">No question details available.</div>
                 )}

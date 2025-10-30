@@ -284,6 +284,58 @@ export const registerAdminRoutes = (app: any) => {
     }
   });
 
+  app.post('/api/admin/change-role/:userId', auth, async (req: Request, res: Response) => {
+    try {
+      const sessionUser: any = (req as any).user;
+      if (sessionUser?.prefs?.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
+
+      const userId = req.params.userId;
+      const { role } = (req.body || {}) as { role?: string };
+      if (!userId) return res.status(400).json({ message: 'User ID is required' });
+      if (!role) return res.status(400).json({ message: 'Role is required' });
+
+      // Get user profile
+      const profiles = await databases.listDocuments(APPWRITE_DATABASE_ID!, 'userProfiles', [
+        Query.equal('userId', userId),
+        Query.limit(1)
+      ]);
+
+      if (profiles.documents.length === 0) {
+        return res.status(404).json({ message: 'User profile not found' });
+      }
+
+      const profileDoc: any = profiles.documents[0];
+
+      // Update user profile role
+      await databases.updateDocument(APPWRITE_DATABASE_ID!, 'userProfiles', profileDoc.$id, {
+        role: role,
+        roleChangedAt: new Date().toISOString(),
+        roleChangedBy: sessionUser.$id,
+      });
+
+      // Update user preferences in Appwrite
+      try {
+        await users.updatePrefs(userId, { role: role });
+      } catch (error) {
+        logError('Failed to update user role preferences', error);
+      }
+
+      // Send notification
+      try {
+        await notificationService.notifyRoleChanged(userId, role);
+      } catch (error) {
+        logError('Failed to send role change notification', error);
+      }
+
+      res.json({ message: 'User role changed successfully' });
+    } catch (error) {
+      logError('Error changing user role', error);
+      res.status(500).json({ message: 'Failed to change user role' });
+    }
+  });
+
   // Admin health check
   app.get('/api/admin/health', auth, async (req: Request, res: Response) => {
     try {

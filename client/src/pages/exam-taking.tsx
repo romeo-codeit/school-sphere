@@ -318,25 +318,6 @@ export default function ExamTaking() {
     await handleSubmitConfirmed();
   };
 
-  const fetchReference = async (url?: string) => {
-    if (!url) return;
-    setLoadingReference(true);
-    setShowReference(true);
-    try {
-      const res = await fetch(`/api/answers/fetch?u=${encodeURIComponent(url)}`, { credentials: 'include' });
-      const data = await res.json();
-      if (res.ok && data?.html) {
-        setReferenceHtml(data.html);
-      } else {
-        setReferenceHtml('<div class="text-sm text-muted-foreground">Reference not available.</div>');
-      }
-    } catch {
-      setReferenceHtml('<div class="text-sm text-muted-foreground">Failed to load reference.</div>');
-    } finally {
-      setLoadingReference(false);
-    }
-  };
-
   const handleSubmitConfirmed = async () => {
     if (!attemptId || !exam) return;
 
@@ -908,23 +889,6 @@ export default function ExamTaking() {
                       </div>
                     )}
 
-                    {/* Answer reference: inline viewer - Mobile Optimized */}
-                    {currentFilteredQuestion.answerUrl && (
-                      <div className="pt-2 flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fetchReference(currentFilteredQuestion.answerUrl)}
-                          disabled={loadingReference}
-                          className="inline-flex items-center gap-1 sm:gap-2 text-xs sm:text-sm h-7 sm:h-8 touch-manipulation"
-                        >
-                          {loadingReference ? <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" /> : <BookOpen className="w-3 h-3 sm:w-4 sm:h-4" />}
-                          <span className="hidden sm:inline">{showReference ? 'Reload Reference' : 'View Reference'}</span>
-                          <span className="sm:hidden">{showReference ? 'Reload' : 'Reference'}</span>
-                        </Button>
-                      </div>
-                    )}
-
                     {/* Navigation Buttons - Mobile Full Width */}
                     <div className="flex items-center justify-between pt-3 sm:pt-4 border-t gap-2 sm:gap-3">
                       <Button
@@ -968,26 +932,6 @@ export default function ExamTaking() {
               </CardContent>
             </Card>
           </div>
-          {/* Inline Reference Panel - Mobile Optimized */}
-          {showReference && (
-            <div className="mt-3 sm:mt-4">
-              <Card className="shadow-sm">
-                <CardHeader className="p-3 sm:p-4 md:p-6">
-                  <CardTitle className="text-sm sm:text-base">Reference Answer</CardTitle>
-                </CardHeader>
-                <CardContent className="p-3 sm:p-4 md:p-6">
-                  {loadingReference ? (
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
-                      <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 animate-spin" />
-                      Loading reference...
-                    </div>
-                  ) : (
-                    <div className="prose prose-sm max-w-none dark:prose-invert overflow-auto modern-scrollbar text-xs sm:text-sm" dangerouslySetInnerHTML={{ __html: referenceHtml || '<div class="text-sm text-muted-foreground">No reference content.</div>' }} />
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
         </div>
       </div>
 

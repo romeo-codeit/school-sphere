@@ -426,9 +426,9 @@ export const registerCBTRoutes = (app: any) => {
       if (examId.startsWith('practice-')) {
         const type = examId.replace('practice-', '');
         const subjects = req.query.subjects ? String(req.query.subjects).split(',') : [];
-        const yearParam = req.query.year ? String(req.query.year)  : (type === 'jamb' ? 'obj' : undefined);
-  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined);
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) as 'objective' | 'theory' | 'obj'  : (type === 'jamb' ? 'obj' : undefined);
+        const yearParam = req.query.year ? String(req.query.year)  : 'obj';
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : 'obj'; // Default to objective for all practice exams
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType) as 'objective' | 'theory' | 'obj'  : 'obj';
         const selectedSubjects = subjects.map((s) => s.trim()).filter(Boolean);
 
         if (selectedSubjects.length === 0) {
@@ -687,6 +687,8 @@ export const registerCBTRoutes = (app: any) => {
       // Calculate score
       let score = 0;
       let totalQuestions = 0;
+      let objectiveQuestions = 0;
+      let theoryQuestions = 0;
       let examTitle = 'Exam';let examType = '';
       
       try {
@@ -695,11 +697,69 @@ export const registerCBTRoutes = (app: any) => {
         const questions = Array.isArray(exam.questions) ? exam.questions : [];
         
         totalQuestions = questions.length;
+        // Reset counters
+        objectiveQuestions = 0;
+        theoryQuestions = 0;
+        
+        // Helper to determine question type
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
         
         for (const question of questions) {
-          const userAnswer = (answers as any)[question.id] || (answers as any)[question.$id];
-          if (userAnswer === question.correctAnswer) {
-            score++;
+          const questionType = resolveQuestionPaperType(question);
+          if (questionType === 'obj') {
+            objectiveQuestions++;
+            const userAnswer = (answers as any)[question.id] || (answers as any)[question.$id];
+            if (userAnswer === question.correctAnswer) {
+              score++;
+            }
+          } else {
+            theoryQuestions++;
+            // Theory questions: Use keyword matching for practice exams
+            const userAnswer = String((answers as any)[question.id] || (answers as any)[question.$id] || '').toLowerCase();
+            const correctAnswer = String(question.correctAnswer || '').toLowerCase();
+            
+            if (!userAnswer.trim()) {
+              // No answer provided - 0 points
+              continue;
+            }
+            
+            // Extract key terms from correct answer (words longer than 3 chars)
+            const keyTerms = correctAnswer.split(/\s+/)
+              .filter(word => word.length > 3)
+              .filter(word => !['that', 'this', 'with', 'from', 'they', 'have', 'been', 'were', 'will', 'would', 'could', 'should'].includes(word));
+            
+            if (keyTerms.length === 0) {
+              // No meaningful key terms - give 50% for attempting
+              score += 0.5;
+              continue;
+            }
+            
+            // Check how many key terms are present in user answer
+            const matchedTerms = keyTerms.filter(term => userAnswer.includes(term));
+            const matchRatio = matchedTerms.length / keyTerms.length;
+            
+            // Award points based on keyword matching
+            if (matchRatio >= 0.8) {
+              score += 1; // Full marks for 80%+ keyword match
+            } else if (matchRatio >= 0.5) {
+              score += 0.75; // 75% for 50%+ keyword match
+            } else if (matchRatio >= 0.3) {
+              score += 0.5; // 50% for 30%+ keyword match
+            } else if (matchedTerms.length > 0) {
+              score += 0.25; // 25% for some keywords present
+            }
+            // 0 points if no keywords match
           }
         }
       } catch (e) {
@@ -708,7 +768,7 @@ export const registerCBTRoutes = (app: any) => {
         totalQuestions = 0;
       }
 
-      const percentage = totalQuestions > 0 ? Math.round((score / totalQuestions) * 100) : 0;
+      const percentage = objectiveQuestions > 0 ? Math.round((score / objectiveQuestions) * 100) : 0;
       const passed = percentage >= 50; // 50% passing grade
 
       // Update attempt using split collections
@@ -718,6 +778,8 @@ export const registerCBTRoutes = (app: any) => {
         answers: storedAnswers,
         score,
         totalQuestions,
+        objectiveQuestions,
+        theoryQuestions,
         correctAnswers: score, // Assuming score = correct answers for now
         timeSpent: attempt.timeSpent || 0
       };
@@ -835,8 +897,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/subjects/available', validateQuery(subjectQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory' or 'objective'
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : (type === 'jamb' ? 'obj' : undefined);
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : 'obj'; // Default to objective for all practice exams
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : 'obj';
       if (!type) return res.status(400).json({ message: 'type is required' });
 
       // Check cache first
@@ -881,7 +943,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to questions collection if no subjects found from exams
       if (subjectMap.size === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : 'obj';
         const canonicalSubject = (s: string) => normalize(s).replace(/[^a-z0-9]/g, '').replace(/^english(language)?|useofenglish.*/,'english');
         const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
@@ -938,8 +1000,8 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/years/available', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory' or 'objective'
-  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : (type === 'jamb' ? 'obj' : undefined);
+  const rawPaperType = req.query.paperType ? String(req.query.paperType)  : 'obj'; // Default to objective for all practice exams
+  const paperTypeParam = rawPaperType ? ((rawPaperType === 'objective' || rawPaperType === 'obj') ? 'obj' : rawPaperType)  : 'obj';
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
@@ -1031,7 +1093,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to scanning questions if no years found
       if (items.length === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : 'obj';
         const matchesType = (q: any): boolean => {
           const qt = String(q?.type || q?.examType || '').toLowerCase();
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
@@ -1086,7 +1148,7 @@ export const registerCBTRoutes = (app: any) => {
   app.get('/api/cbt/years/availability', validateQuery(yearQuerySchema), async (req: Request, res: Response) => {
     try {
       const type = String(req.query.type || '').toLowerCase();
-      const paperTypeParam = req.query.paperType ? String(req.query.paperType)  : (type === 'jamb' ? 'obj' : undefined); // 'obj' or 'theory'
+      const paperTypeParam = req.query.paperType ? String(req.query.paperType)  : 'obj'; // Default to objective for all practice exams
       const subjectParamsRaw = ([] as string[])
         .concat((req.query.subject as any) || [])
         .concat(req.query.subjects ? String(req.query.subjects).split(',') : []);
@@ -1168,7 +1230,7 @@ export const registerCBTRoutes = (app: any) => {
 
       // Fallback to questions if empty
       if (availability.length === 0) {
-        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : (type === 'jamb' ? 'obj' : undefined);
+        const requestedPaperType = paperTypeParam ? (paperTypeParam.toLowerCase() === 'objective' ? 'obj' : paperTypeParam.toLowerCase())  : 'obj';
         const matchesType = (q: any): boolean => {
           const qt = String(q?.type || q?.examType || '').toLowerCase();
           const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '').toLowerCase();
@@ -1347,7 +1409,55 @@ export const registerCBTRoutes = (app: any) => {
       // Build detailed results
       const detailedResults = questions.map((question: any, index: number) => {
         const userAnswer = answersObj[question.id] || answersObj[question.$id];
-        const isCorrect = userAnswer === question.correctAnswer;
+        
+        // Determine question type for proper scoring
+        const resolveQuestionPaperType = (q: any): 'obj' | 'theory' => {
+          const ansUrl = String(q?.answer_url ?? q?.answerUrl ?? '');
+          if (ansUrl.includes('type=theory')) return 'theory';
+          if (ansUrl.includes('type=obj') || ansUrl.includes('type=objective')) return 'obj';
+          const raw = (q?.paper_type ?? q?.paperType ?? '') as string;
+          const n = String(raw || '').toLowerCase();
+          if (n === 'objective' || n === 'obj') return 'obj';
+          if (n === 'theory') return 'theory';
+          const opts = (q?.options ?? {}) as any;
+          const hasOptions = Array.isArray(opts) ? opts.length > 0 : (opts && typeof opts === 'object' && Object.keys(opts).length > 0);
+          return hasOptions ? 'obj' : 'theory';
+        };
+        
+        const questionType = resolveQuestionPaperType(question);
+        let isCorrect: boolean | 'manual_grading' | number;
+        
+        if (questionType === 'theory') {
+          // Theory questions: Use keyword matching scoring
+          const theoryUserAnswer = String(userAnswer || '').toLowerCase();
+          const correctAnswer = String(question.correctAnswer || '').toLowerCase();
+          
+          if (!theoryUserAnswer.trim()) {
+            isCorrect = 0; // No answer = 0 points
+          } else {
+            // Extract key terms from correct answer
+            const keyTerms = correctAnswer.split(/\s+/)
+              .filter(word => word.length > 3)
+              .filter(word => !['that', 'this', 'with', 'from', 'they', 'have', 'been', 'were', 'will', 'would', 'could', 'should'].includes(word));
+            
+            if (keyTerms.length === 0) {
+              isCorrect = 0.5; // 50% for attempting when no key terms
+            } else {
+              // Check keyword matching
+              const matchedTerms = keyTerms.filter(term => theoryUserAnswer.includes(term));
+              const matchRatio = matchedTerms.length / keyTerms.length;
+              
+              if (matchRatio >= 0.8) isCorrect = 1;
+              else if (matchRatio >= 0.5) isCorrect = 0.75;
+              else if (matchRatio >= 0.3) isCorrect = 0.5;
+              else if (matchedTerms.length > 0) isCorrect = 0.25;
+              else isCorrect = 0;
+            }
+          }
+        } else {
+          // Objective questions can be auto-scored
+          isCorrect = userAnswer === question.correctAnswer;
+        }
         
         return {
           questionNumber: index + 1,
@@ -1356,6 +1466,7 @@ export const registerCBTRoutes = (app: any) => {
           correctAnswer: question.correctAnswer,
           userAnswer: userAnswer,
           isCorrect: isCorrect,
+          questionType: questionType,
           explanation: question.explanation || ''
         };
       });
@@ -1382,6 +1493,8 @@ export const registerCBTRoutes = (app: any) => {
           status: attempt.status,
           score: attempt.score,
           totalQuestions: attempt.totalQuestions,
+          objectiveQuestions: attempt.objectiveQuestions || 0,
+          theoryQuestions: attempt.theoryQuestions || 0,
           percentage: attempt.percentage,
           passed: attempt.passed,
           startedAt: attempt.startedAt,

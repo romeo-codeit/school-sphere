@@ -588,6 +588,18 @@ export class NotificationService {
     });
   }
 
+  async notifyRoleChanged(userId: string, newRole: string): Promise<string> {
+    const message = `Your account role has been changed to: ${newRole}. Please sign in again to access your new permissions.`;
+
+    return this.createNotification({
+      userId,
+      message,
+      link: '/login',
+      type: 'account',
+      data: { status: 'role_changed', newRole },
+    });
+  }
+
   /**
    * SUBSCRIPTION/ACTIVATION NOTIFICATIONS
    */

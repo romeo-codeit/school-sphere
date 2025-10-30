@@ -1,7 +1,7 @@
 import { TopNav } from "@/components/top-nav";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { BookOpen, TrendingUp, CreditCard, Calendar, TriangleAlert } from "lucide-react";
+import { BookOpen, TrendingUp, CreditCard, Calendar, TriangleAlert, RefreshCw } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useRole } from "@/hooks/useRole";
 import { useLocation } from "wouter";

@@ -183,8 +183,7 @@ export default function SignupPage() {
                 </label>
               </div>
             {/* Registration Form */}
-            {!showPendingMessage && (
-              <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5">
                 {/* Name Field */}
                 <div className="space-y-2">
                   <Label htmlFor="name" className="text-sm font-medium flex items-center gap-2">
@@ -194,7 +193,7 @@ export default function SignupPage() {
                   <Input
                     id="name"
                     type="text"
-                    placeholder="John Doe"
+                    placeholder="Emeka Chukwu"
                     required
                     autoComplete="name"
                     autoFocus
@@ -213,7 +212,7 @@ export default function SignupPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="john@example.com"
+                    placeholder="emeka@email.com"
                     required
                     autoComplete="email"
                     value={email}
@@ -324,7 +323,6 @@ export default function SignupPage() {
                   </p>
                 </div>
               </form>
-            )}
           </CardContent>
         </Card>
       </div>

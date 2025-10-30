@@ -29,24 +29,26 @@ export function AccountApprovalManager() {
   const { data: profiles, isLoading: profilesLoading } = useUserProfiles();
   const { toast } = useToast();
   const { getJWT } = useAuth();
-  const [pendingAccounts, setPendingAccounts] = useState<PendingAccount[]>([]);
+  const [allAccounts, setAllAccounts] = useState<PendingAccount[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<PendingAccount | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [selectedRole, setSelectedRole] = useState("student");
+  const [dialogMode, setDialogMode] = useState<'approve' | 'change-role' | 'reject'>('approve');
 
   const isLoading = usersLoading || profilesLoading;
 
   useEffect(() => {
     if (profiles) {
-      const pending = profiles.filter((profile: any) => profile.accountStatus === 'pending') as unknown as PendingAccount[];
-      setPendingAccounts(pending);
+      // Show all user profiles, not just pending ones
+      const all = profiles.filter((profile: any) => profile.accountStatus !== 'rejected') as unknown as PendingAccount[];
+      setAllAccounts(all);
     }
   }, [profiles]);
 
   const handleApproveAccount = async (account: PendingAccount) => {
-    setIsApproving(true);
+    setIsProcessing(true);
     try {
       const jwt = await getJWT();
       await fetch(`/api/admin/approve-account/${account.userId}`, {
@@ -59,7 +61,11 @@ export function AccountApprovalManager() {
       });
 
       // Update local state
-      setPendingAccounts(prev => prev.filter(acc => acc.userId !== account.userId));
+      setAllAccounts(prev => prev.map(acc =>
+        acc.userId === account.userId
+          ? { ...acc, accountStatus: 'approved', role: selectedRole }
+          : acc
+      ));
 
       toast({
         title: "Account Approved",
@@ -76,7 +82,46 @@ export function AccountApprovalManager() {
         variant: "destructive",
       });
     } finally {
-      setIsApproving(false);
+      setIsProcessing(false);
+    }
+  };
+
+  const handleChangeRole = async (account: PendingAccount) => {
+    setIsProcessing(true);
+    try {
+      const jwt = await getJWT();
+      await fetch(`/api/admin/change-role/${account.userId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(jwt ? { Authorization: `Bearer ${jwt}` } : {}),
+        },
+        body: JSON.stringify({ role: selectedRole }),
+      });
+
+      // Update local state
+      setAllAccounts(prev => prev.map(acc =>
+        acc.userId === account.userId
+          ? { ...acc, role: selectedRole }
+          : acc
+      ));
+
+      toast({
+        title: "Role Changed",
+        description: `${account.firstName} ${account.lastName}'s role has been changed to ${selectedRole}`,
+      });
+
+      setIsDialogOpen(false);
+      setSelectedAccount(null);
+      setSelectedRole("student");
+    } catch (error) {
+      toast({
+        title: "Role Change Failed",
+        description: "Failed to change user role",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -90,7 +135,7 @@ export function AccountApprovalManager() {
       return;
     }
 
-    setIsApproving(true);
+    setIsProcessing(true);
     try {
       const jwt = await getJWT();
       await fetch(`/api/admin/reject-account/${account.userId}`, {
@@ -103,7 +148,7 @@ export function AccountApprovalManager() {
       });
 
       // Update local state
-      setPendingAccounts(prev => prev.filter(acc => acc.userId !== account.userId));
+      setAllAccounts(prev => prev.filter((acc: PendingAccount) => acc.userId !== account.userId));
 
       toast({
         title: "Account Rejected",
@@ -120,7 +165,7 @@ export function AccountApprovalManager() {
         variant: "destructive",
       });
     } finally {
-      setIsApproving(false);
+      setIsProcessing(false);
     }
   };
 
@@ -145,7 +190,7 @@ export function AccountApprovalManager() {
     <>
       <Card className="h-full">
         <CardHeader>
-          <CardTitle className="text-lg">Account Approvals</CardTitle>
+          <CardTitle className="text-lg">User Account Management</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Pending Accounts Count */}
@@ -157,54 +202,80 @@ export function AccountApprovalManager() {
                 <p className="text-sm text-blue-700 dark:text-blue-300">Accounts waiting for review</p>
               </div>
             </div>
-            <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">{pendingAccounts.length}</span>
+            <span className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+              {allAccounts.filter(acc => acc.accountStatus === 'pending').length}
+            </span>
           </div>
 
-          {/* Pending Accounts List */}
+          {/* All Accounts List */}
           <div className="space-y-3 max-h-96 overflow-y-auto modern-scrollbar">
-            {pendingAccounts.length === 0 ? (
+            {allAccounts.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
-                <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No pending accounts to review</p>
+                <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No user accounts found</p>
               </div>
             ) : (
-              pendingAccounts.map((account) => (
+              allAccounts.map((account) => (
                 <div key={account.userId} className="flex items-center justify-between p-4 border rounded-lg">
                   <div className="flex-1">
                     <p className="font-medium text-sm">
                       {account.firstName} {account.lastName}
                     </p>
                     <p className="text-xs text-muted-foreground">{account.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Applied as: <Badge variant="outline">{account.role}</Badge>
-                    </p>
+                    <div className="flex gap-2 mt-1">
+                      <Badge variant={account.accountStatus === 'pending' ? 'secondary' : 'primary'}>
+                        {account.accountStatus}
+                      </Badge>
+                      <Badge variant="outline">{account.role}</Badge>
+                    </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedAccount(account);
-                        setSelectedRole(account.role);
-                        setIsDialogOpen(true);
-                      }}
-                      className="text-green-700 border-green-300 hover:bg-green-50"
-                    >
-                      <UserCheck className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedAccount(account);
-                        setIsDialogOpen(true);
-                      }}
-                      className="text-red-700 border-red-300 hover:bg-red-50"
-                    >
-                      <UserX className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
+                    {account.accountStatus === 'pending' ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setSelectedRole(account.role);
+                            setDialogMode('approve');
+                            setIsDialogOpen(true);
+                          }}
+                          className="text-green-700 border-green-300 hover:bg-green-50"
+                        >
+                          <UserCheck className="h-4 w-4 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedAccount(account);
+                            setDialogMode('reject');
+                            setIsDialogOpen(true);
+                          }}
+                          className="text-red-700 border-red-300 hover:bg-red-50"
+                        >
+                          <UserX className="h-4 w-4 mr-1" />
+                          Reject
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedAccount(account);
+                          setSelectedRole(account.role);
+                          setDialogMode('change-role');
+                          setIsDialogOpen(true);
+                        }}
+                        className="text-blue-700 border-blue-300 hover:bg-blue-50"
+                      >
+                        <Users className="h-4 w-4 mr-1" />
+                        Change Role
+                      </Button>
+                    )}
                   </div>
                 </div>
               ))
@@ -213,12 +284,12 @@ export function AccountApprovalManager() {
         </CardContent>
       </Card>
 
-      {/* Approval/Rejection Dialog */}
+      {/* Action Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {selectedAccount ? `Review ${selectedAccount.firstName}'s Account` : 'Account Review'}
+              {selectedAccount ? `${dialogMode === 'approve' ? 'Approve' : dialogMode === 'change-role' ? 'Change Role for' : 'Reject'} ${selectedAccount.firstName}'s Account` : 'Account Action'}
             </DialogTitle>
           </DialogHeader>
 
@@ -228,51 +299,84 @@ export function AccountApprovalManager() {
                 <h4 className="font-medium mb-2">Account Details</h4>
                 <p className="text-sm"><strong>Name:</strong> {selectedAccount.firstName} {selectedAccount.lastName}</p>
                 <p className="text-sm"><strong>Email:</strong> {selectedAccount.email}</p>
-                <p className="text-sm"><strong>Applied Role:</strong> {selectedAccount.role}</p>
+                <p className="text-sm"><strong>Current Role:</strong> {selectedAccount.role}</p>
+                <p className="text-sm"><strong>Status:</strong> {selectedAccount.accountStatus}</p>
               </div>
 
-              {/* Role Assignment for Approval */}
-              <div>
-                <label className="text-sm font-medium">Assign Role</label>
-                <Select value={selectedRole} onValueChange={setSelectedRole}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="parent">Parent</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* Role Selection for Approve/Change Role */}
+              {(dialogMode === 'approve' || dialogMode === 'change-role') && (
+                <div>
+                  <label className="text-sm font-medium">
+                    {dialogMode === 'approve' ? 'Assign Role' : 'Change Role To'}
+                  </label>
+                  <Select value={selectedRole} onValueChange={setSelectedRole}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="student">Student</SelectItem>
+                      <SelectItem value="teacher">Teacher</SelectItem>
+                      <SelectItem value="parent">Parent</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="guest">Guest</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Rejection Reason */}
-              <div>
-                <label className="text-sm font-medium">Rejection Reason (if rejecting)</label>
-                <Textarea
-                  placeholder="Please provide a reason for rejection..."
-                  value={rejectionReason}
-                  onChange={(e) => setRejectionReason(e.target.value)}
-                  rows={3}
-                />
-              </div>
+              {dialogMode === 'reject' && (
+                <div>
+                  <label className="text-sm font-medium">Rejection Reason</label>
+                  <Textarea
+                    placeholder="Please provide a reason for rejection..."
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              )}
 
               <div className="flex gap-2 pt-4">
+                {dialogMode === 'approve' && (
+                  <Button
+                    onClick={() => handleApproveAccount(selectedAccount)}
+                    disabled={isProcessing}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    {isProcessing ? 'Approving...' : 'Approve Account'}
+                  </Button>
+                )}
+                {dialogMode === 'change-role' && (
+                  <Button
+                    onClick={() => handleChangeRole(selectedAccount)}
+                    disabled={isProcessing}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  >
+                    {isProcessing ? 'Changing...' : 'Change Role'}
+                  </Button>
+                )}
+                {dialogMode === 'reject' && (
+                  <Button
+                    onClick={() => handleRejectAccount(selectedAccount)}
+                    disabled={isProcessing || !rejectionReason.trim()}
+                    variant="destructive"
+                    className="flex-1"
+                  >
+                    {isProcessing ? 'Rejecting...' : 'Reject Account'}
+                  </Button>
+                )}
                 <Button
-                  onClick={() => handleApproveAccount(selectedAccount)}
-                  disabled={isApproving}
-                  className="flex-1 bg-green-600 hover:bg-green-700"
-                >
-                  {isApproving ? 'Approving...' : 'Approve Account'}
-                </Button>
-                <Button
-                  onClick={() => handleRejectAccount(selectedAccount)}
-                  disabled={isApproving || !rejectionReason.trim()}
-                  variant="destructive"
+                  onClick={() => {
+                    setIsDialogOpen(false);
+                    setSelectedAccount(null);
+                    setRejectionReason("");
+                    setSelectedRole("student");
+                  }}
+                  variant="outline"
                   className="flex-1"
                 >
-                  {isApproving ? 'Rejecting...' : 'Reject Account'}
+                  Cancel
                 </Button>
               </div>
             </div>
